@@ -1,0 +1,53 @@
+name: BadrTilawat
+options:
+  bundleIdPrefix: com.bawazirquran
+  deploymentTarget:
+    iOS: "16.0"
+  developmentLanguage: ar
+packages:
+  Adhan:
+    url: https://github.com/batoulapps/adhan-swift
+    from: 1.4.0
+targets:
+  BadrTilawat:
+    type: application
+    platform: iOS
+    sources:
+      - path: BadrTilawat
+    dependencies:
+      - package: Adhan
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.bawazirquran.app
+        PRODUCT_NAME: BadrTilawat
+        MARKETING_VERSION: "1.0"
+        CURRENT_PROJECT_VERSION: "1"
+        TARGETED_DEVICE_FAMILY: "1"
+        SWIFT_VERSION: "5.0"
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+        GENERATE_INFOPLIST_FILE: NO
+        INFOPLIST_FILE: BadrTilawat/Info.plist
+        CODE_SIGNING_ALLOWED: NO
+        CODE_SIGNING_REQUIRED: NO
+        CODE_SIGN_IDENTITY: ""
+        DEVELOPMENT_TEAM: ""
+    info:
+      path: BadrTilawat/Info.plist
+      properties:
+        CFBundleDisplayName: بدر التلاوات
+        CFBundleName: BadrTilawat
+        CFBundleShortVersionString: "$(MARKETING_VERSION)"
+        CFBundleVersion: "$(CURRENT_PROJECT_VERSION)"
+        CFBundleDevelopmentRegion: ar
+        CFBundleLocalizations: [ar]
+        UILaunchScreen:
+          UIColorName: ""
+        UIBackgroundModes: [audio]
+        UIAppFonts: [amiri_regular.ttf, amiri_bold.ttf, amiri_quran.ttf, plex_regular.ttf, plex_medium.ttf, plex_semibold.ttf, plex_bold.ttf]
+        UISupportedInterfaceOrientations: [UIInterfaceOrientationPortrait]
+        UIStatusBarStyle: UIStatusBarStyleLightContent
+        UIViewControllerBasedStatusBarAppearance: true
+        NSLocationWhenInUseUsageDescription: لحساب مواقيت الصلاة واتجاه القبلة لمدينتك.
+        NSPhotoLibraryUsageDescription: لإرفاق الصور في منشورات المجتمع.
+        NSPhotoLibraryAddUsageDescription: لحفظ تصاميم الآيات في الصور.
+        ITSAppUsesNonExemptEncryption: false
