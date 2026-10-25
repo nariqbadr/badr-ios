@@ -181,7 +181,8 @@ struct CommunityView: View {
     private func load(more: Bool = false) async {
         loading = true; defer { loading = false }
         do {
-            let pg = user != nil ? try await cm.user(user!, before: more ? next : 0) : try await cm.feed(tab, before: more ? next : 0)
+            let pg: Community.Page
+            if let u = user { pg = try await cm.user(u, before: more ? next : 0) } else { pg = try await cm.feed(tab, before: more ? next : 0) }
             items = more ? items + pg.items : pg.items; next = pg.next
             if let u = pg.user { profile = u }
         } catch { ui.say(Community.msg(error)) }

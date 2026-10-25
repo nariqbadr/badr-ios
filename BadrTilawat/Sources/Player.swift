@@ -180,7 +180,7 @@ final class AyahPlayer: ObservableObject {
         var out: [Option] = []
         for r in d.reciters {
             let mine = d.readableTracks.filter { Repo.shared.track($0.key)?.reciterId == r.id && $0.value.count >= 3 }
-            if !mine.isEmpty { out.append(Option(value: "tk:" + r.id, label: Repo.withSheikh(r.name), ok: mine.contains { $0.value[0] == s && ($0.value[1]...$0.value[2]).contains(a) })) }
+            if !mine.isEmpty { out.append(Option(value: "tk:" + r.id, label: Repo.withSheikh(r.name), ok: mine.contains { $0.value[0] == s && $0.value[1] <= a && a <= $0.value[2] })) }
         }
         for e in Quran.everyayah { let n = d.site.reciterName(e.key); if !n.hideAyah { out.append(Option(value: e.key, label: Repo.withSheikh(n.name.isEmpty ? e.name : n.name), ok: true)) } }
         for sr in d.surahReciters { let v = "sr:" + sr.id; let n = d.site.reciterName(v); if !n.hideAyah { out.append(Option(value: v, label: Repo.withSheikh(n.name.isEmpty ? sr.name : n.name), ok: (d.readableSr[sr.id] ?? []).contains(s))) } }
@@ -191,7 +191,7 @@ final class AyahPlayer: ObservableObject {
     private func url(_ rv: String, _ s: Int, _ a: Int) -> URL? {
         let k = Quran.key(s, a)
         if rv.hasPrefix("tk:") {
-            guard let d = Repo.shared.data, let tid = d.readableTracks.first(where: { Repo.shared.track($0.key)?.reciterId == String(rv.dropFirst(3)) && $0.value.count >= 3 && $0.value[0] == s && ($0.value[1]...$0.value[2]).contains(a) })?.key else { return nil }
+            guard let d = Repo.shared.data, let tid = d.readableTracks.first(where: { Repo.shared.track($0.key)?.reciterId == String(rv.dropFirst(3)) && $0.value.count >= 3 && $0.value[0] == s && $0.value[1] <= a && a <= $0.value[2] })?.key else { return nil }
             return URL(string: Repo.ajax + "?action=bz&do=track_clip&id=\(Repo.enc(tid))&from=\(a)&to=\(a)")
         }
         if rv.hasPrefix("sr:") {
