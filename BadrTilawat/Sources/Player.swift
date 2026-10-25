@@ -223,7 +223,7 @@ enum OfflineFiles {
     static func local(_ id: String) -> URL? { FileManager.default.fileExists(atPath: file(id).path) ? file(id) : nil }
     static var ids: [String] { (try? FileManager.default.contentsOfDirectory(atPath: dir.path))?.map { String($0.dropLast(4)) } ?? [] }
     static func save(_ t: Track) async -> Bool {
-        guard let u = Repo.media(t.audio), let (tmp, r) = try? await URLSession.shared.download(from: u), (r as? HTTPURLResponse)?.statusCode == 200 else { return false }
+        guard let u = await Repo.media(t.audio), let (tmp, r) = try? await URLSession.shared.download(from: u), (r as? HTTPURLResponse)?.statusCode == 200 else { return false }
         try? FileManager.default.removeItem(at: file(t.id))
         return (try? FileManager.default.moveItem(at: tmp, to: file(t.id))) != nil
     }

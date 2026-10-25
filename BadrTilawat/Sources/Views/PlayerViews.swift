@@ -8,17 +8,17 @@ struct SeekBar: View {
     @Environment(\.pal) private var c
     var body: some View {
         GeometryReader { g in
-            let w = g.size.width, v = min(max(value, 0), 1)
+            let w: CGFloat = max(g.size.width, 1), v: CGFloat = CGFloat(min(max(value, 0), 1))
             ZStack(alignment: .trailing) {
                 Capsule().fill(c.lineSoft).frame(height: 4)
                 Capsule().fill(c.gold).frame(width: w * v, height: 4)
                 Circle().fill(c.gold).frame(width: 14, height: 14).shadow(color: c.gold.opacity(0.4), radius: 6)
-                    .offset(x: -(w * v) + 7)
+                    .offset(x: 7 - w * v)
             }
             .frame(height: 26).contentShape(Rectangle())
             .gesture(DragGesture(minimumDistance: 0)
-                .onChanged { e in onDrag(min(max(1 - e.location.x / w, 0), 1)) }
-                .onEnded { e in onDone(min(max(1 - e.location.x / w, 0), 1)) })
+                .onChanged { e in onDrag(Double(min(max(1 - e.location.x / w, 0), 1))) }
+                .onEnded { e in onDone(Double(min(max(1 - e.location.x / w, 0), 1))) })
         }.frame(height: 26).environment(\.layoutDirection, .leftToRight)
     }
 }
