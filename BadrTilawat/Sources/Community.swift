@@ -4,12 +4,16 @@ import UIKit
 struct Member: Identifiable, Hashable {
     let id: Int, handle: String, name: String, avatar: String, badges: [String], bio: String, cover: String, location: String
     let followers: Int, following: Int, posts: Int, iFollow: Bool, email: String
+    /// admin limit (read-only until this time); canLimit: this account may limit others (admin or «مشرف المجتمع»)
+    let limitedUntil: Int, limitNote: String, canLimit: Bool
+    var limitedNow: Bool { Double(limitedUntil) > Date().timeIntervalSince1970 }
     init(_ j: J) {
         id = j["id"].int; handle = j["handle"].str; name = j["name"].str.isEmpty ? j["handle"].str : j["name"].str; avatar = j["avatar"].str
         var b = j["badges"].strings
         if b.isEmpty { switch j["verified"].int { case 1: b = ["verified"]; case 2: b = ["official"]; case 3, 9: b = ["owner"]; default: break } }
         badges = b; bio = j["bio"].str; cover = j["cover"].str; location = j["location"].str
         followers = j["followers"].int; following = j["following"].int; posts = j["posts"].int; iFollow = j["iFollow"].bool(); email = j["email"].str
+        limitedUntil = j["limitedUntil"].int; limitNote = j["limitNote"].str; canLimit = j["canLimit"].bool()
     }
 }
 struct CMedia: Hashable { let type: String, url: String, path: String, w: Int, h: Int
@@ -53,9 +57,19 @@ final class Community: ObservableObject {
         "password_too_short": "كلمة المرور 8 أحرف على الأقل.", "c_bad_email": "البريد غير صحيح.", "c_email_taken": "هذا البريد مسجّل بحساب آخر.",
         "invalid_login": "اسم المستخدم أو كلمة المرور غير صحيحة.", "locked": "محاولات كثيرة — انتظر ربع ساعة.", "c_suspended": "هذا الحساب موقوف.",
         "c_slow_down": "أنت تنشر بسرعة — انتظر قليلًا.", "c_too_long": "المنشور أطول من المسموح.", "c_empty": "اكتب شيئًا أو أضف صورة.",
-        "c_post_gone": "هذا المنشور لم يعد موجودًا.", "file_too_large": "الملف أكبر من المسموح.", "type_not_allowed": "نوع الملف غير مدعوم.", "network": "تعذّر الاتصال — تحقق من الإنترنت.",
+        "c_post_gone": "هذا المنشور لم يعد موجودًا.", "c_limited": "حسابك مقيّد مؤقتًا من الإدارة.", "c_cant_limit": "لا يمكن تقييد هذا الحساب.", "forbidden": "ليس لديك صلاحية لهذا الإجراء.", "file_too_large": "الملف أكبر من المسموح.", "type_not_allowed": "نوع الملف غير مدعوم.", "network": "تعذّر الاتصال — تحقق من الإنترنت.",
     ]
-    static func msg(_ e: Error) -> String { (e as? CmError).flatMap { errors[$0.code] } ?? "حدث خطأ — حاول مرة أخرى." }
+    static func limitDate(_ t: Int) -> String {
+        let f = DateFormatter(); f.locale = Locale(identifier: "ar"); f.dateFormat = "d MMMM 'في' h:mm a"
+        return f.string(from: Date(timeIntervalSince1970: Double(t)))
+    }
+    static func limitMsg(_ until: Int, _ note: String) -> String {
+        "حسابك مقيّد مؤقتًا من الإدارة حتى \(limitDate(until))" + (note.isEmpty ? "" : " — \(note)") + ". يمكنك التصفح والقراءة فقط."
+    }
+    static func msg(_ e: Error) -> String {
+        if let c = e as? CmError, c.code == "c_limited", let d = c.data, d["until"].int > 0 { return limitMsg(d["until"].int, d["note"].str) }
+        return (e as? CmError).flatMap { errors[$0.code] } ?? "حدث خطأ — حاول مرة أخرى."
+    }
 
     func api(_ action: String, query: [String: String] = [:], form: [String: String]? = nil, file: (name: String, mime: String, data: Data)? = nil, retry: Bool = true) async throws -> J {
         var u = Repo.ajax + "?action=bz&do=" + action
@@ -108,11 +122,18 @@ final class Community: ObservableObject {
         let j = try await api("c_thread", query: ["id": "\(id)", "view": "1"])
         return (Post(j["post"]), j["replies"].array.map(Post.init))
     }
-    func like(_ p: Post) async { let on = !p.liked; p.liked = on; p.likes += on ? 1 : -1; objectWillChange.send()
-        if let j = try? await api("c_like", form: ["id": "\(p.id)", "on": on ? "1" : "0"]) { p.likes = j["likes"].int; objectWillChange.send() } }
-    func repost(_ p: Post) async { let on = !p.reposted; p.reposted = on; p.reposts += on ? 1 : -1; objectWillChange.send()
-        if let j = try? await api("c_repost", form: ["id": "\(p.id)", "on": on ? "1" : "0"]) { p.reposts = j["reposts"].int; objectWillChange.send() } }
-    func follow(_ handle: String, _ on: Bool) async { _ = try? await api("c_follow", form: ["handle": handle, "on": on ? "1" : "0"]) }
+    /// like / repost / follow return an error message to show (e.g. «حسابك مقيّد…»), or nil
+    @discardableResult func like(_ p: Post) async -> String? { let on = !p.liked; p.liked = on; p.likes += on ? 1 : -1; objectWillChange.send()
+        do { let j = try await api("c_like", form: ["id": "\(p.id)", "on": on ? "1" : "0"]); p.likes = j["likes"].int; objectWillChange.send(); return nil }
+        catch { p.liked = !on; p.likes += on ? -1 : 1; objectWillChange.send(); return Community.msg(error) } }
+    @discardableResult func repost(_ p: Post) async -> String? { let on = !p.reposted; p.reposted = on; p.reposts += on ? 1 : -1; objectWillChange.send()
+        do { let j = try await api("c_repost", form: ["id": "\(p.id)", "on": on ? "1" : "0"]); p.reposts = j["reposts"].int; objectWillChange.send(); return nil }
+        catch { p.reposted = !on; p.reposts += on ? -1 : 1; objectWillChange.send(); return Community.msg(error) } }
+    @discardableResult func follow(_ handle: String, _ on: Bool) async -> String? {
+        do { _ = try await api("c_follow", form: ["handle": handle, "on": on ? "1" : "0"]); return nil } catch { return Community.msg(error) } }
+    /// admin limit: hours = 0 lifts it; returns the new end time
+    func limit(_ handle: String, hours: Double, note: String) async throws -> Int {
+        try await api("c_limit", form: ["handle": handle, "hours": "\(hours)", "note": note])["limitedUntil"].int }
     func delete(_ p: Post) async throws { _ = try await api("c_delete", form: ["id": "\(p.id)"]) }
     func report(_ p: Post, _ reason: String) async { _ = try? await api("c_report", form: ["id": "\(p.id)", "reason": reason]) }
     func post(text: String, media: [CMedia], embed: String, replyTo: Int, quoteOf: Int) async throws {

@@ -70,6 +70,7 @@ struct PostCard: View {
     @EnvironmentObject var ui: UIState
     @Environment(\.pal) private var c
     @State private var askDelete = false
+    @State private var limitFor: Member?
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
             if let r = repostBy { Label("\(r.name) أعاد النشر", systemImage: "arrow.2.squarepath").font(F.plex(12)).foregroundStyle(c.muted) }
@@ -85,6 +86,7 @@ struct PostCard: View {
                             Button { share("\(Repo.site)community/post/\(p.id)") } label: { Label("مشاركة", systemImage: "square.and.arrow.up") }
                             if p.mine { Button(role: .destructive) { askDelete = true } label: { Label("حذف", systemImage: "trash") } }
                             else { Button { Task { await cm.report(p, "غير لائق"); ui.say("شكرًا — سيراجعه المشرفون") } } label: { Label("إبلاغ", systemImage: "flag") } }
+                            if !p.mine, cm.me?.canLimit == true, let a = p.author { Button { limitFor = a } label: { Label("تقييد @\(a.handle) (إدارة)", systemImage: "shield") } }
                         } label: { Image(systemName: "ellipsis").foregroundStyle(c.muted).frame(width: 26, height: 22) } }
                     }
                     if !p.replyToHandle.isEmpty { Text("ردًّا على \u{2066}@\(p.replyToHandle)\u{2069}").font(F.plex(12)).foregroundStyle(c.gold) }
@@ -97,11 +99,11 @@ struct PostCard: View {
                             action("bubble.left", p.replies) { ui.path.append(.compose("reply:\(p.id)")) }
                             Spacer()
                             Menu {
-                                Button { Task { await cm.repost(p) } } label: { Label(p.reposted ? "إلغاء إعادة النشر" : "إعادة نشر", systemImage: "arrow.2.squarepath") }
+                                Button { Task { if let e = await cm.repost(p) { ui.say(e) } } } label: { Label(p.reposted ? "إلغاء إعادة النشر" : "إعادة نشر", systemImage: "arrow.2.squarepath") }
                                 Button { ui.path.append(.compose("quote:\(p.id)")) } label: { Label("اقتباس", systemImage: "quote.bubble") }
                             } label: { HStack(spacing: 4) { Image(systemName: "arrow.2.squarepath"); Text(Community.num(p.reposts)) }.foregroundStyle(p.reposted ? c.ok : c.muted) }
                             Spacer()
-                            action(p.liked ? "heart.fill" : "heart", p.likes, tint: p.liked ? c.danger : nil) { Task { if cm.me == nil { ui.go(.community) } else { await cm.like(p) } } }
+                            action(p.liked ? "heart.fill" : "heart", p.likes, tint: p.liked ? c.danger : nil) { Task { if cm.me == nil { ui.go(.community) } else if let e = await cm.like(p) { ui.say(e) } } }
                             Spacer()
                         }.font(F.plex(13)).padding(.top, 4)
                     }
@@ -110,6 +112,7 @@ struct PostCard: View {
         }
         .padding(.horizontal, quoted ? 0 : 16).padding(.vertical, quoted ? 0 : 12)
         .contentShape(Rectangle()).onTapGesture { if !quoted { ui.path.append(.thread(p.id)) } }
+        .sheet(item: $limitFor) { LimitSheet(m: $0) }
         .confirmationDialog("حذف المنشور؟", isPresented: $askDelete) { Button("حذف", role: .destructive) { Task { try? await cm.delete(p); ui.say("حُذف المنشور") } } }
     }
     private func action(_ icon: String, _ n: Int, tint: Color? = nil, _ a: @escaping () -> Void) -> some View {
@@ -129,6 +132,7 @@ struct CommunityView: View {
     @State private var profile: Member?
     @State private var auth = false
     @State private var edit = false
+    @State private var limitFor: Member?
     var body: some View {
         ScrollView {
             LazyVStack(alignment: .leading, spacing: 0) {
@@ -159,6 +163,7 @@ struct CommunityView: View {
         .task(id: tab + (user ?? "")) { await cm.loadMe(); await load() }
         .sheet(isPresented: $auth) { AuthSheet() }
         .sheet(isPresented: $edit) { EditProfileSheet() }
+        .sheet(item: $limitFor, onDismiss: { Task { await load() } }) { LimitSheet(m: $0) }
         .navigationTitle(user.map { "@" + $0 } ?? "").navigationBarTitleDisplayMode(.inline)
     }
     @ViewBuilder private func header(_ m: Member?, handle: String) -> some View {
@@ -169,7 +174,8 @@ struct CommunityView: View {
             }.padding(.horizontal, 16).padding(.bottom, 36)
             HStack { Text(m?.name ?? "").font(F.plex(19, .bold)); BadgeIcons(m: m); Spacer()
                 if m?.handle == cm.me?.handle && m != nil { GhostButton(title: "تعديل الملف") { edit = true } }
-                else if let m, cm.me != nil { GoldButton(title: m.iFollow ? "إلغاء المتابعة" : "متابعة") { Task { await cm.follow(m.handle, !m.iFollow); await load() } } }
+                else if let m, cm.me != nil { GoldButton(title: m.iFollow ? "إلغاء المتابعة" : "متابعة") { Task { if let e = await cm.follow(m.handle, !m.iFollow) { ui.say(e) }; await load() } } }
+                if let m, cm.me?.canLimit == true, m.handle != cm.me?.handle { Button { limitFor = m } label: { Image(systemName: "shield").foregroundStyle(m.limitedNow ? c.gold : c.muted).frame(width: 36, height: 36) } }
             }.padding(.horizontal, 16)
             Text("\u{2066}@\(handle)\u{2069}").font(F.plex(13)).foregroundStyle(c.faint).padding(.horizontal, 16)
             if let b = m?.bio, !b.isEmpty { Text(b).font(F.plex(14)).foregroundStyle(c.text).padding(.horizontal, 16) }
@@ -231,6 +237,12 @@ struct ComposeView: View {
                 if cm.me == nil {
                     Empty(text: "سجّل الدخول لتنشر في المجتمع.", icon: "lock")
                     GoldButton(title: "تسجيل الدخول") { auth = true }.frame(maxWidth: .infinity)
+                } else if let me = cm.me, me.limitedNow {
+                    HStack(alignment: .top, spacing: 10) {
+                        Image(systemName: "shield").foregroundStyle(c.gold)
+                        Text(Community.limitMsg(me.limitedUntil, me.limitNote)).font(F.plex(14)).foregroundStyle(c.text).fixedSize(horizontal: false, vertical: true)
+                    }.padding(14).frame(maxWidth: .infinity, alignment: .leading)
+                    .background(RoundedRectangle(cornerRadius: 18).fill(c.gold.opacity(0.08))).overlay(RoundedRectangle(cornerRadius: 18).stroke(c.gold.opacity(0.35)))
                 } else {
                     HStack(alignment: .top, spacing: 10) {
                         Avatar(m: cm.me, size: 42)
@@ -310,6 +322,50 @@ struct AuthSheet: View {
     private func field(_ p: String, _ b: Binding<String>) -> some View { TextField(p, text: b).padding(13).background(RoundedRectangle(cornerRadius: 14).fill(c.surface)) }
 }
 
+/// «تقييد (إدارة)»: read-only for a set time, lifted automatically — admins or a role with «تقييد أعضاء المجتمع».
+struct LimitSheet: View {
+    let m: Member
+    @EnvironmentObject var cm: Community
+    @EnvironmentObject var ui: UIState
+    @Environment(\.pal) private var c
+    @Environment(\.dismiss) private var dismiss
+    @State private var hours: Double = 24
+    @State private var days = ""
+    @State private var note = ""
+    @State private var busy = false
+    @State private var err: String?
+    private let opts: [(Double, String)] = [(1, "ساعة"), (6, "٦ ساعات"), (24, "يوم"), (72, "٣ أيام"), (168, "أسبوع"), (720, "شهر"), (-1, "عدد أيام…")]
+    var body: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 12) {
+                Text("تقييد \u{2066}@\(m.handle)\u{2069}").font(F.amiri(24)).foregroundStyle(c.text)
+                if m.limitedNow { Text("مقيّد حاليًا حتى \(Community.limitDate(m.limitedUntil)).").font(F.plex(14)).foregroundStyle(c.gold) }
+                Text("المقيَّد يتصفح ويقرأ فقط: لا ينشر ولا يرد ولا يعيد النشر ولا يعجب ولا يتابع حتى تنتهي المدة، ثم يُرفع التقييد تلقائيًا.").font(F.plex(13)).foregroundStyle(c.muted).fixedSize(horizontal: false, vertical: true)
+                Text("المدة").font(F.plex(14, .bold)).foregroundStyle(c.text)
+                LazyVGrid(columns: [GridItem(.adaptive(minimum: 92), spacing: 8)], spacing: 8) {
+                    ForEach(opts, id: \.0) { o in Pill(title: o.1, on: hours == o.0) { hours = o.0 } }
+                }
+                if hours < 0 { TextField("عدد الأيام (1–365)", text: $days).keyboardType(.numberPad).padding(13).background(RoundedRectangle(cornerRadius: 14).fill(c.surface)) }
+                TextField("السبب (يظهر له — اختياري)", text: $note).padding(13).background(RoundedRectangle(cornerRadius: 14).fill(c.surface))
+                if let err { Text(err).font(F.plex(13)).foregroundStyle(c.danger) }
+                GoldButton(title: busy ? "لحظات…" : "تقييد الحساب", icon: "shield") {
+                    let h = hours < 0 ? Double((Int(days) ?? 0) * 24) : hours
+                    if h <= 0 { err = "اكتب عدد أيام التقييد"; return }
+                    send(h)
+                }.frame(maxWidth: .infinity)
+                GhostButton(title: "إلغاء التقييد") { send(0) }.frame(maxWidth: .infinity)
+            }.padding(20)
+        }.background(Backdrop()).presentationDetents([.medium, .large])
+    }
+    private func send(_ h: Double) {
+        guard !busy else { return }; busy = true; err = nil
+        Task {
+            do { let t = try await cm.limit(m.handle, hours: h, note: h > 0 ? note.trimmingCharacters(in: .whitespaces) : ""); ui.say(t > 0 ? "قُيّد @\(m.handle) حتى \(Community.limitDate(t))" : "أُلغي تقييد @\(m.handle)"); dismiss() }
+            catch { err = Community.msg(error) }
+            busy = false
+        }
+    }
+}
 struct EditProfileSheet: View {
     @EnvironmentObject var cm: Community
     @EnvironmentObject var ui: UIState
