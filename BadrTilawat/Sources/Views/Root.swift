@@ -120,6 +120,7 @@ struct RootView: View {
         case .qibla: QiblaView()
         case .compose(let e): ComposeView(embed: e)
         case .user(let h): CommunityView(user: h)
+        case .people(let h, let l): PeopleView(handle: h, list: l)
         case .thread(let id): ThreadView(id: id)
         default: screen(r.tabKey ?? "home")
         }

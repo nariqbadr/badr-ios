@@ -179,8 +179,11 @@ struct CommunityView: View {
             }.padding(.horizontal, 16)
             Text("\u{2066}@\(handle)\u{2069}").font(F.plex(13)).foregroundStyle(c.faint).padding(.horizontal, 16)
             if let b = m?.bio, !b.isEmpty { Text(b).font(F.plex(14)).foregroundStyle(c.text).padding(.horizontal, 16) }
-            HStack(spacing: 14) { Text("\(Community.num(m?.following ?? 0)) يتابع"); Text("\(Community.num(m?.followers ?? 0)) متابِع"); Text("\(Community.num(m?.posts ?? 0)) منشور") }
-                .font(F.plex(13)).foregroundStyle(c.muted).padding(.horizontal, 16).padding(.bottom, 8)
+            HStack(spacing: 14) {
+                Button { ui.path.append(.people(handle, "following")) } label: { Text("\(Text(Community.num(m?.following ?? 0)).bold().foregroundColor(c.text)) يتابع") }.buttonStyle(.plain)
+                Button { ui.path.append(.people(handle, "followers")) } label: { Text("\(Text(Community.num(m?.followers ?? 0)).bold().foregroundColor(c.text)) متابِع") }.buttonStyle(.plain)
+                Text("\(Community.num(m?.posts ?? 0)) منشور")
+            }.font(F.plex(13)).foregroundStyle(c.muted).padding(.horizontal, 16).padding(.bottom, 8)
             Divider().overlay(c.line)
         }
     }
@@ -192,6 +195,109 @@ struct CommunityView: View {
             items = more ? items + pg.items : pg.items; next = pg.next
             if let u = pg.user { profile = u }
         } catch { ui.say(Community.msg(error)) }
+    }
+}
+
+/// Followers / following as a full screen with tabs, search and endless scrolling (as on X).
+struct PeopleView: View {
+    let handle: String
+    @State var list: String
+    @EnvironmentObject var cm: Community
+    @EnvironmentObject var ui: UIState
+    @Environment(\.pal) private var c
+    @State private var rows: [Member] = []
+    @State private var next = 0
+    @State private var loading = false
+    @State private var user: Member?
+    @State private var q = ""
+    @State private var sent = ""
+    @State private var err: String?
+    @State private var gen = 0
+    @State private var following: [String: Bool] = [:]
+    init(handle: String, list: String) { self.handle = handle; _list = State(initialValue: list) }
+    private let tabs = [("verified", "الموثَّقون"), ("followers", "المتابِعون"), ("following", "يتابع")]
+    var body: some View {
+        ScrollView {
+            LazyVStack(alignment: .leading, spacing: 0, pinnedViews: [.sectionHeaders]) {
+                Section {
+                    HStack(spacing: 8) {
+                        Image(systemName: "magnifyingglass").foregroundStyle(c.muted)
+                        TextField("ابحث بالاسم أو المعرّف", text: $q).font(F.plex(15)).textInputAutocapitalization(.never).autocorrectionDisabled()
+                        if !q.isEmpty { Button { q = "" } label: { Image(systemName: "xmark.circle.fill").foregroundStyle(c.muted) } }
+                    }.padding(.horizontal, 14).frame(height: 42).background(Capsule().fill(c.surface)).padding(.horizontal, 16).padding(.vertical, 10)
+                    ForEach(rows) { m in row(m); Divider().overlay(c.lineSoft) }
+                    if loading { ProgressView().frame(maxWidth: .infinity).padding(24) }
+                    else if rows.isEmpty { Empty(text: err ?? (sent.isEmpty ? (list == "verified" ? "لا يوجد متابِعون موثَّقون بعد." : list == "following" ? "لا يتابع أحدًا بعد." : "لا يوجد متابِعون بعد.") : "لا توجد نتائج مطابقة."), icon: "person.2") }
+                    if next > 0 && !loading { Color.clear.frame(height: 1).onAppear { Task { await load(more: true) } } }
+                } header: {
+                    HStack(spacing: 0) {
+                        ForEach(tabs, id: \.0) { t in
+                            Button { if list != t.0 { list = t.0 } } label: {
+                                VStack(spacing: 9) {
+                                    Text(t.1).font(F.plex(15, list == t.0 ? .bold : .medium)).foregroundStyle(list == t.0 ? c.text : c.muted)
+                                    Capsule().fill(list == t.0 ? c.gold : .clear).frame(width: 52, height: 4)
+                                }.frame(maxWidth: .infinity).padding(.top, 10).contentShape(Rectangle())
+                            }.buttonStyle(.plain)
+                        }
+                    }.background(c.bg.opacity(0.96)).overlay(alignment: .bottom) { Divider().overlay(c.line) }
+                }
+            }.padding(.bottom, 90)
+        }
+        .scrollDismissesKeyboard(.interactively)
+        .task(id: q) { try? await Task.sleep(nanoseconds: 300_000_000); let v = q.trimmingCharacters(in: .whitespaces).replacingOccurrences(of: "@", with: ""); if v != sent { sent = v } }
+        .task(id: list + "|" + sent) { await cm.loadMe(); await load() }
+        .toolbar {
+            ToolbarItem(placement: .principal) {
+                VStack(spacing: 0) {
+                    HStack(spacing: 4) { Text(user?.name ?? "@\(handle)").font(F.plex(15, .bold)).foregroundStyle(c.text).lineLimit(1); BadgeIcons(m: user) }
+                    if user != nil { Text("\u{2066}@\(handle)\u{2069}").font(F.plex(11.5)).foregroundStyle(c.muted) }
+                }
+            }
+        }
+        .navigationBarTitleDisplayMode(.inline)
+    }
+    @ViewBuilder private func row(_ m: Member) -> some View {
+        HStack(alignment: .center, spacing: 10) {
+            Button { ui.path.append(.user(m.handle)) } label: {
+                HStack(alignment: .center, spacing: 10) {
+                    Avatar(m: m, size: 46)
+                    VStack(alignment: .leading, spacing: 2) {
+                        HStack(spacing: 4) { Text(m.name).font(F.plex(15, .bold)).foregroundStyle(c.text).lineLimit(1); BadgeIcons(m: m) }
+                        HStack(spacing: 6) {
+                            Text("\u{2066}@\(m.handle)\u{2069}").font(F.plex(13)).foregroundStyle(c.muted).lineLimit(1)
+                            if m.followsMe && cm.me != nil { Text("يتابعك").font(F.plex(11)).foregroundStyle(c.muted).padding(.horizontal, 6).padding(.vertical, 1).background(RoundedRectangle(cornerRadius: 6).fill(c.surface2)) }
+                        }
+                        if !m.bio.isEmpty { Text(m.bio).font(F.plex(13.5)).foregroundStyle(c.text).lineLimit(2) }
+                    }
+                    Spacer(minLength: 0)
+                }.contentShape(Rectangle())
+            }.buttonStyle(.plain)
+            if let me = cm.me, me.handle != m.handle {
+                let on = following[m.handle] ?? m.iFollow
+                Button {
+                    following[m.handle] = !on
+                    Task { if let e = await cm.follow(m.handle, !on) { following[m.handle] = on; ui.say(e) } else { ui.say(!on ? "تتابع @\(m.handle) الآن" : "ألغيت متابعة @\(m.handle)") } }
+                } label: {
+                    Text(on ? "تتابعه" : "متابعة").font(F.plex(13.5, .bold)).foregroundStyle(on ? c.text : c.onGold)
+                        .padding(.horizontal, 16).padding(.vertical, 7)
+                        .background(Capsule().fill(on ? AnyShapeStyle(Color.clear) : AnyShapeStyle(c.goldGradient)))
+                        .overlay(Capsule().stroke(on ? c.line : .clear, lineWidth: 1))
+                }.buttonStyle(Press())
+            }
+        }.padding(.horizontal, 16).padding(.vertical, 10)
+    }
+    private func load(more: Bool = false) async {
+        if !more { gen += 1; rows = []; next = 0; err = nil }
+        let g = gen
+        loading = true
+        do {
+            let r = try await cm.people(handle, list: list, off: more ? next : 0, q: sent)
+            guard g == gen else { return }
+            let have = Set(rows.map(\.id))
+            rows += r.people.filter { !have.contains($0.id) }; next = r.next
+            if let u = r.user { user = u }
+        } catch { if g == gen { err = Community.msg(error); next = 0 } }
+        if g == gen { loading = false }
     }
 }
 

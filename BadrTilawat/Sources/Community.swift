@@ -3,7 +3,7 @@ import UIKit
 
 struct Member: Identifiable, Hashable {
     let id: Int, handle: String, name: String, avatar: String, badges: [String], bio: String, cover: String, location: String
-    let followers: Int, following: Int, posts: Int, iFollow: Bool, email: String
+    let followers: Int, following: Int, posts: Int, iFollow: Bool, followsMe: Bool, email: String
     /// admin limit (read-only until this time); canLimit: this account may limit others (admin or «مشرف المجتمع»)
     let limitedUntil: Int, limitNote: String, canLimit: Bool
     var limitedNow: Bool { Double(limitedUntil) > Date().timeIntervalSince1970 }
@@ -12,7 +12,7 @@ struct Member: Identifiable, Hashable {
         var b = j["badges"].strings
         if b.isEmpty { switch j["verified"].int { case 1: b = ["verified"]; case 2: b = ["official"]; case 3, 9: b = ["owner"]; default: break } }
         badges = b; bio = j["bio"].str; cover = j["cover"].str; location = j["location"].str
-        followers = j["followers"].int; following = j["following"].int; posts = j["posts"].int; iFollow = j["iFollow"].bool(); email = j["email"].str
+        followers = j["followers"].int; following = j["following"].int; posts = j["posts"].int; iFollow = j["iFollow"].bool(); followsMe = j["followsMe"].bool(); email = j["email"].str
         limitedUntil = j["limitedUntil"].int; limitNote = j["limitNote"].str; canLimit = j["canLimit"].bool()
     }
 }
@@ -118,6 +118,11 @@ final class Community: ObservableObject {
     }
     func feed(_ tab: String, before: Int) async throws -> Page { page(try await api("c_feed", query: ["tab": tab, "before": "\(before)"])) }
     func user(_ handle: String, before: Int) async throws -> Page { page(try await api("c_user", query: ["handle": handle, "tab": "posts", "before": "\(before)"])) }
+    /// One page (30) of followers / following / verified followers, optionally filtered by name or handle.
+    func people(_ handle: String, list: String, off: Int, q: String) async throws -> (people: [Member], next: Int, user: Member?) {
+        let j = try await api("c_people", query: ["handle": handle, "list": list, "off": "\(off)", "q": q])
+        return (j["people"].array.map(Member.init), j["next"].int, j["user"].isNull ? nil : Member(j["user"]))
+    }
     func thread(_ id: Int) async throws -> (Post, [Post]) {
         let j = try await api("c_thread", query: ["id": "\(id)", "view": "1"])
         return (Post(j["post"]), j["replies"].array.map(Post.init))
