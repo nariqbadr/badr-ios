@@ -136,6 +136,15 @@ struct CommunityView: View {
     var body: some View {
         ScrollView {
             LazyVStack(alignment: .leading, spacing: 0) {
+                if let me = cm.me, me.email.isEmpty, user == nil || user == me.handle {
+                    HStack(spacing: 8) {
+                        Image(systemName: "envelope").foregroundStyle(c.gold)
+                        Text("أضف بريدك الإلكتروني لتتمكن من استعادة حسابك إن نسيت كلمة المرور.").font(F.plex(13)).foregroundStyle(c.text).fixedSize(horizontal: false, vertical: true)
+                        Spacer(minLength: 4)
+                        Button("إضافة") { edit = true }.font(F.plex(13.5, .bold)).foregroundStyle(c.gold)
+                    }.padding(12).background(RoundedRectangle(cornerRadius: 14).fill(c.gold.opacity(0.1))).overlay(RoundedRectangle(cornerRadius: 14).stroke(c.gold.opacity(0.45), lineWidth: 1))
+                    .padding(.horizontal, 16).padding(.top, 8)
+                }
                 if let u = user { header(profile, handle: u) }
                 else {
                     HStack {
@@ -459,10 +468,16 @@ struct AuthSheet: View {
                 })).textInputAutocapitalization(.never).autocorrectionDisabled().padding(13).background(RoundedRectangle(cornerRadius: 14).fill(c.surface))
                 if signup { Text(rejected ? "اسم المستخدم بالحروف الإنجليزية فقط — غيّر لغة لوحة المفاتيح إلى الإنجليزية" : "حروف إنجليزية وأرقام و _ (3–20)، واكتب اسمك العربي في خانة «الاسم»").font(F.plex(11.5)).foregroundStyle(rejected ? c.danger : c.faint) }
                 SecureField(signup ? "كلمة المرور (8 أحرف على الأقل)" : "كلمة المرور", text: $pass).padding(13).background(RoundedRectangle(cornerRadius: 14).fill(c.surface))
-                if signup { field("البريد الإلكتروني (اختياري)", $email) }
+                if signup {
+                    TextField("البريد الإلكتروني", text: $email).keyboardType(.emailAddress).textContentType(.emailAddress).textInputAutocapitalization(.never).autocorrectionDisabled()
+                        .padding(13).background(RoundedRectangle(cornerRadius: 14).fill(c.surface))
+                    Text("يصلك عليه رمز التحقق إن نسيت كلمة المرور.").font(F.plex(11.5)).foregroundStyle(c.faint)
+                }
                 if let err { Text(err).font(F.plex(13)).foregroundStyle(c.danger) }
                 GoldButton(title: busy ? "لحظات…" : (signup ? "إنشاء الحساب" : "دخول")) {
-                    guard !busy else { return }; busy = true; err = nil
+                    guard !busy else { return }
+                    if signup && email.trimmingCharacters(in: .whitespaces).isEmpty { err = "اكتب بريدك الإلكتروني — نحتاجه لإرسال رمز استعادة الحساب إن نسيت كلمة المرور."; return }
+                    busy = true; err = nil
                     Task {
                         do { if signup { try await cm.register(name: name, handle: handle, password: pass, email: email) } else { try await cm.login(handle.trimmingCharacters(in: .whitespaces), pass) }
                              ui.say("أهلًا \(cm.me?.name ?? "")"); dismiss() }
@@ -546,7 +561,7 @@ struct EditProfileSheet: View {
                 TextField("الاسم", text: $name).padding(13).background(RoundedRectangle(cornerRadius: 14).fill(c.surface))
                 TextField("نبذة", text: $bio, axis: .vertical).lineLimit(2...5).padding(13).background(RoundedRectangle(cornerRadius: 14).fill(c.surface))
                 TextField("المكان", text: $location).padding(13).background(RoundedRectangle(cornerRadius: 14).fill(c.surface))
-                TextField("البريد (اختياري — لاستعادة الحساب)", text: $email).textInputAutocapitalization(.never).padding(13).background(RoundedRectangle(cornerRadius: 14).fill(c.surface))
+                TextField("البريد الإلكتروني (لاستعادة الحساب)", text: $email).textInputAutocapitalization(.never).padding(13).background(RoundedRectangle(cornerRadius: 14).fill(c.surface))
                 if let err { Text(err).font(F.plex(13)).foregroundStyle(c.danger) }
                 HStack {
                     GoldButton(title: busy ? "لحظات…" : "حفظ", icon: "checkmark") {
