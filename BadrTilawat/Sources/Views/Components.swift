@@ -81,7 +81,7 @@ struct Backdrop: View {
     @Environment(\.pal) private var c
     var body: some View {
         ZStack {
-            LinearGradient(colors: [c.bg2, c.bg], startPoint: .top, endPoint: .bottom)
+            LinearGradient(colors: c.grad, startPoint: .top, endPoint: .bottom)
             StarPattern().opacity(0.9)
             RadialGradient(colors: [c.gold.opacity(c.dark ? 0.10 : 0.06), .clear], center: .top, startRadius: 0, endRadius: 420)
         }.ignoresSafeArea()
