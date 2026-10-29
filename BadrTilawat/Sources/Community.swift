@@ -55,6 +55,8 @@ final class Community: ObservableObject {
         "c_name_required": "اكتب اسمك.", "c_bad_handle": "اسم المستخدم من 3 إلى 20 حرفًا إنجليزيًا أو أرقام أو _ فقط.",
         "c_handle_taken": "اسم المستخدم هذا مسجّل مسبقًا. إن كان حسابك فسجّل الدخول، وإلا فاختر اسمًا آخر.", "c_handle_staff": "اسم المستخدم هذا مسجّل مسبقًا.",
         "password_too_short": "كلمة المرور 8 أحرف على الأقل.", "c_bad_email": "البريد غير صحيح.", "c_email_taken": "هذا البريد مسجّل بحساب آخر.",
+        "mail_not_ready": "إرسال البريد غير مفعّل في الموقع بعد — تواصل مع إدارة الموقع.", "mail_failed": "تعذّر إرسال البريد الآن — حاول بعد قليل.",
+        "too_many": "محاولات كثيرة — انتظر قليلًا ثم حاول مجددًا.", "bad_code": "رمز التحقق غير صحيح.", "code_expired": "انتهت صلاحية الرمز — اطلب رمزًا جديدًا.",
         "invalid_login": "اسم المستخدم أو كلمة المرور غير صحيحة.", "locked": "محاولات كثيرة — انتظر ربع ساعة.", "c_suspended": "هذا الحساب موقوف.",
         "c_slow_down": "أنت تنشر بسرعة — انتظر قليلًا.", "c_too_long": "المنشور أطول من المسموح.", "c_empty": "اكتب شيئًا أو أضف صورة.",
         "c_post_gone": "هذا المنشور لم يعد موجودًا.", "c_limited": "حسابك مقيّد مؤقتًا من الإدارة.", "c_cant_limit": "لا يمكن تقييد هذا الحساب.", "forbidden": "ليس لديك صلاحية لهذا الإجراء.", "file_too_large": "الملف أكبر من المسموح.", "type_not_allowed": "نوع الملف غير مدعوم.", "network": "تعذّر الاتصال — تحقق من الإنترنت.",
@@ -107,6 +109,10 @@ final class Community: ObservableObject {
     }
     private func session(_ j: J) { csrf = j["csrf"].str; me = j["me"].isNull ? nil : Member(j["me"]) }
     func login(_ handle: String, _ password: String) async throws { session(try await api("c_login", form: ["handle": handle, "password": password, "newHandle": ""])) }
+    /// «نسيت كلمة المرور»: a 6-digit code to the account's e-mail, then the new password (returns the username to sign in with).
+    func forgotSend(_ login: String) async throws { _ = try await api("forgot_send", form: ["who": "member", "login": login]) }
+    func forgotReset(_ login: String, code: String, password: String) async throws -> String {
+        let j = try await api("forgot_reset", form: ["who": "member", "login": login, "code": code, "password": password]); return j["login"].str.isEmpty ? login : j["login"].str }
     func register(name: String, handle: String, password: String, email: String) async throws { session(try await api("c_register", form: ["name": name, "handle": handle, "password": password, "email": email])) }
     func logout() async { _ = try? await api("c_logout", form: [:], retry: false); clear() }
     func deleteAccount(_ password: String) async throws { _ = try await api("c_delete_account", form: ["password": password], retry: false); clear() }

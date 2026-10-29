@@ -399,7 +399,56 @@ struct AuthSheet: View {
     @State private var rejected = false
     @State private var busy = false
     @State private var err: String?
+    @State private var mode = ""          // "" sign in / sign up · "forgot" · "code"
+    @State private var code = ""
     var body: some View {
+        if mode.isEmpty { authForm } else { forgotForm }
+    }
+    private var forgotForm: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 12) {
+                Text(mode == "forgot" ? "نسيت كلمة المرور" : "رمز التحقق").font(F.amiri(26)).foregroundStyle(c.text)
+                Text(mode == "forgot" ? "اكتب اسم المستخدم أو البريد المسجّل في حسابك، وسنرسل رمز تحقق من ٦ أرقام إلى بريدك."
+                     : "إن كان الحساب مرتبطًا ببريد، فقد أرسلنا إليه رمزًا من ٦ أرقام صالحًا ١٥ دقيقة. راجع البريد الوارد ومجلد الرسائل غير المرغوب فيها (Spam).")
+                    .font(F.plex(13.5)).foregroundStyle(c.muted).fixedSize(horizontal: false, vertical: true)
+                if mode == "forgot" {
+                    TextField("اسم المستخدم أو البريد", text: $handle).textInputAutocapitalization(.never).autocorrectionDisabled().padding(13).background(RoundedRectangle(cornerRadius: 14).fill(c.surface))
+                } else {
+                    TextField("رمز التحقق (٦ أرقام)", text: Binding(get: { code }, set: { v in
+                        let digits = v.map { ch -> Character in if let d = "٠١٢٣٤٥٦٧٨٩".firstIndex(of: ch) { return Character(String("٠١٢٣٤٥٦٧٨٩".distance(from: "٠١٢٣٤٥٦٧٨٩".startIndex, to: d))) }; return ch }.filter { $0.isASCII && $0.isNumber }
+                        code = String(String(digits).prefix(6)) }))
+                        .keyboardType(.numberPad).textContentType(.oneTimeCode).multilineTextAlignment(.center).font(.system(size: 22, weight: .semibold, design: .rounded))
+                        .environment(\.layoutDirection, .leftToRight).padding(13).background(RoundedRectangle(cornerRadius: 14).fill(c.surface))
+                    SecureField("كلمة المرور الجديدة (8 أحرف على الأقل)", text: $pass).textContentType(.newPassword).padding(13).background(RoundedRectangle(cornerRadius: 14).fill(c.surface))
+                }
+                if let err { Text(err).font(F.plex(13)).foregroundStyle(c.danger) }
+                GoldButton(title: busy ? "لحظات…" : (mode == "forgot" ? "إرسال الرمز" : "تغيير كلمة المرور")) {
+                    guard !busy else { return }
+                    let login = handle.trimmingCharacters(in: .whitespaces)
+                    if mode == "forgot" && login.isEmpty { err = "اكتب اسم المستخدم أو البريد."; return }
+                    if mode == "code" && code.count != 6 { err = "اكتب الرمز المكوّن من ٦ أرقام."; return }
+                    if mode == "code" && pass.count < 8 { err = "كلمة المرور 8 أحرف على الأقل."; return }
+                    busy = true; err = nil
+                    Task {
+                        do {
+                            if mode == "forgot" { try await cm.forgotSend(login); pass = ""; mode = "code" }
+                            else {
+                                let u = try await cm.forgotReset(login, code: code, password: pass)
+                                do { try await cm.login(u, pass); ui.say("تم تغيير كلمة المرور — أهلًا بك"); dismiss() }
+                                catch { ui.say("تم تغيير كلمة المرور — سجّل الدخول بها الآن"); mode = ""; signup = false }
+                            }
+                        } catch { err = Community.msg(error); if (error as? CmError)?.code == "code_expired" { code = "" } }
+                        busy = false
+                    }
+                }.frame(maxWidth: .infinity)
+                Button(mode == "code" ? "لم يصلك الرمز؟ أرسله مرة أخرى" : "رجوع إلى تسجيل الدخول") {
+                    if mode == "code" { Task { do { try await cm.forgotSend(handle.trimmingCharacters(in: .whitespaces)); ui.say("أُرسل رمز جديد إن كان الحساب مرتبطًا ببريد") } catch { ui.say(Community.msg(error)) } } }
+                    else { mode = ""; err = nil }
+                }.font(F.plex(14, .semibold)).foregroundStyle(c.gold).frame(maxWidth: .infinity)
+            }.padding(22).font(F.plex(15))
+        }.background(c.bg2.ignoresSafeArea()).environment(\.layoutDirection, .rightToLeft)
+    }
+    private var authForm: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 12) {
                 Text(signup ? "إنشاء حساب" : "تسجيل الدخول").font(F.amiri(26)).foregroundStyle(c.text)
@@ -421,6 +470,7 @@ struct AuthSheet: View {
                         busy = false
                     }
                 }.frame(maxWidth: .infinity)
+                if !signup { Button("نسيت كلمة المرور؟") { mode = "forgot"; err = nil }.font(F.plex(14, .semibold)).foregroundStyle(c.gold).frame(maxWidth: .infinity) }
                 Link("سياسة الخصوصية", destination: URL(string: Repo.site + "privacy")!).font(F.plex(12)).foregroundStyle(c.faint)
             }.padding(22).font(F.plex(15))
         }.background(c.bg2.ignoresSafeArea()).environment(\.layoutDirection, .rightToLeft)
