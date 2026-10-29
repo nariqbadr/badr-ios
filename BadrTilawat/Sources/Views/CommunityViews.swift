@@ -471,7 +471,6 @@ struct AuthSheet: View {
                 if signup {
                     TextField("البريد الإلكتروني", text: $email).keyboardType(.emailAddress).textContentType(.emailAddress).textInputAutocapitalization(.never).autocorrectionDisabled()
                         .padding(13).background(RoundedRectangle(cornerRadius: 14).fill(c.surface))
-                    Text("يصلك عليه رمز التحقق إن نسيت كلمة المرور.").font(F.plex(11.5)).foregroundStyle(c.faint)
                 }
                 if let err { Text(err).font(F.plex(13)).foregroundStyle(c.danger) }
                 GoldButton(title: busy ? "لحظات…" : (signup ? "إنشاء الحساب" : "دخول")) {
