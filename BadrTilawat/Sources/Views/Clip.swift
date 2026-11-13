@@ -36,8 +36,8 @@ struct ClipOpts: Codable, Equatable {
     var name = true, sh = true, sur = true, brand = true, ipos = "bot", ifont = "plex", ifs = 100, icolor = "#f1d9a0"
     var lh = 175, wmax = 86, stroke = false, glow = 35
     var tfade = 0.5, vfi = 0.6, vfo = 0.8, afi = 1.0, afo = 1.5
-    static func load() -> ClipOpts { (try? JSONDecoder().decode(ClipOpts.self, from: Data(Store.shared.str("clipOpts").utf8))) ?? ClipOpts() }
-    func save() { if let d = try? JSONEncoder().encode(self), let s = String(data: d, encoding: .utf8) { Store.shared.set("clipOpts", s) } }
+    @MainActor static func load() -> ClipOpts { (try? JSONDecoder().decode(ClipOpts.self, from: Data(Store.shared.str("clipOpts").utf8))) ?? ClipOpts() }
+    @MainActor func save() { if let d = try? JSONEncoder().encode(self), let s = String(data: d, encoding: .utf8) { Store.shared.set("clipOpts", s) } }
     init() {}
     init(from dec: Decoder) throws {   // a missing or new field keeps its default
         let c = try dec.container(keyedBy: CodingKeys.self); var o = ClipOpts()
@@ -542,12 +542,12 @@ struct ClipView: View {
     private func set(_ f: (inout ClipOpts) -> Void) { var n = o; f(&n); o = n; n.save() }
 
     @ViewBuilder private func body(_ t: Track, _ src: URL) -> some View {
-        let F = ClipEngine.frame(o, vw, vh)
+        let FR = ClipEngine.frame(o, vw, vh)
         let segsNow = segs, infoNow = info, oNow = o, a = t0, b = t1, w = vw, h = vh
         ScrollView {
             VStack(spacing: 14) {
                 ClipPreview(player: player) { (oNow, w, h, segsNow, infoNow, a, b) }
-                    .aspectRatio(F.width / F.height, contentMode: .fit)
+                    .aspectRatio(FR.width / FR.height, contentMode: .fit)
                     .frame(maxHeight: 460).clipShape(RoundedRectangle(cornerRadius: 16)).overlay(RoundedRectangle(cornerRadius: 16).stroke(c.line))
                     .overlay { if loading { ProgressView().tint(c.gold) } }
                     .onTapGesture { togglePlay() }
