@@ -127,6 +127,8 @@ struct RootView: View {
         case .clip(let id): ClipView(trackId: id)
         case .maker(let s, let a): MakerView(s0: s, a0: a)
         case .blocked: BlockedView()
+        case .readIndex: ReadIndexView()
+        case .read(let a, let b): ReadView(a: a, b: b).id(a + "/" + b)
         default: screen(r.tabKey ?? "home")
         }
     }

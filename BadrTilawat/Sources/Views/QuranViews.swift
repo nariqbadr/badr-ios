@@ -10,7 +10,7 @@ struct QuranView: View {
             LazyVStack(spacing: 0) {
                 HStack(spacing: 12) {
                     tile("المصحف الشريف", "صفحات مصحف المدينة", "book") { ui.path.append(.mushaf) }
-                    tile("اقرأ واستمع", "الآيات مع صوت القارئ", "headphones") { ui.path.append(.surah(1)) }
+                    tile("اقرأ واستمع واحفظ", "الكلمات تضيء مع التلاوة", "waveform") { ui.path.append(.readIndex) }
                 }.padding(16)
                 QuranFullBanner().padding(.horizontal, 16).padding(.bottom, 12)
                 TextField("ابحث عن سورة باسمها أو رقمها", text: $q).font(F.plex(15)).padding(12)

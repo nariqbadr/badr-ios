@@ -31,6 +31,8 @@ final class AudioPlayer: ObservableObject {
     private var progressSent = Set<Int>()
 
     var current: Track? { queue.indices.contains(index) ? queue[index] : nil }
+    /// the exact playing position (position is updated twice a second)
+    var currentTime: Double { let t = player.currentTime().seconds; return t.isFinite ? t : position }
 
     private init() {
         try? AVAudioSession.sharedInstance().setCategory(.playback, mode: .spokenAudio)
@@ -47,8 +49,12 @@ final class AudioPlayer: ObservableObject {
     }
 
     // MARK: control
-    func play(_ t: Track, in list: [Track]? = nil, fromStart: Bool = false) {
+    /// «اقرأ واحفظ» names the ayah being read under the title in the small player (track id, label)
+    @Published var nowLabel: (String, String)?
+    private var startAt: Double?
+    func play(_ t: Track, in list: [Track]? = nil, fromStart: Bool = false, startAt: Double? = nil) {
         AyahPlayer.shared.stop()
+        self.startAt = startAt
         if fromStart { for x in list ?? [t] { Store.shared.savePosition(x.id, 0, 0) } }
         let l = list ?? [t]
         queue = l; index = l.firstIndex(of: t) ?? 0
@@ -100,7 +106,7 @@ final class AudioPlayer: ObservableObject {
         try? AVAudioSession.sharedInstance().setActive(true)
         let item = AVPlayerItem(url: OfflineFiles.local(t.id) ?? url)
         player.replaceCurrentItem(with: item)
-        let resume = Store.shared.position(t.id)
+        let resume = startAt ?? Store.shared.position(t.id); startAt = nil
         if resume > 0 { player.seek(to: CMTime(seconds: resume, preferredTimescale: 600)) }
         position = resume; duration = Double(t.durationSec)
         if repN > 0 { repDone = 1 }

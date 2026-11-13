@@ -626,7 +626,8 @@ extension Repo {
         guard let u = URL(string: Repo.ajax + "?action=bz&do=ayah_times&r=\(Repo.enc(r))&s=\(s)"), let (d, _) = try? await session.data(from: u) else { return nil }
         let j = J(data: d)
         guard j["ok"].bool() else { return nil }
-        let ay = j["ayahs"].array.map { $0.array.map { Int($0.double ?? 0) } }.filter { $0.count >= 2 }
+        // [start, end] per ayah in order → [ayah, start, end]
+        let ay = j["ayahs"].array.enumerated().compactMap { i, e -> [Int]? in let a = e.array.map { Int($0.double ?? 0) }; return a.count >= 2 ? [i + 1, a[0], a[1]] : nil }
         let w = j["words"].array.map { $0.array.map { $0.array.map { Int($0.double ?? 0) } }.filter { $0.count >= 2 } }
         return ay.isEmpty ? nil : SurahTimes(ayahs: ay, words: w, per: max(1, Int(j["per"].double ?? 1)))
     }

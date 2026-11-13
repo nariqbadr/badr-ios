@@ -38,7 +38,7 @@ struct MiniPlayer: View {
                     RemoteImage(raw: Repo.shared.image(for: t)).frame(width: 48, height: 48).clipShape(RoundedRectangle(cornerRadius: 12))
                     VStack(alignment: .leading, spacing: 2) {
                         Text(t.title).font(F.plex(15, .bold)).foregroundStyle(c.text).lineLimit(1)
-                        Text(Repo.shared.reciter(t.reciterId)?.name ?? "").font(F.plex(12.5)).foregroundStyle(c.muted).lineLimit(1)
+                        Text(p.nowLabel?.0 == t.id ? p.nowLabel!.1 : (Repo.shared.reciter(t.reciterId)?.name ?? "")).font(F.plex(12.5)).foregroundStyle(p.nowLabel?.0 == t.id ? c.gold : c.muted).lineLimit(1)
                     }
                     Spacer()
                     Button { store.toggleFav(t.id) } label: { Image(systemName: store.favs.contains(t.id) ? "heart.fill" : "heart").foregroundStyle(store.favs.contains(t.id) ? c.danger : c.muted) }

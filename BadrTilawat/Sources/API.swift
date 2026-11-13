@@ -58,7 +58,9 @@ final class Repo: ObservableObject {
     }
 
     func reciter(_ id: String?) -> Reciter? { data?.reciters.first { $0.id == id } }
-    func track(_ id: String?) -> Track? { data?.recitations.first { $0.id == id } ?? quranTrack(id) }
+    /// a part of a longer recording (one surah of a whole juz…) is listed as "<id>__s<surah>"
+    static func partBase(_ id: String?) -> String? { id?.replacingOccurrences(of: "__s\\d{1,3}$", with: "", options: .regularExpression) }
+    func track(_ id: String?) -> Track? { let b = Repo.partBase(id); return data?.recitations.first { $0.id == b } ?? quranTrack(b) }
     func image(for t: Track) -> String { t.image.isEmpty ? (reciter(t.reciterId)?.image ?? "") : t.image }
     static func withSheikh(_ n: String) -> String {
         let t = n.trimmingCharacters(in: .whitespaces)
