@@ -16,8 +16,10 @@ struct RootView: View {
     @EnvironmentObject var player: AudioPlayer
     @EnvironmentObject var store: Store
     @Environment(\.pal) private var c
-    @State private var intro = true
-    @State private var onboard = !UserDefaults.standard.bool(forKey: "onboarded")
+    /// screenshot runs in the simulator (CI): open this screen straight away, no intro or onboarding
+    private static let shot = ProcessInfo.processInfo.environment["BZ_ROUTE"]
+    @State private var intro = RootView.shot == nil
+    @State private var onboard = RootView.shot == nil && !UserDefaults.standard.bool(forKey: "onboarded")
 
     private var tabs: [TabDef] {
         let s = repo.data?.site
@@ -51,14 +53,34 @@ struct RootView: View {
             if let m = repo.data?.site.maintenance, m.on { Maintenance(title: m.title, message: m.message) }
             else if intro && repo.data?.site.introOn != false { IntroView { withAnimation(.easeOut(duration: 0.5)) { intro = false } } }
             else if onboard { Onboarding { withAnimation { onboard = false } } }
-            else if let s = repo.data?.site { AppMessages(site: s) }
+            else if let s = repo.data?.site, RootView.shot == nil { AppMessages(site: s) }
         }
         .fullScreenCover(isPresented: $ui.playerOpen) { PlayerView() }
         .sheet(item: $ui.menuFor) { t in TrackMenu(t: t).presentationDetents([.medium, .large]) }
         .sheet(item: $ui.sheet) { k in sheetView(k).presentationDetents([.large]) }
         .animation(.easeInOut(duration: 0.3), value: ui.drawer)
-        .task { await repo.refresh(); if let t = repo.data?.site.defaultTheme { store.applyDefaultTheme(t) } }
+        .task { await repo.refresh(); if let t = repo.data?.site.defaultTheme { store.applyDefaultTheme(t) }; if let r = RootView.shot { openShot(r) } }
         .onChange(of: ui.tab) { t in Repo.shared.page = TAB_DEFS.first { $0.key == t }?.label ?? "الرئيسية"; Repo.shared.event("page", ["pageLabel": Repo.shared.page]) }
+    }
+
+    private func openShot(_ r: String) {
+        let d = repo.data
+        let firstAudio = d?.recitations.first { !$0.isVideo }
+        switch r {
+        case "readIndex": ui.path = [.readIndex]
+        case "read": if let k = d?.readableTracks.keys.sorted().first { ui.path = [.read("track", k)] }
+        case "maker": ui.path = [.maker(0, 0)]
+        case "listen": ui.path = [.listen]
+        case "mushaf": ui.path = [.mushaf]
+        case "search": ui.path = [.search]
+        case "surah": ui.path = [.surah(18)]
+        case "watch": if let v = d?.recitations.first(where: { $0.isVideo }) { ui.path = [.watch(v.id)] }
+        case "clip": if let k = d?.readableTracks.keys.sorted().first { ui.path = [.clip(k)] }
+        case "reciter": if let r = d?.reciters.first { ui.path = [.reciter(r.id)] }
+        case "player": if let t = firstAudio { player.play(t); ui.playerOpen = true }
+        case "drawer": ui.drawer = true
+        default: if let t = Route.tab(r) { ui.go(t) }
+        }
     }
 
     @ToolbarContentBuilder private var topBar: some ToolbarContent {
