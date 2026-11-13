@@ -105,6 +105,22 @@ enum Route: Hashable {
         switch self { case .home: return "home"; case .recitations: return "recitations"; case .quran: return "quran"; case .adhkar: return "adhkar"; case .community: return "community"
         case .library: return "library"; case .fiqh: return "fiqh"; case .live: return "live"; case .about: return "about"; case .timeline: return "timeline"; case .prayer: return "prayer"; default: return nil }
     }
+    /// a link to the site → the matching screen (/recitations/, /track/x, /reciter/x, /quran/18 …)
+    static func fromSite(_ u: String) -> Route? {
+        guard let url = URL(string: u) else { return nil }
+        let p = url.path.split(separator: "/").map { String($0).removingPercentEncoding ?? String($0) }
+        switch p.first ?? "" {
+        case "": return .home
+        case "track": return p.count > 1 ? (Repo.shared.track(p[1])?.isVideo == true ? .watch(p[1]) : .recitations) : .recitations
+        case "reciter": return p.count > 1 ? .reciter(p[1]) : .recitations
+        case "quran", "surah": return p.count > 1 ? Int(p[1]).map { .surah($0) } ?? .quran : .quran
+        case "mushaf": return .mushaf
+        case "community": return p.count > 2 && p[1] == "p" ? Int(p[2]).map { .thread($0) } : .community
+        case "read": return .readIndex
+        case "maker": return .maker(0, 0)
+        default: return tab(p[0])
+        }
+    }
     static func tab(_ k: String) -> Route? {
         ["home": .home, "recitations": .recitations, "quran": .quran, "adhkar": .adhkar, "community": .community, "library": .library,
          "fiqh": .fiqh, "live": .live, "about": .about, "timeline": .timeline, "prayer": .prayer][k]
