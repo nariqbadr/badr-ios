@@ -37,7 +37,7 @@ jobs:
           git checkout -q -b ci-logs && git add -A && git commit -qm "build ${GITHUB_RUN_NUMBER}"
           git push -f "https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}.git" HEAD:ci-logs
       - name: Simulator run (screenshots + crash check)
-        if: always()
+        if: always() && contains(github.event.head_commit.message, '[shots]')
         continue-on-error: true
         timeout-minutes: 30
         run: |
