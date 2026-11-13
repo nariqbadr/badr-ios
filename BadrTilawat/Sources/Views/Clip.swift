@@ -297,6 +297,10 @@ enum ClipEngine {
 
 /// Makes the MP4 on the phone: the part [t0, t1], at the chosen size, the soft blurred background, the sharp video and
 /// the ayahs and names drawn on each frame; the sound rises and falls with the chosen fades.
+/// Calls its closure once, however many times done() is called.
+final class OnceDone { private var f: (() -> Void)?; private let l = NSLock(); init(_ f: @escaping () -> Void) { self.f = f }
+    func done() { l.lock(); let g = f; f = nil; l.unlock(); g?() } }
+
 final class ClipExporter {
     private var cancelled = false
     func cancel() { cancelled = true }
@@ -343,16 +347,24 @@ final class ClipExporter {
         let span = ClipEngine.voiceSpan(segs, t0, t1)
         let dur = t1 - t0
         let cs = CGColorSpaceCreateDeviceRGB()
+        var lastRel = -1.0
 
-        // video
-        let videoDone: Void = await withCheckedContinuation { (k: CheckedContinuation<Void, Never>) in
+        // video and sound are fed side by side (the writer interleaves them; feeding one alone would stall it)
+        await withCheckedContinuation { (all: CheckedContinuation<Void, Never>) in
+        let group = DispatchGroup()
+        group.enter()
+        do {
+            let k = OnceDone { group.leave() }
             let q = DispatchQueue(label: "clip.video")
             vIn.requestMediaDataWhenReady(on: q) { [self] in
                 while vIn.isReadyForMoreMediaData {
-                    if cancelled { vIn.markAsFinished(); k.resume(); return }
-                    guard let sb = vOut.copyNextSampleBuffer(), let pb = CMSampleBufferGetImageBuffer(sb) else { vIn.markAsFinished(); k.resume(); return }
+                    if cancelled { vIn.markAsFinished(); k.done(); return }
+                    guard let sb = vOut.copyNextSampleBuffer(), let pb = CMSampleBufferGetImageBuffer(sb) else { vIn.markAsFinished(); k.done(); return }
                     let pts = CMSampleBufferGetPresentationTimeStamp(sb).seconds
                     let t = pts, rel = pts - t0
+                    // a frame before the part, or at a time already written, is skipped (two frames at one time break the file)
+                    if rel < -0.001 || rel <= lastRel { continue }
+                    lastRel = rel
                     autoreleasepool {
                         var img = CIImage(cvPixelBuffer: pb).transformed(by: tf)
                         img = img.transformed(by: CGAffineTransform(translationX: -img.extent.minX, y: -img.extent.minY))
@@ -374,22 +386,22 @@ final class ClipExporter {
                         if let pool = adaptor.pixelBufferPool { CVPixelBufferPoolCreatePixelBuffer(nil, pool, &outPB) }
                         if let outPB {
                             ci.render(comp, to: outPB, bounds: full, colorSpace: cs)
-                            adaptor.append(outPB, withPresentationTime: CMTime(seconds: max(0, rel), preferredTimescale: 600))
+                            adaptor.append(outPB, withPresentationTime: CMTime(seconds: max(0, rel), preferredTimescale: 6000))
                         }
                     }
                     progress(min(0.99, rel / max(0.1, dur)))
                 }
             }
         }
-        _ = videoDone
-        // sound
         if let aOut, let aIn {
-            await withCheckedContinuation { (k: CheckedContinuation<Void, Never>) in
+            group.enter()
+            let k = OnceDone { group.leave() }
                 aIn.requestMediaDataWhenReady(on: DispatchQueue(label: "clip.audio")) { [self] in
                     while aIn.isReadyForMoreMediaData {
-                        if cancelled { aIn.markAsFinished(); k.resume(); return }
-                        guard let sb = aOut.copyNextSampleBuffer() else { aIn.markAsFinished(); k.resume(); return }
+                        if cancelled { aIn.markAsFinished(); k.done(); return }
+                        guard let sb = aOut.copyNextSampleBuffer() else { aIn.markAsFinished(); k.done(); return }
                         let pts = CMSampleBufferGetPresentationTimeStamp(sb).seconds
+                        if pts < t0 - 0.001 { continue }
                         if let bb = CMSampleBufferGetDataBuffer(sb) {
                             var len = 0; var ptr: UnsafeMutablePointer<CChar>?
                             if CMBlockBufferGetDataPointer(bb, atOffset: 0, lengthAtOffsetOut: nil, totalLengthOut: &len, dataPointerOut: &ptr) == kCMBlockBufferNoErr, let ptr {
@@ -407,7 +419,8 @@ final class ClipExporter {
                         if let shifted = Self.shift(sb, by: -t0) { aIn.append(shifted) }
                     }
                 }
-            }
+        }
+        group.notify(queue: .main) { all.resume() }
         }
         reader.cancelReading()
         if cancelled { writer.cancelWriting(); throw CancellationError() }
