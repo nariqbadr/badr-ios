@@ -44,7 +44,7 @@ targets:
           UIColorName: ""
         UIBackgroundModes: [audio]
         UIAppFonts: [amiri_regular.ttf, amiri_bold.ttf, amiri_quran.ttf, plex_regular.ttf, plex_medium.ttf, plex_semibold.ttf, plex_bold.ttf]
-        UISupportedInterfaceOrientations: [UIInterfaceOrientationPortrait]
+        UISupportedInterfaceOrientations: [UIInterfaceOrientationPortrait, UIInterfaceOrientationLandscapeLeft, UIInterfaceOrientationLandscapeRight]
         UIStatusBarStyle: UIStatusBarStyleLightContent
         UIViewControllerBasedStatusBarAppearance: true
         NSLocationWhenInUseUsageDescription: لحساب مواقيت الصلاة واتجاه القبلة لمدينتك.

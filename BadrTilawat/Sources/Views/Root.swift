@@ -122,6 +122,8 @@ struct RootView: View {
         case .user(let h): CommunityView(user: h)
         case .people(let h, let l): PeopleView(handle: h, list: l)
         case .thread(let id): ThreadView(id: id)
+        case .watch(let id): WatchView(id: id)
+        case .clip(let id): ClipView(trackId: id)
         default: screen(r.tabKey ?? "home")
         }
     }

@@ -89,6 +89,8 @@ final class AudioPlayer: ObservableObject {
     // MARK: internals
     private func load() {
         guard let t = current, let url = Repo.media(t.audio) else { return }
+        if yieldRemote { yieldRemote = false; VideoEngine.shared.pause(); remote() }
+        try? AVAudioSession.sharedInstance().setCategory(.playback, mode: .spokenAudio)
         try? AVAudioSession.sharedInstance().setActive(true)
         let item = AVPlayerItem(url: OfflineFiles.local(t.id) ?? url)
         player.replaceCurrentItem(with: item)
@@ -137,8 +139,13 @@ final class AudioPlayer: ObservableObject {
             await MainActor.run { self.art = MPMediaItemArtwork(boundsSize: img.size) { _ in img }; self.nowPlaying() }
         }
     }
+    /// The video page took the lock-screen controls; the next recitation played takes them back.
+    var yieldRemote = false
     private func remote() {
         let c = MPRemoteCommandCenter.shared()
+        for cmd in [c.playCommand, c.pauseCommand, c.togglePlayPauseCommand, c.nextTrackCommand, c.previousTrackCommand, c.changePlaybackPositionCommand, c.skipForwardCommand, c.skipBackwardCommand] { cmd.removeTarget(nil) }
+        c.skipForwardCommand.isEnabled = false; c.skipBackwardCommand.isEnabled = false
+        c.nextTrackCommand.isEnabled = true; c.previousTrackCommand.isEnabled = true
         c.playCommand.addTarget { [weak self] _ in Task { @MainActor in if self?.playing == false { self?.toggle() } }; return .success }
         c.pauseCommand.addTarget { [weak self] _ in Task { @MainActor in self?.pause() }; return .success }
         c.togglePlayPauseCommand.addTarget { [weak self] _ in Task { @MainActor in self?.toggle() }; return .success }

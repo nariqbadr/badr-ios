@@ -33,6 +33,9 @@ struct BadrApp: App {
 }
 
 final class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCenterDelegate {
+    /// portrait, except while a video is in full screen
+    static var orientation: UIInterfaceOrientationMask = .portrait
+    func application(_ application: UIApplication, supportedInterfaceOrientationsFor window: UIWindow?) -> UIInterfaceOrientationMask { AppDelegate.orientation }
     func application(_ application: UIApplication, didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]? = nil) -> Bool {
         UNUserNotificationCenter.current().delegate = self
         Repo.shared.event("view")
@@ -59,6 +62,9 @@ final class UIState: ObservableObject {
     @Published var sheet: SheetKind?
     @Published var toast: String?
     private var toastTask: Task<Void, Never>?
+    /// for code outside the views (the video engine, downloads)
+    static weak var shared: UIState?
+    init() { UIState.shared = self }
 
     func go(_ r: Route) {
         if let t = r.tabKey { tab = t; path = [] } else { path.append(r) }
@@ -75,6 +81,7 @@ enum SheetKind: String, Identifiable { case prayer, theme, name, notices; var id
 enum Route: Hashable {
     case home, recitations, quran, adhkar, community, library, fiqh, live, about, timeline, prayer, search, qibla
     case reciter(String), surah(Int), mushaf, compose(String), user(String), people(String, String), thread(Int)
+    case watch(String), clip(String)
     var tabKey: String? {
         switch self { case .home: return "home"; case .recitations: return "recitations"; case .quran: return "quran"; case .adhkar: return "adhkar"; case .community: return "community"
         case .library: return "library"; case .fiqh: return "fiqh"; case .live: return "live"; case .about: return "about"; case .timeline: return "timeline"; case .prayer: return "prayer"; default: return nil }

@@ -7,8 +7,11 @@ struct RecitationsView: View {
     @State private var q = ""
     @State private var reciter = ""
     @State private var sort = "new"
+    @State private var kind = ""
     var body: some View {
-        let all = repo.data?.sortedTracks ?? []
+        let all0 = repo.data?.sortedTracks ?? []
+        let hasVideo = all0.contains { $0.isVideo }
+        let all = all0.filter { kind.isEmpty || (kind == "video") == $0.isVideo }
         let list = filtered(all)
         ScrollView {
             LazyVStack(alignment: .leading, spacing: 0) {
@@ -16,6 +19,13 @@ struct RecitationsView: View {
                     Image(systemName: "magnifyingglass").foregroundStyle(c.muted)
                     TextField("ابحث بالسورة أو القارئ أو المكان", text: $q).font(F.plex(15))
                 }.padding(12).background(RoundedRectangle(cornerRadius: 16).fill(c.surface.opacity(0.7))).overlay(RoundedRectangle(cornerRadius: 16).stroke(c.line)).padding(16)
+                if hasVideo {
+                    HStack(spacing: 8) {
+                        Pill(title: "الكل", on: kind.isEmpty) { kind = "" }
+                        Pill(title: "صوتية", on: kind == "audio") { kind = "audio" }
+                        Pill(title: "مرئية", on: kind == "video") { kind = "video" }
+                    }.padding(.horizontal, 16).padding(.bottom, 10)
+                }
                 ScrollView(.horizontal, showsIndicators: false) {
                     HStack(spacing: 8) {
                         Pill(title: "الكل", on: reciter.isEmpty) { reciter = "" }
@@ -29,7 +39,7 @@ struct RecitationsView: View {
                     }
                     Text("\(list.count.ar) تلاوة").font(F.plex(12.5)).foregroundStyle(c.muted)
                     Spacer()
-                    Button { if let t = list.first { player.play(t, in: list) } } label: { Label("تشغيل الكل", systemImage: "play.fill").font(F.plex(13, .bold)).foregroundStyle(c.onGold).padding(.horizontal, 14).padding(.vertical, 8).background(Capsule().fill(c.gold)) }
+                    Button { let a = list.filter { !$0.isVideo }; if let t = a.first { player.play(t, in: a) } } label: { Label("تشغيل الكل", systemImage: "play.fill").font(F.plex(13, .bold)).foregroundStyle(c.onGold).padding(.horizontal, 14).padding(.vertical, 8).background(Capsule().fill(c.gold)) }
                 }.padding(16)
                 if list.isEmpty { Empty(text: "لا توجد تلاوات مطابقة.") }
                 ForEach(list) { t in TrackRow(t: t, list: list) }

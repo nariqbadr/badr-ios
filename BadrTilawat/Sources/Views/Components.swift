@@ -188,11 +188,13 @@ struct TrackRow: View {
     @Environment(\.pal) private var c
     var body: some View {
         let cur = player.current?.id == t.id
-        Button { if cur { player.toggle() } else { player.play(t, in: list) } } label: {
+        // a video recitation opens its page; audio plays in the player (the list as its queue, without the videos)
+        Button { if t.isVideo { ui.path.append(.watch(t.id)) } else if cur { player.toggle() } else { player.play(t, in: list.filter { !$0.isVideo }) } } label: {
             HStack(spacing: 12) {
                 if rank > 0 { Text(rank.ar).font(F.amiri(22)).foregroundStyle(rank <= 3 ? c.gold : c.faint).frame(width: 28) }
                 ZStack {
-                    RemoteImage(raw: Repo.shared.image(for: t)).frame(width: 56, height: 56).clipShape(RoundedRectangle(cornerRadius: 14))
+                    RemoteImage(raw: t.isVideo ? t.cover : Repo.shared.image(for: t)).frame(width: 56, height: 56).clipShape(RoundedRectangle(cornerRadius: 14))
+                    if t.isVideo { Image(systemName: "play.rectangle.fill").font(.system(size: 14)).foregroundStyle(.white).padding(4).background(Circle().fill(.black.opacity(0.55))).frame(width: 56, height: 56, alignment: .bottomTrailing) }
                     if cur && player.playing { RoundedRectangle(cornerRadius: 14).fill(.black.opacity(0.35)).frame(width: 56, height: 56); Equalizer(color: c.gold2) }
                 }
                 VStack(alignment: .leading, spacing: 3) {

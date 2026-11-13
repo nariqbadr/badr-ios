@@ -9,7 +9,16 @@ struct Track: Identifiable, Hashable {
     let id: String, reciterId: String, title: String, surah: String, surahNumber: Int, audio: String, image: String
     let description: String, downloadable: Bool, order: Int, createdAt: String, publishAt: String, tags: [String]
     let featured: Bool, durationSec: Int, location: String, duration: String
+    let ayahStart: Int, ayahEnd: Int, recordedAt: String
+    /// A video recitation: its copies by height (largest first) and the cover frame; `audio` is its sound-only copy.
+    let video: VideoInfo?
+    var isVideo: Bool { !(video?.q.isEmpty ?? true) }
+    /// The picture for lists and the lock screen: the chosen image, else the video's cover frame.
+    var cover: String { image.isEmpty ? (video?.poster ?? "") : image }
     init(_ j: J) {
+        ayahStart = j["ayahStart"].int; ayahEnd = j["ayahEnd"].int; recordedAt = j["recordedAt"].str
+        let v = j["video"]; let qs = v["q"].array.map { VideoQ(h: $0["h"].int, url: $0["url"].str, size: Int64($0["size"].double ?? 0)) }.filter { !$0.url.isEmpty }
+        video = qs.isEmpty ? nil : VideoInfo(q: qs.sorted { $0.h > $1.h }, poster: v["poster"].str, w: v["w"].int, h: v["h"].int, audioSize: Int64(v["audioSize"].double ?? 0))
         id = j["id"].str; reciterId = j["reciterId"].str; title = j["title"].str; surah = j["surah"].str; surahNumber = j["surahNumber"].int
         audio = j["audio"].str; image = j["image"].str; description = j["description"].str; downloadable = j["downloadable"].bool(true)
         order = j["order"].int; createdAt = j["createdAt"].str; publishAt = j["publishAt"].str; tags = j["tags"].strings
@@ -19,6 +28,9 @@ struct Track: Identifiable, Hashable {
     var stamp: Date { Fmt.parse(publishAt) ?? Fmt.parse(createdAt) ?? .distantPast }
     var durationText: String { !duration.isEmpty ? duration : Fmt.dur(durationSec) }
 }
+
+struct VideoQ: Hashable { let h: Int, url: String, size: Int64 }
+struct VideoInfo: Hashable { let q: [VideoQ], poster: String, w: Int, h: Int, audioSize: Int64 }
 
 struct Fiqh: Identifiable { let id: String, title: String, video: String, teacher: String, description: String
     init(_ j: J) { id = j["id"].str; title = j["title"].str; video = j["video"].str; teacher = j["teacher"].str; description = j["description"].str }
