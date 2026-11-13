@@ -70,6 +70,8 @@ struct PostCard: View {
     @EnvironmentObject var ui: UIState
     @Environment(\.pal) private var c
     @State private var askDelete = false
+    @State private var askReport = false
+    @State private var blockAsk: String?
     @State private var limitFor: Member?
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
@@ -85,7 +87,13 @@ struct PostCard: View {
                         if !quoted { Menu {
                             Button { share("\(Repo.site)community/post/\(p.id)") } label: { Label("مشاركة", systemImage: "square.and.arrow.up") }
                             if p.mine { Button(role: .destructive) { askDelete = true } label: { Label("حذف", systemImage: "trash") } }
-                            else { Button { Task { await cm.report(p, "غير لائق"); ui.say("شكرًا — سيراجعه المشرفون") } } label: { Label("إبلاغ", systemImage: "flag") } }
+                            else {
+                                Button { askReport = true } label: { Label("إبلاغ عن المنشور", systemImage: "flag") }
+                                if cm.me != nil, let a = p.author {
+                                    Button { Task { await setRel(a.handle, "mute", true) } } label: { Label("كتم @\(a.handle)", systemImage: "speaker.slash") }
+                                    Button(role: .destructive) { blockAsk = a.handle } label: { Label("حظر @\(a.handle)", systemImage: "nosign") }
+                                }
+                            }
                             if !p.mine, cm.me?.canLimit == true, let a = p.author { Button { limitFor = a } label: { Label("تقييد @\(a.handle) (إدارة)", systemImage: "shield") } }
                         } label: { Image(systemName: "ellipsis").foregroundStyle(c.muted).frame(width: 26, height: 22) } }
                     }
@@ -114,6 +122,17 @@ struct PostCard: View {
         .contentShape(Rectangle()).onTapGesture { if !quoted { ui.path.append(.thread(p.id)) } }
         .sheet(item: $limitFor) { LimitSheet(m: $0) }
         .confirmationDialog("حذف المنشور؟", isPresented: $askDelete) { Button("حذف", role: .destructive) { Task { try? await cm.delete(p); ui.say("حُذف المنشور") } } }
+        .confirmationDialog("لماذا تبلّغ عن هذا المنشور؟", isPresented: $askReport, titleVisibility: .visible) {
+            ForEach(REPORT_REASONS, id: \.self) { r in Button(r) { Task { do { try await cm.report(p, r); ui.say("شكرًا — وصل البلاغ للإدارة وسيُراجع خلال ٢٤ ساعة") } catch { ui.say(Community.msg(error)) } } } }
+            Button("إلغاء", role: .cancel) {}
+        }
+        .alert("حظر @\(blockAsk ?? "")؟", isPresented: Binding(get: { blockAsk != nil }, set: { if !$0 { blockAsk = nil } })) {
+            Button("حظر", role: .destructive) { if let h = blockAsk { Task { await setRel(h, "block", true) } } }
+            Button("إلغاء", role: .cancel) {}
+        } message: { Text(BLOCK_NOTE) }
+    }
+    private func setRel(_ h: String, _ kind: String, _ on: Bool) async {
+        do { try await cm.rel(h, kind, on); ui.say(REL_DONE[kind].map { on ? $0.0 : $0.1 } ?? "") } catch { ui.say(Community.msg(error)) }
     }
     private func action(_ icon: String, _ n: Int, tint: Color? = nil, _ a: @escaping () -> Void) -> some View {
         Button(action: a) { HStack(spacing: 4) { Image(systemName: icon); Text(Community.num(n)) }.foregroundStyle(tint ?? c.muted) }.buttonStyle(.plain)
@@ -133,6 +152,8 @@ struct CommunityView: View {
     @State private var auth = false
     @State private var edit = false
     @State private var limitFor: Member?
+    @State private var blocked = false
+    @State private var blockAsk = false
     var body: some View {
         ScrollView {
             LazyVStack(alignment: .leading, spacing: 0) {
@@ -157,7 +178,7 @@ struct CommunityView: View {
                 }
                 ForEach(items) { it in PostCard(p: it.post, repostBy: it.repostBy); Divider().overlay(c.lineSoft) }
                 if loading { ProgressView().frame(maxWidth: .infinity).padding(30) }
-                else if items.isEmpty { Empty(text: "لا توجد منشورات بعد — كن أول من ينشر.", icon: "bubble.left.and.bubble.right") }
+                else if items.isEmpty && !blocked { Empty(text: "لا توجد منشورات بعد — كن أول من ينشر.", icon: "bubble.left.and.bubble.right") }
                 if next > 0 && !loading { Color.clear.frame(height: 1).onAppear { Task { await load(more: true) } } }
             }.padding(.bottom, 90)
         }
@@ -170,6 +191,11 @@ struct CommunityView: View {
             }
         }
         .task(id: tab + (user ?? "")) { await cm.loadMe(); await load() }
+        .onChange(of: cm.relRev) { _ in Task { await load() } }
+        .alert("حظر @\(user ?? "")؟", isPresented: $blockAsk) {
+            Button("حظر", role: .destructive) { if let u = user { Task { await setRel(u, "block", true) } } }
+            Button("إلغاء", role: .cancel) {}
+        } message: { Text(BLOCK_NOTE) }
         .sheet(isPresented: $auth) { AuthSheet() }
         .sheet(isPresented: $edit) { EditProfileSheet() }
         .sheet(item: $limitFor, onDismiss: { Task { await load() } }) { LimitSheet(m: $0) }
@@ -185,7 +211,16 @@ struct CommunityView: View {
                 if m?.handle == cm.me?.handle && m != nil { GhostButton(title: "تعديل الملف") { edit = true } }
                 else if let m, cm.me != nil { GoldButton(title: m.iFollow ? "إلغاء المتابعة" : "متابعة") { Task { if let e = await cm.follow(m.handle, !m.iFollow) { ui.say(e) }; await load() } } }
                 if let m, cm.me?.canLimit == true, m.handle != cm.me?.handle { Button { limitFor = m } label: { Image(systemName: "shield").foregroundStyle(m.limitedNow ? c.gold : c.muted).frame(width: 36, height: 36) } }
+                if let m, cm.me != nil, m.handle != cm.me?.handle {
+                    Menu {
+                        Button { Task { await setRel(m.handle, "mute", !m.muted) } } label: { Label(m.muted ? "إلغاء كتم @\(m.handle)" : "كتم @\(m.handle)", systemImage: "speaker.slash") }
+                        if m.blocked { Button { Task { await setRel(m.handle, "block", false) } } label: { Label("إلغاء حظر @\(m.handle)", systemImage: "nosign") } }
+                        else { Button(role: .destructive) { blockAsk = true } label: { Label("حظر @\(m.handle)", systemImage: "nosign") } }
+                    } label: { Image(systemName: "ellipsis.circle").font(.system(size: 20)).foregroundStyle(c.muted).frame(width: 36, height: 36) }
+                }
+                if m?.handle == cm.me?.handle && m != nil { Button { ui.path.append(.blocked) } label: { Image(systemName: "hand.raised").foregroundStyle(c.muted).frame(width: 36, height: 36) }.accessibilityLabel("الحظر والكتم") }
             }.padding(.horizontal, 16)
+            if blocked { Text(m?.blockedMe == true ? "لا يمكنك عرض منشورات هذا الحساب أو التفاعل معه." : "لقد حظرت هذا الحساب — لا يمكنه رؤية منشوراتك أو التفاعل معك.").font(F.plex(13)).foregroundStyle(c.muted).padding(.horizontal, 16) }
             Text("\u{2066}@\(handle)\u{2069}").font(F.plex(13)).foregroundStyle(c.faint).padding(.horizontal, 16)
             if let b = m?.bio, !b.isEmpty { Text(b).font(F.plex(14)).foregroundStyle(c.text).padding(.horizontal, 16) }
             HStack(spacing: 14) {
@@ -196,6 +231,9 @@ struct CommunityView: View {
             Divider().overlay(c.line)
         }
     }
+    private func setRel(_ h: String, _ kind: String, _ on: Bool) async {
+        do { try await cm.rel(h, kind, on); ui.say(REL_DONE[kind].map { on ? $0.0 : $0.1 } ?? "") } catch { ui.say(Community.msg(error)) }
+    }
     private func load(more: Bool = false) async {
         loading = true; defer { loading = false }
         do {
@@ -203,6 +241,7 @@ struct CommunityView: View {
             if let u = user { pg = try await cm.user(u, before: more ? next : 0) } else { pg = try await cm.feed(tab, before: more ? next : 0) }
             items = more ? items + pg.items : pg.items; next = pg.next
             if let u = pg.user { profile = u }
+            blocked = pg.blocked
         } catch { ui.say(Community.msg(error)) }
     }
 }
@@ -472,6 +511,7 @@ struct AuthSheet: View {
                     TextField("البريد الإلكتروني", text: $email).keyboardType(.emailAddress).textContentType(.emailAddress).textInputAutocapitalization(.never).autocorrectionDisabled()
                         .padding(13).background(RoundedRectangle(cornerRadius: 14).fill(c.surface))
                 }
+                if signup { Text("بإنشاء الحساب توافق على آداب المجتمع: لا محتوى مسيئًا أو مخالفًا أو إساءة لأحد. يمكنك الإبلاغ عن أي منشور وحظر أي حساب، وتراجع الإدارة البلاغات وتحذف المخالف وتوقف صاحبه.").font(F.plex(11.5)).foregroundStyle(c.muted).fixedSize(horizontal: false, vertical: true) }
                 if let err { Text(err).font(F.plex(13)).foregroundStyle(c.danger) }
                 GoldButton(title: busy ? "لحظات…" : (signup ? "إنشاء الحساب" : "دخول")) {
                     guard !busy else { return }
@@ -594,5 +634,40 @@ struct EditProfileSheet: View {
         .onChange(of: avatarPick) { it in
             Task { if let d = try? await it?.loadTransferable(type: Data.self), let img = UIImage(data: d), let m = try? await cm.upload(img, kind: "avatar") { avatarPath = m.path; ui.say("رُفعت الصورة — اضغط حفظ") } }
         }
+    }
+}
+
+let REPORT_REASONS = ["محتوى مسيء أو غير لائق", "إساءة أو تحرش", "رسائل مزعجة (سبام)", "معلومات مضللة", "انتحال شخصية", "سبب آخر"]
+let BLOCK_NOTE = "لن يتمكن من متابعتك أو رؤية منشوراتك أو التفاعل معك، ولن ترى منشوراته. تُلغى المتابعة بينكما."
+let REL_DONE = ["block": ("حُظر الحساب — لن يرى منشوراتك ولن يتفاعل معك", "أُلغي الحظر"), "mute": ("كُتم الحساب — لن تظهر لك منشوراته", "أُلغي الكتم")]
+
+/// «الحظر والكتم»: the accounts I blocked or muted, with undo.
+struct BlockedView: View {
+    @EnvironmentObject var cm: Community
+    @EnvironmentObject var ui: UIState
+    @Environment(\.pal) private var c
+    @State private var kind = "block"
+    @State private var list: [Member]?
+    var body: some View {
+        VStack(spacing: 0) {
+            Picker("", selection: $kind) { Text("المحظورون").tag("block"); Text("المكتومون").tag("mute") }.pickerStyle(.segmented).padding(16)
+            if let list {
+                if list.isEmpty { Empty(text: kind == "block" ? "لم تحظر أحدًا." : "لم تكتم أحدًا.", icon: "hand.raised"); Spacer() }
+                else {
+                    List(list) { m in
+                        HStack(spacing: 10) {
+                            Avatar(m: m, size: 40)
+                            VStack(alignment: .leading) { Text(m.name).font(F.plex(14.5, .bold)); Text("\u{2066}@\(m.handle)\u{2069}").font(F.plex(12)).foregroundStyle(c.faint) }
+                            Spacer()
+                            GhostButton(title: kind == "block" ? "إلغاء الحظر" : "إلغاء الكتم") {
+                                Task { do { try await cm.rel(m.handle, kind, false); self.list = self.list?.filter { $0.id != m.id }; ui.say(REL_DONE[kind]!.1) } catch { ui.say(Community.msg(error)) } }
+                            }
+                        }.listRowBackground(Color.clear)
+                    }.listStyle(.plain).scrollContentBackground(.hidden)
+                }
+            } else { ProgressView().padding(40); Spacer() }
+        }
+        .task(id: kind) { list = nil; do { list = try await cm.rels(kind) } catch { list = []; ui.say(Community.msg(error)) } }
+        .navigationTitle("الحظر والكتم").navigationBarTitleDisplayMode(.inline)
     }
 }

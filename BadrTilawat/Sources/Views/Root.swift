@@ -126,6 +126,7 @@ struct RootView: View {
         case .listen: ListenView().navigationTitle("القرآن الكريم كاملًا")
         case .clip(let id): ClipView(trackId: id)
         case .maker(let s, let a): MakerView(s0: s, a0: a)
+        case .blocked: BlockedView()
         default: screen(r.tabKey ?? "home")
         }
     }

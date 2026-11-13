@@ -6,6 +6,8 @@ struct Member: Identifiable, Hashable {
     let followers: Int, following: Int, posts: Int, iFollow: Bool, followsMe: Bool, email: String
     /// admin limit (read-only until this time); canLimit: this account may limit others (admin or «مشرف المجتمع»)
     let limitedUntil: Int, limitNote: String, canLimit: Bool
+    /// my relation with this account: I blocked / muted it, or it blocked me
+    let blocked: Bool, muted: Bool, blockedMe: Bool
     var limitedNow: Bool { Double(limitedUntil) > Date().timeIntervalSince1970 }
     init(_ j: J) {
         id = j["id"].int; handle = j["handle"].str; name = j["name"].str.isEmpty ? j["handle"].str : j["name"].str; avatar = j["avatar"].str
@@ -14,6 +16,7 @@ struct Member: Identifiable, Hashable {
         badges = b; bio = j["bio"].str; cover = j["cover"].str; location = j["location"].str
         followers = j["followers"].int; following = j["following"].int; posts = j["posts"].int; iFollow = j["iFollow"].bool(); followsMe = j["followsMe"].bool(); email = j["email"].str
         limitedUntil = j["limitedUntil"].int; limitNote = j["limitNote"].str; canLimit = j["canLimit"].bool()
+        blocked = j["rel"]["block"].bool(); muted = j["rel"]["mute"].bool(); blockedMe = j["rel"]["blockedMe"].bool()
     }
 }
 struct CMedia: Hashable { let type: String, url: String, path: String, w: Int, h: Int
@@ -43,6 +46,7 @@ final class Community: ObservableObject {
     static let shared = Community()
     @Published var me: Member?
     @Published var unread = 0
+    @Published var relRev = 0
     @Published var allowSignup = true
     private var csrf = ""
 
@@ -118,9 +122,9 @@ final class Community: ObservableObject {
     func deleteAccount(_ password: String) async throws { _ = try await api("c_delete_account", form: ["password": password], retry: false); clear() }
     private func clear() { HTTPCookieStorage.shared.cookies?.filter { $0.name.hasPrefix("bzc") }.forEach { HTTPCookieStorage.shared.deleteCookie($0) }; csrf = ""; me = nil; unread = 0 }
 
-    struct Page { let items: [FeedItem]; let next: Int; let user: Member? }
+    struct Page { let items: [FeedItem]; let next: Int; let user: Member?; var blocked = false }
     private func page(_ j: J) -> Page {
-        Page(items: j["items"].array.map { FeedItem(key: $0["key"].int, post: Post($0["post"]), repostBy: $0["repostBy"].isNull ? nil : Member($0["repostBy"])) }, next: j["next"].int, user: j["user"].isNull ? nil : Member(j["user"]))
+        Page(items: j["items"].array.map { FeedItem(key: $0["key"].int, post: Post($0["post"]), repostBy: $0["repostBy"].isNull ? nil : Member($0["repostBy"])) }, next: j["next"].int, user: j["user"].isNull ? nil : Member(j["user"]), blocked: j["blocked"].bool())
     }
     func feed(_ tab: String, before: Int) async throws -> Page { page(try await api("c_feed", query: ["tab": tab, "before": "\(before)"])) }
     func user(_ handle: String, before: Int) async throws -> Page { page(try await api("c_user", query: ["handle": handle, "tab": "posts", "before": "\(before)"])) }
@@ -146,7 +150,10 @@ final class Community: ObservableObject {
     func limit(_ handle: String, hours: Double, note: String) async throws -> Int {
         try await api("c_limit", form: ["handle": handle, "hours": "\(hours)", "note": note])["limitedUntil"].int }
     func delete(_ p: Post) async throws { _ = try await api("c_delete", form: ["id": "\(p.id)"]) }
-    func report(_ p: Post, _ reason: String) async { _ = try? await api("c_report", form: ["id": "\(p.id)", "reason": reason]) }
+    func report(_ p: Post, _ reason: String) async throws { _ = try await api("c_report", form: ["id": "\(p.id)", "reason": reason]) }
+    /// block / mute (on = false undoes it); bumps relRev so open lists reload without that account
+    func rel(_ handle: String, _ kind: String, _ on: Bool) async throws { _ = try await api("c_rel", form: ["handle": handle, "kind": kind, "on": on ? "1" : "0"]); relRev += 1 }
+    func rels(_ kind: String) async throws -> [Member] { try await api("c_rels", query: ["kind": kind])["people"].array.map(Member.init) }
     func post(text: String, media: [CMedia], embed: String, replyTo: Int, quoteOf: Int) async throws {
         let m = String(data: (try? JSONSerialization.data(withJSONObject: media.map { $0.json })) ?? Data("[]".utf8), encoding: .utf8) ?? "[]"
         _ = try await api("c_post", form: ["text": text, "media": m, "embed": embed, "replyTo": "\(replyTo)", "quoteOf": "\(quoteOf)"])
