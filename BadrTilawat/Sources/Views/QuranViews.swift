@@ -99,10 +99,7 @@ struct SurahView: View {
         }
         .onDisappear { continuous = false }
     }
-    private func clean(_ a: Int, _ t: String) -> String {
-        guard a == 1, s != 1, let r = t.range(of: "^بِسْمِ\\s+ٱللَّهِ\\s+ٱلرَّحْمَٰنِ\\s+ٱلرَّحِيمِ\\s*", options: .regularExpression) else { return t }
-        var x = t; x.removeSubrange(r); return x
-    }
+    private func clean(_ a: Int, _ t: String) -> String { ayahClean(s, a, t) }
     private func playFrom(_ a: Int) {
         guard continuous, a <= Quran.ayahs[s - 1] else { continuous = false; return }
         ayah.play(rv, s, a) { playFrom(a + 1) }

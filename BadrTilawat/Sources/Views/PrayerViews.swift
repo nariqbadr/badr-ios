@@ -87,6 +87,8 @@ struct PrayerSettings: View {
     @State private var pre = 0
     @State private var on = true
     @State private var notifDenied = false
+    @State private var voice = Adhan.voiceId
+    @State private var testAdhan = false
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 12) {
@@ -114,7 +116,16 @@ struct PrayerSettings: View {
                 }.tint(c.gold)
                 Text("تنبيه قبل الصلاة").font(F.plex(15, .semibold))
                 HStack(spacing: 6) { ForEach([0, 5, 10, 15, 30], id: \.self) { m in Pill(title: m == 0 ? "بدون" : "\(m.ar) د", on: pre == m) { pre = m; prayers.setPre(m) } } }
-                Text("صوت الأذان: أذان الحرم المكي (أول ٣٠ ثانية — أقصى ما يسمح به الآيفون للإشعارات)").font(F.plex(12.5)).foregroundStyle(c.muted)
+                Text("صوت الأذان").font(F.plex(15, .semibold))
+                ForEach(Adhan.voices, id: \.id) { v in
+                    Button { voice = v.id; Adhan.setVoice(v.id) } label: {
+                        HStack { VStack(alignment: .leading) { Text(v.name).font(F.plex(14.5, .semibold)).foregroundStyle(c.text); Text(v.muezzin).font(F.plex(12)).foregroundStyle(c.muted) }
+                            Spacer(); Image(systemName: voice == v.id ? "checkmark.circle.fill" : "circle").foregroundStyle(voice == v.id ? c.gold : c.faint) }
+                        .padding(12).background(RoundedRectangle(cornerRadius: 14).fill(c.surface.opacity(0.6))).overlay(RoundedRectangle(cornerRadius: 14).stroke(voice == v.id ? c.gold : c.lineSoft))
+                    }.buttonStyle(.plain)
+                }
+                GhostButton(title: "تجربة الأذان", icon: "play.fill") { testAdhan = true; AdhanPlayer.shared.play(fajr: false) }
+                Text("في الإشعار يُسمع أول ٣٠ ثانية من الأذان (أقصى ما يسمح به الآيفون)، والمس الإشعار لسماعه كاملًا.").font(F.plex(12)).foregroundStyle(c.muted)
                 GhostButton(title: busy ? "جارٍ التحديد…" : "حدّد موقعي تلقائيًا", icon: "location") {
                     busy = true; Task { let ok = await prayers.locate(); busy = false; ui.say(ok ? "تم تحديث المواقيت: \(prayers.place)" : "تعذّر تحديد الموقع — اكتب مدينتك") }
                 }.frame(maxWidth: .infinity)
@@ -128,8 +139,9 @@ struct PrayerSettings: View {
             }.padding(20)
         }
         .font(F.plex(15)).background(c.bg2.ignoresSafeArea()).environment(\.layoutDirection, .rightToLeft)
+        .fullScreenCover(isPresented: $testAdhan) { AdhanScreen(key: "test") }
         .onAppear {
-            pre = prayers.preMinutes; on = prayers.alertsOn
+            pre = prayers.preMinutes; on = prayers.alertsOn; voice = Adhan.voiceId; Task { await Adhan.prepare(); prayers.schedule() }
             UNUserNotificationCenter.current().getNotificationSettings { s in DispatchQueue.main.async { notifDenied = s.authorizationStatus == .denied } }
         }
     }

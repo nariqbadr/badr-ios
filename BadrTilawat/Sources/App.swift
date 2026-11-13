@@ -27,6 +27,7 @@ struct BadrApp: App {
             if p == .active {
                 Task { await repo.refresh(); if let t = repo.data?.site.defaultTheme { store.applyDefaultTheme(t) } }
                 Repo.shared.event("heartbeat"); prayers.schedule()
+                Task { await Adhan.prepare(); prayers.schedule() }
             }
         }
     }
@@ -48,7 +49,21 @@ final class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCent
         return true
     }
     // show the adhan alert (with its sound) even while the app is open
-    func userNotificationCenter(_ center: UNUserNotificationCenter, willPresent notification: UNNotification) async -> UNNotificationPresentationOptions { [.banner, .sound, .list] }
+    // the adhan while the app is open: the full-screen adhan plays the whole adhan instead of the 30 s sound
+    func userNotificationCenter(_ center: UNUserNotificationCenter, willPresent notification: UNNotification) async -> UNNotificationPresentationOptions {
+        if let k = notification.request.content.userInfo["adhan"] as? String {
+            await MainActor.run { UIState.shared?.adhan = AdhanKey(key: k); AdhanPlayer.shared.play(fajr: k == "fajr") }
+            return [.banner, .list]
+        }
+        return [.banner, .sound, .list]
+    }
+    func userNotificationCenter(_ center: UNUserNotificationCenter, didReceive response: UNNotificationResponse) async {
+        let info = response.notification.request.content.userInfo
+        await MainActor.run {
+            if let k = info["adhan"] as? String { UIState.shared?.adhan = AdhanKey(key: k) }
+            else if info["open"] as? String == "wird" { UIState.shared?.sheet = .wird }
+        }
+    }
 }
 
 /// Shared UI state: the open menus, sheets and the selected tab.
@@ -61,6 +76,8 @@ final class UIState: ObservableObject {
     @Published var menuFor: Track?
     @Published var sheet: SheetKind?
     @Published var toast: String?
+    /// the full-screen adhan (from its notification, or «تجربة»)
+    @Published var adhan: AdhanKey?
     private var toastTask: Task<Void, Never>?
     /// for code outside the views (the video engine, downloads)
     static weak var shared: UIState?
@@ -76,7 +93,7 @@ final class UIState: ObservableObject {
     }
 }
 
-enum SheetKind: String, Identifiable { case prayer, theme, name, notices; var id: String { rawValue } }
+enum SheetKind: String, Identifiable { case prayer, theme, name, notices, wird, ambient; var id: String { rawValue } }
 
 enum Route: Hashable {
     case home, recitations, quran, adhkar, community, library, fiqh, live, about, timeline, prayer, search, qibla

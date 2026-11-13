@@ -56,6 +56,7 @@ struct RootView: View {
             else if let s = repo.data?.site, RootView.shot == nil { AppMessages(site: s) }
         }
         .fullScreenCover(isPresented: $ui.playerOpen) { PlayerView() }
+        .fullScreenCover(item: $ui.adhan) { a in AdhanScreen(key: a.key) }
         .sheet(item: $ui.menuFor) { t in TrackMenu(t: t).presentationDetents([.medium, .large]) }
         .sheet(item: $ui.sheet) { k in sheetView(k).presentationDetents([.large]) }
         .animation(.easeInOut(duration: 0.3), value: ui.drawer)
@@ -75,10 +76,14 @@ struct RootView: View {
         case "search": ui.path = [.search]
         case "surah": ui.path = [.surah(18)]
         case "watch": if let v = d?.recitations.first(where: { $0.isVideo }) { ui.path = [.watch(v.id)] }
-        case "clip": if let k = d?.readableTracks.keys.sorted().first { ui.path = [.clip(k)] }
+        case "clip": if let v = d?.recitations.first(where: { $0.isVideo }) { ui.path = [.clip(v.id)] }
         case "reciter": if let r = d?.reciters.first { ui.path = [.reciter(r.id)] }
         case "player": if let t = firstAudio { player.play(t); ui.playerOpen = true }
         case "drawer": ui.drawer = true
+        case "wird": ui.sheet = .wird
+        case "ambient": ui.sheet = .ambient
+        case "blocked": ui.path = [.blocked]
+        case "adhan": ui.adhan = AdhanKey(key: "fajr")
         default: if let t = Route.tab(r) { ui.go(t) }
         }
     }
@@ -158,6 +163,8 @@ struct RootView: View {
         switch k {
         case .prayer: PrayerSettings()
         case .theme: ThemeSheet()
+        case .wird: WirdSheet()
+        case .ambient: AmbientSheet()
         case .name: NameSheet()
         case .notices: NoticesSheet()
         }
@@ -185,6 +192,8 @@ struct DrawerView: View {
             Item(id: "name", label: "اسمك في التطبيق", icon: "person.text.rectangle", sec: nil) { ui.drawer = false; ui.sheet = .name },
             Item(id: "library", label: "مكتبتي", icon: "books.vertical", sec: nil) { ui.go(.library) },
             Item(id: "prayer", label: "مواقيت الصلاة", icon: "clock.badge.checkmark", sec: "prayer") { ui.go(.prayer) },
+            Item(id: "wird", label: "الورد اليومي", icon: "calendar", sec: "mushaf") { ui.drawer = false; ui.sheet = .wird },
+            Item(id: "ambient", label: "أصوات هادئة للاستماع", icon: "cloud.rain", sec: nil) { ui.drawer = false; ui.sheet = .ambient },
             Item(id: "maker", label: "صانع التصاميم", icon: "paintbrush", sec: "maker") { ui.drawer = false; ui.path.append(.maker(0, 0)) },
             Item(id: "qibla", label: "اتجاه القبلة", icon: "location.north.circle", sec: nil) { ui.drawer = false; ui.path.append(.qibla) },
         ].filter { $0.sec == nil || s?.sec($0.sec!) != false }

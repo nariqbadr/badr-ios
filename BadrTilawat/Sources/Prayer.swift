@@ -117,7 +117,8 @@ final class Prayers: NSObject, ObservableObject, CLLocationManagerDelegate {
     func schedule() {
         let c = UNUserNotificationCenter.current()
         c.removeAllPendingNotificationRequests()
-        guard alertsOn else { return }
+        let wird = Wird.requests()
+        guard alertsOn else { wird.forEach { c.add($0) }; return }
         let pre = preMinutes
         var reqs: [UNNotificationRequest] = []
         let now = Date()
@@ -128,7 +129,8 @@ final class Prayers: NSObject, ObservableObject, CLLocationManagerDelegate {
                 if p.time > now {
                     let n = UNMutableNotificationContent()
                     n.title = p.key == "sunrise" ? "حان وقت الشروق" : "حان الآن موعد صلاة \(p.name)"; n.body = "حيّ على الصلاة"
-                    n.sound = m == "adhan" ? UNNotificationSound(named: UNNotificationSoundName("adhan.caf")) : .default
+                    n.sound = m == "adhan" ? UNNotificationSound(named: UNNotificationSoundName(Adhan.soundName(p.key == "fajr") ?? "adhan.caf")) : .default
+                    if m == "adhan" && p.key != "sunrise" { n.userInfo = ["adhan": p.key] }
                     if #available(iOS 15.0, *) { n.interruptionLevel = .timeSensitive }
                     reqs.append(UNNotificationRequest(identifier: "p-\(p.key)-\(Int(p.time.timeIntervalSince1970))", content: n, trigger: trigger(p.time)))
                 }
@@ -138,7 +140,7 @@ final class Prayers: NSObject, ObservableObject, CLLocationManagerDelegate {
                 }
             }
         }
-        for r in reqs.prefix(60) { c.add(r) }
+        for r in reqs.prefix(60 - wird.count) + wird { c.add(r) }
     }
     private func trigger(_ d: Date) -> UNCalendarNotificationTrigger {
         UNCalendarNotificationTrigger(dateMatching: Calendar.current.dateComponents([.year, .month, .day, .hour, .minute], from: d), repeats: false)

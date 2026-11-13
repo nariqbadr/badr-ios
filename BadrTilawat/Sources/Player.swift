@@ -82,6 +82,7 @@ final class AudioPlayer: ObservableObject {
     func enqueue(_ t: Track) { if current == nil { play(t); return }; queue.append(t) }
     func playAt(_ i: Int) { guard queue.indices.contains(i) else { return }; index = i; load() }
     func remove(at i: Int) { guard queue.indices.contains(i), i != index else { return }; queue.remove(at: i); if i < index { index -= 1 } }
+    func move(_ from: Int, _ to: Int) { guard queue.indices.contains(from), queue.indices.contains(to), from != index, to != index else { return }; let t = queue.remove(at: from); queue.insert(t, at: to) }
     func clearUpcoming() { if index >= 0 { queue = Array(queue.prefix(index + 1)) } }
 
     /// minutes; -1 = at the end of this recitation; 0 = off

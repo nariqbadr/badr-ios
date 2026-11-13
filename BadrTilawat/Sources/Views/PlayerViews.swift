@@ -82,6 +82,8 @@ func speedText(_ s: Float) -> String { s.truncatingRemainder(dividingBy: 1) == 0
 
 /// Full-screen player.
 struct PlayerView: View {
+    @ObservedObject private var amb = Ambient.shared
+    @State private var showAmb = false
     @EnvironmentObject var p: AudioPlayer
     @EnvironmentObject var store: Store
     @EnvironmentObject var ui: UIState
@@ -131,6 +133,7 @@ struct PlayerView: View {
                         Button { showSleep = true } label: { Image(systemName: p.sleepOn ? "moon.zzz.fill" : "moon.zzz") }.foregroundStyle(p.sleepOn ? c.gold : c.muted)
                         Button { store.toggleFav(t.id) } label: { Image(systemName: store.favs.contains(t.id) ? "heart.fill" : "heart") }.foregroundStyle(store.favs.contains(t.id) ? c.danger : c.muted)
                         Button { showQueue = true } label: { Image(systemName: "list.bullet") }
+                        Button { showAmb = true } label: { Image(systemName: "cloud.rain") }.foregroundStyle(amb.current.isEmpty ? c.muted : c.gold).accessibilityLabel("أصوات هادئة")
                         Button { p.skip(-10) } label: { Image(systemName: "gobackward.10") }
                     }.font(.system(size: 20)).foregroundStyle(c.muted).environment(\.layoutDirection, .leftToRight)
                     Spacer(minLength: 0)
@@ -144,6 +147,7 @@ struct PlayerView: View {
             if p.sleepOn { Button("إيقاف المؤقت", role: .destructive) { p.sleep(0) } }
         }
         .sheet(isPresented: $showQueue) { QueueSheet().presentationDetents([.medium, .large]) }
+        .sheet(isPresented: $showAmb) { AmbientSheet().presentationDetents([.medium]) }
     }
 }
 
@@ -178,6 +182,8 @@ struct TrackMenu: View {
     @Environment(\.pal) private var c
     @Environment(\.dismiss) private var dismiss
     @State private var saving = false
+    @State private var addList = false
+    @State private var newList = ""
     var body: some View {
         let r = repo.reciter(t.reciterId)
         let s = repo.data?.site
@@ -191,6 +197,10 @@ struct TrackMenu: View {
                 Divider().overlay(c.lineSoft)
                 item("text.line.first.and.arrowtriangle.forward", "تشغيل بعد الحالية") { p.playNext(t); ui.say("ستُشغَّل بعد التلاوة الحالية") }
                 item("text.append", "إضافة لقائمة الانتظار") { p.enqueue(t); ui.say("أُضيفت إلى قائمة الانتظار") }
+                Button { addList = true } label: {
+                    HStack(spacing: 14) { Image(systemName: "music.note.list").foregroundStyle(c.gold).frame(width: 24); Text("أضف إلى قائمة تشغيل").font(F.plex(15.5)).foregroundStyle(c.text); Spacer() }
+                        .padding(.horizontal, 22).padding(.vertical, 14).contentShape(Rectangle())
+                }.buttonStyle(.plain)
                 item("clock", store.later.contains(t.id) ? "إزالة من «استمع لاحقًا»" : "استمع لاحقًا") { let on = store.toggleLater(t.id); ui.say(on ? "أُضيفت إلى استمع لاحقًا" : "أُزيلت") }
                 if s?.sec("community") != false { item("quote.bubble", "اقتبسها في المجتمع") { ui.path.append(.compose("track:" + t.id)) } }
                 item("square.and.arrow.up", "مشاركة") { share("\(t.title) — \(r?.name ?? "")\n\(Repo.site)track/\(Repo.enc(t.id))") }
@@ -207,6 +217,12 @@ struct TrackMenu: View {
             }
         }
         .background(c.bg2).environment(\.layoutDirection, .rightToLeft)
+        .alert("أضف إلى قائمة تشغيل", isPresented: $addList) {
+            ForEach(store.playlists) { p in Button(p.name) { ui.say(store.addToPlaylist(p.name, t.id) ? "أُضيفت إلى «\(p.name)»" : "موجودة في «\(p.name)»") } }
+            TextField("اسم قائمة جديدة", text: $newList)
+            Button("إنشاء وإضافة") { let n = newList; newList = ""; if store.addToPlaylist(n, t.id) { ui.say("أُضيفت إلى «\(n.trimmingCharacters(in: .whitespaces))»") } }
+            Button("إلغاء", role: .cancel) {}
+        }
     }
     private func item(_ icon: String, _ title: String, _ act: @escaping () -> Void) -> some View {
         Button { dismiss(); act() } label: {

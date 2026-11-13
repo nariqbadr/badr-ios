@@ -15,6 +15,14 @@ final class Store: ObservableObject {
     @Published var history: [String] { didSet { d.set(history, forKey: "history") } }
     @Published var speed: Float { didSet { d.set(speed, forKey: "speed") } }
     @Published var ayahReciter: String { didSet { d.set(ayahReciter, forKey: "ayahReciter") } }
+    /// «قوائمي»: the person's own playlists, in the order they were made
+    @Published var playlists: [Playlist] { didSet { if let x = try? JSONEncoder().encode(playlists) { d.set(x, forKey: "playlists") } } }
+    struct Playlist: Codable, Hashable, Identifiable { var name: String; var ids: [String]; var id: String { name } }
+    func addToPlaylist(_ name: String, _ id: String) -> Bool {
+        let n = String(name.trimmingCharacters(in: .whitespaces).prefix(40)); guard !n.isEmpty else { return false }
+        if let i = playlists.firstIndex(where: { $0.name == n }) { if playlists[i].ids.contains(id) { return false }; playlists[i].ids.append(id) } else { playlists.append(Playlist(name: n, ids: [id])) }
+        return true
+    }
     let visitorId: String
 
     private init() {
@@ -26,6 +34,7 @@ final class Store: ObservableObject {
         history = d.stringArray(forKey: "history") ?? []
         speed = d.object(forKey: "speed") as? Float ?? 1
         ayahReciter = d.string(forKey: "ayahReciter") ?? ""
+        playlists = (d.data(forKey: "playlists")).flatMap { try? JSONDecoder().decode([Playlist].self, from: $0) } ?? []
         if let v = d.string(forKey: "visitor") { visitorId = v } else {
             let v = "ios-" + UUID().uuidString.replacingOccurrences(of: "-", with: "").prefix(20).lowercased()
             d.set(v, forKey: "visitor"); visitorId = v

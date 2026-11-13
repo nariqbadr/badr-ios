@@ -88,26 +88,106 @@ struct LibraryView: View {
     @EnvironmentObject var repo: Repo
     @EnvironmentObject var store: Store
     @EnvironmentObject var player: AudioPlayer
+    @EnvironmentObject var ui: UIState
     @Environment(\.pal) private var c
     @State private var tab = "favs"
+    @State private var openList: String?
+    @State private var newName = ""
+    @State private var askDelete: String?
     var body: some View {
-        let tabs = [("favs", "المفضلة"), ("later", "استمع لاحقًا"), ("recent", "السجل"), ("offline", "بدون إنترنت")]
-        let ids: [String] = tab == "favs" ? store.favs : tab == "later" ? store.later : tab == "recent" ? store.history : OfflineFiles.ids
-        let list = ids.compactMap { repo.track($0) }
+        let s = repo.data?.site
+        let tabs = [("favs", "المفضلة"), ("later", "استمع لاحقًا"), ("recent", "السجل"), ("offline", "بدون إنترنت"), ("queue", "قائمة الانتظار"), ("playlists", "قوائمي")]
+            .filter { k, _ in s?.j["features"][["later": "listenLater", "recent": "recentlyPlayed", "offline": "offline", "playlists": "playlists"][k] ?? "_"].bool(true) ?? true }
         ScrollView {
             LazyVStack(alignment: .leading, spacing: 0) {
-                ScrollView(.horizontal, showsIndicators: false) { HStack(spacing: 8) { ForEach(tabs, id: \.0) { k, l in Pill(title: l, on: tab == k) { tab = k } } }.padding(16) }
-                if list.isEmpty {
-                    Empty(text: tab == "favs" ? "اضغط على القلب بجانب أي تلاوة لتظهر هنا." : tab == "later" ? "أضف تلاوات لتسمعها لاحقًا من «خيارات أخرى»." : tab == "recent" ? "لم تستمع لأي تلاوة بعد." : "احفظ تلاوة من «خيارات أخرى» لتسمعها بدون إنترنت.", icon: "heart")
-                } else {
-                    HStack {
-                        Button { player.play(list[0], in: list) } label: { Label("تشغيل الكل", systemImage: "play.fill").font(F.plex(13, .bold)).foregroundStyle(c.onGold).padding(.horizontal, 14).padding(.vertical, 8).background(Capsule().fill(c.gold)) }
-                        if tab == "recent" { Button("مسح السجل") { store.history = [] }.font(F.plex(13)).foregroundStyle(c.muted) }
-                    }.padding(.horizontal, 16).padding(.bottom, 8)
-                    ForEach(list) { t in TrackRow(t: t, list: list) }
+                ScrollView(.horizontal, showsIndicators: false) { HStack(spacing: 8) { ForEach(tabs, id: \.0) { k, l in Pill(title: l, on: tab == k) { tab = k; openList = nil } } }.padding(16) }
+                switch tab {
+                case "queue": queue
+                case "playlists": lists
+                default: plain
+                }
+            }.padding(.bottom, 20)
+        }
+        .confirmationDialog("حذف القائمة «\(askDelete ?? "")»؟", isPresented: Binding(get: { askDelete != nil }, set: { if !$0 { askDelete = nil } }), titleVisibility: .visible) {
+            Button("حذف", role: .destructive) { store.playlists.removeAll { $0.name == askDelete }; openList = nil; askDelete = nil }
+        }
+    }
+    @ViewBuilder private var plain: some View {
+        let ids: [String] = tab == "favs" ? store.favs : tab == "later" ? store.later : tab == "recent" ? store.history : Array(Set(OfflineFiles.ids + VideoFiles.ids))
+        let list = ids.compactMap { repo.track($0) }
+        if list.isEmpty {
+            Empty(text: tab == "favs" ? "اضغط على القلب بجانب أي تلاوة لتظهر هنا." : tab == "later" ? "أضف تلاوات لتسمعها لاحقًا من «خيارات أخرى»." : tab == "recent" ? "لم تستمع لأي تلاوة بعد." : "احفظ تلاوة من «خيارات أخرى» لتسمعها بدون إنترنت.", icon: tab == "favs" ? "heart" : tab == "later" ? "clock" : tab == "recent" ? "clock.arrow.circlepath" : "arrow.down.circle")
+            GhostButton(title: "تصفّح التلاوات", icon: "headphones") { ui.go(.recitations) }.frame(maxWidth: .infinity)
+        } else {
+            if tab == "offline" { Text(String(format: "المساحة المستخدمة: %.1f ميجابايت", usedMb())).font(F.plex(12)).foregroundStyle(c.muted).padding(.horizontal, 18).padding(.bottom, 6) }
+            HStack {
+                let audio = list.filter { !$0.isVideo }
+                if !audio.isEmpty { playAll(audio) }
+                if tab == "recent" { Button("مسح السجل") { store.history = [] }.font(F.plex(13)).foregroundStyle(c.muted) }
+            }.padding(.horizontal, 16).padding(.bottom, 8)
+            ForEach(list) { t in TrackRow(t: t, list: list) }
+        }
+    }
+    @ViewBuilder private var queue: some View {
+        let up = player.queue.indices.filter { $0 > player.index }
+        if up.isEmpty { Empty(text: "قائمة الانتظار فارغة. أضف تلاوات من «خيارات أخرى».", icon: "text.append") }
+        else {
+            HStack(spacing: 8) {
+                Button { player.playAt(up[0]) } label: { Label("تشغيل التالي", systemImage: "play.fill").font(F.plex(13, .bold)).foregroundStyle(c.onGold).padding(.horizontal, 14).padding(.vertical, 8).background(Capsule().fill(c.gold)) }
+                Button { player.clearUpcoming() } label: { Label("مسح القائمة", systemImage: "trash").font(F.plex(13)).foregroundStyle(c.muted) }
+            }.padding(.horizontal, 16).padding(.bottom, 8)
+            ForEach(up, id: \.self) { i in
+                HStack(spacing: 4) {
+                    TrackRow(t: player.queue[i], list: [player.queue[i]])
+                    Button { player.move(i, max(player.index + 1, i - 1)) } label: { Image(systemName: "arrow.up").foregroundStyle(c.muted).frame(width: 34, height: 40) }.accessibilityLabel("تحريك لأعلى")
+                    Button { player.remove(at: i) } label: { Image(systemName: "xmark").foregroundStyle(c.muted).frame(width: 34, height: 40) }.accessibilityLabel("إزالة").padding(.trailing, 8)
                 }
             }
         }
+    }
+    @ViewBuilder private var lists: some View {
+        if let n = openList, let pl = store.playlists.first(where: { $0.name == n }) {
+            let items = pl.ids.compactMap { repo.track($0) }
+            HStack(spacing: 8) {
+                Pill(title: "كل القوائم", on: false) { openList = nil }
+                if !items.isEmpty { playAll(items.filter { !$0.isVideo }) }
+                Button { askDelete = n } label: { Label("حذف القائمة", systemImage: "trash").font(F.plex(13)).foregroundStyle(c.danger) }
+            }.padding(.horizontal, 16)
+            Text(n).font(F.amiri(24)).foregroundStyle(c.text).padding(.horizontal, 16).padding(.vertical, 8)
+            if items.isEmpty { Empty(text: "القائمة فارغة — أضف إليها من «خيارات أخرى» بجانب أي تلاوة.", icon: "music.note.list") }
+            ForEach(items) { t in
+                HStack(spacing: 4) {
+                    TrackRow(t: t, list: items)
+                    Button { if let i = store.playlists.firstIndex(where: { $0.name == n }) { store.playlists[i].ids.removeAll { $0 == t.id } } } label: { Image(systemName: "xmark").foregroundStyle(c.muted).frame(width: 34, height: 40) }.accessibilityLabel("إزالة من القائمة").padding(.trailing, 8)
+                }
+            }
+        } else {
+            HStack(spacing: 8) {
+                TextField("اسم قائمة جديدة", text: Binding(get: { newName }, set: { newName = String($0.prefix(40)) })).font(F.plex(15)).padding(12).background(RoundedRectangle(cornerRadius: 14).fill(c.surface))
+                GoldButton(title: "إنشاء", icon: "plus") {
+                    let n = newName.trimmingCharacters(in: .whitespaces); guard !n.isEmpty else { return }
+                    if !store.playlists.contains(where: { $0.name == n }) { store.playlists.append(.init(name: n, ids: [])) }; newName = ""
+                }
+            }.padding(.horizontal, 16).padding(.bottom, 8)
+            if store.playlists.isEmpty { Empty(text: "أنشئ قائمة تشغيل خاصة بك، ثم أضف إليها من «خيارات أخرى» بجانب أي تلاوة.", icon: "music.note.list") }
+            ForEach(store.playlists) { p in
+                Button { openList = p.name } label: {
+                    HStack(spacing: 12) {
+                        Image(systemName: "music.note.list").foregroundStyle(c.gold)
+                        VStack(alignment: .leading, spacing: 2) { Text(p.name).font(F.plex(15, .semibold)).foregroundStyle(c.text); Text("\(p.ids.count.ar) تلاوة").font(F.plex(12)).foregroundStyle(c.muted) }
+                        Spacer(); Image(systemName: "chevron.left").foregroundStyle(c.faint)
+                    }.padding(14).background(RoundedRectangle(cornerRadius: 16).fill(c.surface)).overlay(RoundedRectangle(cornerRadius: 16).stroke(c.lineSoft))
+                }.buttonStyle(Press()).padding(.horizontal, 16).padding(.vertical, 4)
+            }
+        }
+    }
+    private func playAll(_ l: [Track]) -> some View {
+        Button { if let f = l.first { player.play(f, in: l) } } label: { Label("تشغيل الكل", systemImage: "play.fill").font(F.plex(13, .bold)).foregroundStyle(c.onGold).padding(.horizontal, 14).padding(.vertical, 8).background(Capsule().fill(c.gold)) }
+    }
+    private func usedMb() -> Double {
+        let fm = FileManager.default
+        let files = ((try? fm.contentsOfDirectory(at: OfflineFiles.dir, includingPropertiesForKeys: nil)) ?? []) + ((try? fm.contentsOfDirectory(at: VideoFiles.dir, includingPropertiesForKeys: nil)) ?? [])
+        return files.reduce(0.0) { $0 + Double(((try? fm.attributesOfItem(atPath: $1.path))?[.size] as? Int) ?? 0) } / 1_048_576
     }
 }
 
