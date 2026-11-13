@@ -6,7 +6,7 @@ import Photos
 // MARK: - data
 
 /// Ayah timings of an analysed recitation: [ayah, startMs, endMs], words per ayah ([share×1000 or startMs, ms]).
-struct AyahTimes { let ayahs: [[Int]]; let words: [[[Int]]]; let surah: Int }
+struct AyahTimes { let ayahs: [[Int]]; let words: [[[Int]]]; let surah: Int; var url: String = "" }
 
 extension Repo {
     func trackTimes(_ id: String) async -> AyahTimes? {
@@ -15,7 +15,7 @@ extension Repo {
         guard j["ok"].bool() else { return nil }
         let ay = j["ayahs"].array.map { $0.array.map { Int($0.double ?? 0) } }.filter { $0.count >= 3 }
         let w = j["words"].array.map { $0.array.map { $0.array.map { Int($0.double ?? 0) } }.filter { $0.count >= 2 } }
-        return ay.isEmpty ? nil : AyahTimes(ayahs: ay, words: w, surah: Int(j["surah"].double ?? 0))
+        return ay.isEmpty ? nil : AyahTimes(ayahs: ay, words: w, surah: Int(j["surah"].double ?? 0), url: j["url"].str)
     }
 }
 

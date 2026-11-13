@@ -125,6 +125,7 @@ struct RootView: View {
         case .watch(let id): WatchView(id: id)
         case .listen: ListenView().navigationTitle("القرآن الكريم كاملًا")
         case .clip(let id): ClipView(trackId: id)
+        case .maker(let s, let a): MakerView(s0: s, a0: a)
         default: screen(r.tabKey ?? "home")
         }
     }
@@ -159,6 +160,7 @@ struct DrawerView: View {
             Item(id: "name", label: "اسمك في التطبيق", icon: "person.text.rectangle", sec: nil) { ui.drawer = false; ui.sheet = .name },
             Item(id: "library", label: "مكتبتي", icon: "books.vertical", sec: nil) { ui.go(.library) },
             Item(id: "prayer", label: "مواقيت الصلاة", icon: "clock.badge.checkmark", sec: "prayer") { ui.go(.prayer) },
+            Item(id: "maker", label: "صانع التصاميم", icon: "paintbrush", sec: "maker") { ui.drawer = false; ui.path.append(.maker(0, 0)) },
             Item(id: "qibla", label: "اتجاه القبلة", icon: "location.north.circle", sec: nil) { ui.drawer = false; ui.path.append(.qibla) },
         ].filter { $0.sec == nil || s?.sec($0.sec!) != false }
         ZStack(alignment: .trailing) {
