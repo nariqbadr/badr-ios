@@ -43,7 +43,7 @@ targets:
         UILaunchScreen:
           UIColorName: ""
         UIBackgroundModes: [audio]
-        UIAppFonts: [amiri_regular.ttf, amiri_bold.ttf, amiri_quran.ttf, plex_regular.ttf, plex_medium.ttf, plex_semibold.ttf, plex_bold.ttf]
+        UIAppFonts: [amiri_regular.ttf, amiri_bold.ttf, amiri_quran.ttf, plex_regular.ttf, plex_medium.ttf, plex_semibold.ttf, plex_bold.ttf, kfgqpc_hafs.ttf, scheherazade_new.ttf, aref_ruqaa_bold.ttf, reem_kufi.ttf, tajawal_bold.ttf, lateef_regular.ttf]
         UISupportedInterfaceOrientations: [UIInterfaceOrientationPortrait, UIInterfaceOrientationLandscapeLeft, UIInterfaceOrientationLandscapeRight]
         UIStatusBarStyle: UIStatusBarStyleLightContent
         UIViewControllerBasedStatusBarAppearance: true
