@@ -112,6 +112,7 @@ struct RootView: View {
         case .maker: return "صانع التصاميم"
         case .blocked: return "الحظر والكتم"
         case .readIndex, .read: return "اقرأ واستمع واحفظ"
+        case .cm(let a): return a == "notifications" ? "الإشعارات" : a.hasPrefix("search") ? "استكشف" : "المجتمع"
         default: return ["recitations": "التلاوات", "quran": "القرآن الكريم", "adhkar": "الأذكار", "library": "مكتبتي", "prayer": "مواقيت الصلاة", "live": "البث المباشر", "fiqh": "دروس الفقه", "about": "عن الشيخ", "timeline": "الخط الزمني", "community": "المجتمع", "home": "الرئيسية"][r.tabKey ?? ""] ?? ""
         }
     }
@@ -172,6 +173,7 @@ struct RootView: View {
         case .clip(let id): ClipView(trackId: id)
         case .maker(let s, let a): MakerView(s0: s, a0: a)
         case .blocked: BlockedView()
+        case .cm(let a): CommunityView(arg: a)
         case .readIndex: ReadIndexView()
         case .read(let a, let b): ReadView(a: a, b: b).id(a + "/" + b)
         default: screen(r.tabKey ?? "home")

@@ -8,6 +8,7 @@ struct Member: Identifiable, Hashable {
     let limitedUntil: Int, limitNote: String, canLimit: Bool
     /// my relation with this account: I blocked / muted it, or it blocked me
     let blocked: Bool, muted: Bool, blockedMe: Bool
+    let website: String, created: Int, canFeedPin: Bool, feedPin: Int
     var limitedNow: Bool { Double(limitedUntil) > Date().timeIntervalSince1970 }
     init(_ j: J) {
         id = j["id"].int; handle = j["handle"].str; name = j["name"].str.isEmpty ? j["handle"].str : j["name"].str; avatar = j["avatar"].str
@@ -17,6 +18,7 @@ struct Member: Identifiable, Hashable {
         followers = j["followers"].int; following = j["following"].int; posts = j["posts"].int; iFollow = j["iFollow"].bool(); followsMe = j["followsMe"].bool(); email = j["email"].str
         limitedUntil = j["limitedUntil"].int; limitNote = j["limitNote"].str; canLimit = j["canLimit"].bool()
         blocked = j["rel"]["block"].bool(); muted = j["rel"]["mute"].bool(); blockedMe = j["rel"]["blockedMe"].bool()
+        website = j["website"].str; created = j["created"].int; canFeedPin = j["canFeedPin"].bool(); feedPin = j["feedPin"].int
     }
 }
 struct CMedia: Hashable { let type: String, url: String, path: String, w: Int, h: Int
@@ -26,15 +28,21 @@ struct CMedia: Hashable { let type: String, url: String, path: String, w: Int, h
 }
 final class Post: Identifiable, Hashable {
     let id: Int, author: Member?, text: String, media: [CMedia], embed: String, created: Date
-    var likes: Int, reposts: Int, replies: Int, liked: Bool, reposted: Bool
-    let quote: Post?, replyToHandle: String, mine: Bool
+    var likes: Int, reposts: Int, replies: Int, liked: Bool, reposted: Bool, gone: Bool
+    let quote: Post?, replyToHandle: String, replyToId: Int, mine: Bool
+    let quotes: Int, pinned: Bool, feedPinned: Bool, views: Int, replyRule: String, canReply: Bool, restricted: Bool
     init(_ j: J) {
         id = j["id"].int; author = j["author"].isNull ? nil : Member(j["author"]); text = j["text"].str; media = j["media"].array.map(CMedia.init); embed = j["embed"].str
         created = Date(timeIntervalSince1970: Double(j["created"].int)); likes = j["likes"].int; reposts = j["reposts"].int; replies = j["replies"].int
-        liked = j["liked"].bool(); reposted = j["reposted"].bool(); quote = j["quote"].isNull ? nil : Post(j["quote"]); replyToHandle = j["replyTo"]["handle"].str; mine = j["mine"].bool()
+        liked = j["liked"].bool(); reposted = j["reposted"].bool(); quote = j["quote"].isNull ? nil : Post(j["quote"]); replyToHandle = j["replyTo"]["handle"].str; replyToId = j["replyTo"]["id"].int; mine = j["mine"].bool()
+        gone = j["gone"].bool(); quotes = j["quotes"].int; pinned = j["pinned"].bool(); feedPinned = j["feedPinned"].bool(); views = j["views"].int
+        replyRule = j["replyRule"].str.isEmpty ? "all" : j["replyRule"].str; canReply = j["canReply"].bool(true); restricted = j["restricted"].bool()
     }
     static func == (a: Post, b: Post) -> Bool { a.id == b.id && a.likes == b.likes && a.liked == b.liked && a.reposts == b.reposts }
     func hash(into h: inout Hasher) { h.combine(id) }
+}
+struct Notif: Identifiable { let id: Int, type: String, actor: Member, post: Post?, seen: Bool, created: Date
+    init(_ j: J) { id = j["id"].int; type = j["type"].str; actor = Member(j["actor"]); post = j["post"].isNull ? nil : Post(j["post"]); seen = j["seen"].bool(); created = Date(timeIntervalSince1970: Double(j["created"].int)) }
 }
 struct FeedItem: Identifiable { let key: Int; let post: Post; let repostBy: Member?; var id: Int { key == 0 ? post.id : key } }
 
@@ -122,20 +130,25 @@ final class Community: ObservableObject {
     func deleteAccount(_ password: String) async throws { _ = try await api("c_delete_account", form: ["password": password], retry: false); clear() }
     private func clear() { HTTPCookieStorage.shared.cookies?.filter { $0.name.hasPrefix("bzc") }.forEach { HTTPCookieStorage.shared.deleteCookie($0) }; csrf = ""; me = nil; unread = 0 }
 
-    struct Page { let items: [FeedItem]; let next: Int; let user: Member?; var blocked = false }
+    struct Page { let items: [FeedItem]; let next: Int; let user: Member?; var blocked = false; var pinned: Post? = nil; var people: [Member] = [] }
     private func page(_ j: J) -> Page {
-        Page(items: j["items"].array.map { FeedItem(key: $0["key"].int, post: Post($0["post"]), repostBy: $0["repostBy"].isNull ? nil : Member($0["repostBy"])) }, next: j["next"].int, user: j["user"].isNull ? nil : Member(j["user"]), blocked: j["blocked"].bool())
+        Page(items: j["items"].array.map { FeedItem(key: $0["key"].int, post: Post($0["post"]), repostBy: $0["repostBy"].isNull ? nil : Member($0["repostBy"])) }, next: j["next"].int, user: j["user"].isNull ? nil : Member(j["user"]), blocked: j["blocked"].bool(), pinned: j["pinned"].isNull ? nil : Post(j["pinned"]), people: j["people"].array.map(Member.init))
     }
     func feed(_ tab: String, before: Int) async throws -> Page { page(try await api("c_feed", query: ["tab": tab, "before": "\(before)"])) }
-    func user(_ handle: String, before: Int) async throws -> Page { page(try await api("c_user", query: ["handle": handle, "tab": "posts", "before": "\(before)"])) }
+    func user(_ handle: String, tab: String = "posts", before: Int) async throws -> Page { page(try await api("c_user", query: ["handle": handle, "tab": tab, "before": "\(before)"])) }
+    func search(_ q: String, before: Int) async throws -> Page { page(try await api("c_search", query: ["q": q, "before": "\(before)"])) }
+    func notifs() async throws -> [Notif] { let l = try await api("c_notifs", query: ["mark": "1"])["items"].array.map(Notif.init); unread = 0; return l }
+    func suggest() async throws -> (people: [Member], tags: [(String, Int)]) { let j = try await api("c_suggest"); return (j["people"].array.map(Member.init), j["tags"].array.map { ($0["tag"].str, $0["n"].int) }) }
+    func pin(_ p: Post, _ on: Bool) async throws { _ = try await api("c_pin", form: ["id": "\(p.id)", "on": on ? "1" : "0"]) }
+    func feedPin(_ p: Post, _ on: Bool) async throws { _ = try await api("c_feed_pin", form: ["id": "\(p.id)", "on": on ? "1" : "0"]); await loadMe() }
     /// One page (30) of followers / following / verified followers, optionally filtered by name or handle.
     func people(_ handle: String, list: String, off: Int, q: String) async throws -> (people: [Member], next: Int, user: Member?) {
         let j = try await api("c_people", query: ["handle": handle, "list": list, "off": "\(off)", "q": q])
         return (j["people"].array.map(Member.init), j["next"].int, j["user"].isNull ? nil : Member(j["user"]))
     }
-    func thread(_ id: Int) async throws -> (Post, [Post]) {
+    func thread(_ id: Int) async throws -> (Post, [Post], [Post]) {
         let j = try await api("c_thread", query: ["id": "\(id)", "view": "1"])
-        return (Post(j["post"]), j["replies"].array.map(Post.init))
+        return (Post(j["post"]), j["replies"].array.map(Post.init), j["ancestors"].array.map(Post.init))
     }
     /// like / repost / follow return an error message to show (e.g. «حسابك مقيّد…»), or nil
     @discardableResult func like(_ p: Post) async -> String? { let on = !p.liked; p.liked = on; p.likes += on ? 1 : -1; objectWillChange.send()
@@ -149,7 +162,7 @@ final class Community: ObservableObject {
     /// admin limit: hours = 0 lifts it; returns the new end time
     func limit(_ handle: String, hours: Double, note: String) async throws -> Int {
         try await api("c_limit", form: ["handle": handle, "hours": "\(hours)", "note": note])["limitedUntil"].int }
-    func delete(_ p: Post) async throws { _ = try await api("c_delete", form: ["id": "\(p.id)"]) }
+    func delete(_ p: Post) async throws { _ = try await api("c_delete", form: ["id": "\(p.id)"]); p.gone = true; relRev += 1 }
     func report(_ p: Post, _ reason: String) async throws { _ = try await api("c_report", form: ["id": "\(p.id)", "reason": reason]) }
     /// block / mute (on = false undoes it); bumps relRev so open lists reload without that account
     func rel(_ handle: String, _ kind: String, _ on: Bool) async throws { _ = try await api("c_rel", form: ["handle": handle, "kind": kind, "on": on ? "1" : "0"]); relRev += 1 }
