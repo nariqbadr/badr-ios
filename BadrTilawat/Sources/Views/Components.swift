@@ -65,14 +65,14 @@ func star8(_ c: CGPoint, _ r: CGFloat) -> Path {
     var p = Path()
     for k in 0..<2 {
         let a0 = Double.pi / 4 * Double(k)
-        for i in 0...4 { let a = a0 + .pi / 2 * Double(i) + .pi / 4; let q = CGPoint(x: c.x + r * cos(a), y: c.y + r * sin(a)); if i == 0 { p.move(to: q) } else { p.addLine(to: q) } }
+        for i in 0...4 { let a = a0 + .pi / 2 * Double(i) + .pi / 4; let q = CGPoint(x: c.x + r * CGFloat(cos(a)), y: c.y + r * CGFloat(sin(a))); if i == 0 { p.move(to: q) } else { p.addLine(to: q) } }
         p.closeSubpath()
     }
     return p
 }
 func sparkle(_ c: CGPoint, _ r: CGFloat, _ inner: CGFloat = 0.3) -> Path {
     var p = Path()
-    for i in 0..<8 { let a = Double.pi / 4 * Double(i) - .pi / 2; let rr = i % 2 == 0 ? r : r * inner; let q = CGPoint(x: c.x + rr * cos(a), y: c.y + rr * sin(a)); if i == 0 { p.move(to: q) } else { p.addLine(to: q) } }
+    for i in 0..<8 { let a = Double.pi / 4 * Double(i) - .pi / 2; let rr = i % 2 == 0 ? r : r * inner; let q = CGPoint(x: c.x + rr * CGFloat(cos(a)), y: c.y + rr * CGFloat(sin(a))); if i == 0 { p.move(to: q) } else { p.addLine(to: q) } }
     p.closeSubpath(); return p
 }
 extension Palette {
