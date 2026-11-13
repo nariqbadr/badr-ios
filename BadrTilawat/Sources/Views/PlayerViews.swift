@@ -215,7 +215,7 @@ struct QueueSheet: View {
     }
 }
 
-/// «خيارات أخرى» for a recitation (same options as the site).
+/// «خيارات أخرى» for a recitation — the same options as the site and the Android app.
 struct TrackMenu: View {
     let t: Track
     @EnvironmentObject var p: AudioPlayer
@@ -224,53 +224,52 @@ struct TrackMenu: View {
     @EnvironmentObject var repo: Repo
     @Environment(\.pal) private var c
     @Environment(\.dismiss) private var dismiss
-    @State private var saving = false
     @State private var addList = false
     @State private var newList = ""
     var body: some View {
-        let r = repo.reciter(t.reciterId)
-        let s = repo.data?.site
+        let r = repo.reciter(t.reciterId), s = repo.data?.site
+        let feat = { (k: String) in s?.j["features"][k].bool(true) ?? true }
         ScrollView {
             VStack(alignment: .leading, spacing: 0) {
                 HStack(spacing: 12) {
-                    RemoteImage(raw: repo.image(for: t)).frame(width: 58, height: 58).clipShape(RoundedRectangle(cornerRadius: 14))
-                    VStack(alignment: .leading) { Text(t.title).font(F.plex(16, .semibold)).lineLimit(2); Text(r?.name ?? "").font(F.plex(13)).foregroundStyle(c.gold) }
-                }.padding(20)
-                if !t.description.isEmpty { Text(t.description).font(F.plex(13)).foregroundStyle(c.muted).padding(.horizontal, 20).padding(.bottom, 8) }
-                Divider().overlay(c.lineSoft)
-                item("text.line.first.and.arrowtriangle.forward", "تشغيل بعد الحالية") { p.playNext(t); ui.say("ستُشغَّل بعد التلاوة الحالية") }
-                item("text.append", "إضافة لقائمة الانتظار") { p.enqueue(t); ui.say("أُضيفت إلى قائمة الانتظار") }
-                Button { addList = true } label: {
-                    HStack(spacing: 14) { Image(systemName: "music.note.list").foregroundStyle(c.gold).frame(width: 24); Text("أضف إلى قائمة تشغيل").font(F.plex(15.5)).foregroundStyle(c.text); Spacer() }
-                        .padding(.horizontal, 22).padding(.vertical, 14).contentShape(Rectangle())
-                }.buttonStyle(.plain)
-                item("clock", store.later.contains(t.id) ? "إزالة من «استمع لاحقًا»" : "استمع لاحقًا") { let on = store.toggleLater(t.id); ui.say(on ? "أُضيفت إلى استمع لاحقًا" : "أُزيلت") }
-                if s?.sec("community") != false { item("quote.bubble", "اقتبسها في المجتمع") { ui.path.append(.compose("track:" + t.id)) } }
-                item("square.and.arrow.up", "مشاركة") { share("\(t.title) — \(r?.name ?? "")\n\(Repo.site)track/\(Repo.enc(t.id))") }
-                if s?.allowDownloads != false && t.downloadable {
+                    RemoteImage(raw: t.cover.isEmpty ? r?.image : t.cover).frame(width: 58, height: 58).clipShape(RoundedRectangle(cornerRadius: 14))
+                    VStack(alignment: .leading, spacing: 1) { Text(t.title).font(F.plex(16, .semibold)).foregroundStyle(c.text).lineLimit(2); Text(r?.name ?? "").font(F.plex(12.5)).foregroundStyle(c.gold) }
+                    Spacer()
+                }.padding(.horizontal, 22).padding(.top, 22).padding(.bottom, 6)
+                if !t.description.isEmpty { Text(t.description).font(F.plex(12.5)).foregroundStyle(c.muted).padding(.horizontal, 22).padding(.vertical, 4) }
+                Rectangle().fill(c.lineSoft).frame(height: 1).padding(.vertical, 6)
+                let fav = store.favs.contains(t.id)
+                MenuRow(icon: fav ? "heart-f" : "heart", title: fav ? "إزالة من المفضلة" : "إضافة للمفضلة") { store.toggleFav(t.id); ui.say(fav ? "أُزيلت من المفضلة" : "أُضيفت إلى المفضلة"); dismiss() }
+                if t.isVideo { MenuRow(icon: "film", title: "مشاهدة الفيديو") { dismiss(); ui.path.append(.watch(t.id)) } }
+                else {
+                    MenuRow(icon: "next", title: "تشغيل بعد الحالية") { p.playNext(t); ui.say("ستُشغَّل بعد التلاوة الحالية"); dismiss() }
+                    MenuRow(icon: "queue", title: "إضافة لقائمة الانتظار") { p.enqueue(t); ui.say("أُضيفت إلى قائمة الانتظار"); dismiss() }
+                }
+                if feat("playlists") { MenuRow(icon: "playlist", title: "إضافة لقائمة تشغيل") { addList = true } }
+                if feat("listenLater") { MenuRow(icon: "clock", title: store.later.contains(t.id) ? "إزالة من «استمع لاحقًا»" : "استمع لاحقًا") { let on = store.toggleLater(t.id); ui.say(on ? "أُضيفت إلى استمع لاحقًا" : "أُزيلت من استمع لاحقًا"); dismiss() } }
+                if s?.sec("community") != false { MenuRow(icon: "quote", title: "اقتبسها في المجتمع", sub: "انشر التلاوة في منشور مع تعليقك") { dismiss(); ui.path.append(.compose("track:" + t.id)) } }
+                if feat("shareLinks") { MenuRow(icon: "share", title: "مشاركة") { dismiss(); share("\(t.title) — \(r?.name ?? "")\n\(Repo.site)track/\(Repo.enc(t.id))") } }
+                if t.isVideo && t.downloadable { MenuRow(icon: "download", title: "تحميل الفيديو", sub: "اختر الجودة واحفظه للمشاهدة دون إنترنت") { dismiss(); ui.path.append(.watch(t.id)) } }
+                if feat("offline") && s?.allowDownloads != false && t.downloadable && !t.isVideo {
                     let have = OfflineFiles.local(t.id) != nil
-                    item(have ? "trash" : "arrow.down.circle", have ? "حذف من «بدون إنترنت»" : (saving ? "جارٍ الحفظ…" : "حفظ للاستماع بدون إنترنت")) {
-                        if have { OfflineFiles.delete(t.id); ui.say("حُذفت") } else {
-                            ui.say("جارٍ حفظ التلاوة على الجهاز…")
-                            Task { let ok = await OfflineFiles.save(t); await MainActor.run { ui.say(ok ? "حُفظت — يمكنك سماعها بدون إنترنت" : "تعذّر الحفظ") } }
-                        }
+                    MenuRow(icon: "offline", title: have ? "حذف من «بدون إنترنت»" : "حفظ للاستماع بدون إنترنت") {
+                        if have { OfflineFiles.delete(t.id); ui.say("حُذفت من «بدون إنترنت»") }
+                        else { ui.say("جارٍ حفظ التلاوة على الجهاز…"); Task { let ok = await OfflineFiles.save(t); ui.say(ok ? "حُفظت — يمكنك سماعها بدون إنترنت" : "تعذّر حفظ الملف على الجهاز") } }
+                        dismiss()
                     }
                 }
-                if let r { item("mic", "صفحة \(r.name)") { ui.path.append(.reciter(r.id)) } }
-            }
+                if let r { MenuRow(icon: "mic", title: "صفحة \(r.name)") { dismiss(); ui.path.append(.reciter(r.id)) } }
+            }.padding(.bottom, 16)
         }
-        .background(c.bg2).environment(\.layoutDirection, .rightToLeft)
-        .alert("أضف إلى قائمة تشغيل", isPresented: $addList) {
-            ForEach(store.playlists) { p in Button(p.name) { ui.say(store.addToPlaylist(p.name, t.id) ? "أُضيفت إلى «\(p.name)»" : "موجودة في «\(p.name)»") } }
-            TextField("اسم قائمة جديدة", text: $newList)
-            Button("إنشاء وإضافة") { let n = newList; newList = ""; if store.addToPlaylist(n, t.id) { ui.say("أُضيفت إلى «\(n.trimmingCharacters(in: .whitespaces))»") } }
-            Button("إلغاء", role: .cancel) {}
+        .background(c.bg2.ignoresSafeArea()).environment(\.layoutDirection, .rightToLeft)
+        .sheet(isPresented: $addList) {
+            MenuSheet(title: "إضافة إلى قائمة تشغيل") {
+                ForEach(store.playlists) { pl in MenuRow(icon: "queue", title: pl.name, sub: "\(pl.ids.count.ar) تلاوة") { _ = store.addToPlaylist(pl.name, t.id); ui.say("أُضيفت إلى «\(pl.name)»"); addList = false; dismiss() } }
+                HStack(spacing: 10) {
+                    TextField("اسم قائمة جديدة", text: Binding(get: { newList }, set: { newList = String($0.prefix(40)) })).font(F.plex(15)).padding(12).background(RoundedRectangle(cornerRadius: 16).fill(c.surface.opacity(0.45))).overlay(RoundedRectangle(cornerRadius: 16).stroke(c.line))
+                    GoldButton(title: "إنشاء وإضافة") { let n = newList.trimmingCharacters(in: .whitespaces); guard !n.isEmpty else { return }; _ = store.addToPlaylist(n, t.id); ui.say("أُضيفت إلى «\(n)»"); addList = false; dismiss() }
+                }.padding(.horizontal, 18).padding(.vertical, 10)
+            }.presentationDetents([.medium, .large])
         }
-    }
-    private func item(_ icon: String, _ title: String, _ act: @escaping () -> Void) -> some View {
-        Button { dismiss(); act() } label: {
-            HStack(spacing: 14) { Image(systemName: icon).foregroundStyle(c.gold).frame(width: 24); Text(title).font(F.plex(15.5)).foregroundStyle(c.text); Spacer() }
-                .padding(.horizontal, 22).padding(.vertical, 14).contentShape(Rectangle())
-        }.buttonStyle(.plain)
     }
 }

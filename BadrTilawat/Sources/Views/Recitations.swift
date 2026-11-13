@@ -276,25 +276,67 @@ struct LibraryView: View {
     }
 }
 
+/// One search for everything: reciters, recitations, fiqh lessons and surahs (like the Android app).
 struct SearchView: View {
     @EnvironmentObject var repo: Repo
     @EnvironmentObject var ui: UIState
     @Environment(\.pal) private var c
     @State private var q = ""
+    @FocusState private var focus: Bool
     var body: some View {
-        let s = q.trimmingCharacters(in: .whitespaces)
-        let tracks = s.count < 2 ? [] : (repo.data?.sortedTracks ?? []).filter { "\($0.title) \($0.surah) \(repo.reciter($0.reciterId)?.name ?? "")".contains(s) }
-        let surahs = s.isEmpty ? [] : Quran.surahs.enumerated().filter { $0.element.contains(s) || "\($0.offset + 1)" == s }
-        ScrollView {
-            LazyVStack(alignment: .leading, spacing: 0) {
-                TextField("ابحث في التلاوات والسور…", text: $q).font(F.plex(16)).padding(14).background(RoundedRectangle(cornerRadius: 16).fill(c.surface)).padding(16)
-                if !surahs.isEmpty { SectionHead(title: "السور")
-                    ForEach(surahs, id: \.offset) { i, n in Button { ui.path.append(.surah(i + 1)) } label: { HStack { Text("سورة \(n)").font(F.plex(15)); Spacer(); Text((i + 1).ar).foregroundStyle(c.gold) }.padding(.horizontal, 20).padding(.vertical, 10) }.buttonStyle(.plain) } }
-                if !tracks.isEmpty { SectionHead(title: "التلاوات"); ForEach(tracks) { TrackRow(t: $0, list: tracks) } }
-                if s.count >= 2 && tracks.isEmpty && surahs.isEmpty { Empty(text: "لا توجد نتائج.", icon: "magnifyingglass") }
+        let n = QuranMeta.norm(q.trimmingCharacters(in: .whitespaces))
+        let d = repo.data
+        let rs = n.isEmpty ? [] : Array((d?.reciters ?? []).filter { QuranMeta.norm($0.name).contains(n) }.prefix(5))
+        let ts = n.isEmpty ? [] : Array((d?.recitations ?? []).filter { QuranMeta.norm("\($0.title) \($0.surah) \(repo.reciter($0.reciterId)?.name ?? "") \($0.tags.joined(separator: " ")) \($0.location)").contains(n) }.prefix(15))
+        let fs = n.isEmpty ? [] : Array((d?.fiqh ?? []).filter { QuranMeta.norm($0.title).contains(n) }.prefix(5))
+        let sn = n.replacingOccurrences(of: "^سوره", with: "", options: .regularExpression).trimmingCharacters(in: .whitespaces)
+        let ss = n.isEmpty ? [] : Array(Quran.surahs.indices.filter { QuranMeta.norm(Quran.surahs[$0]).contains(sn) || "\($0 + 1)" == n }.prefix(4))
+        VStack(spacing: 0) {
+            SearchField(text: $q, hint: "ابحث باسم السورة أو القارئ أو عنوان الدرس").focused($focus).padding(16)
+            ScrollView {
+                LazyVStack(alignment: .leading, spacing: 0) {
+                    if n.isEmpty { Empty(text: "ابحث باسم السورة أو القارئ أو عنوان الدرس.", icon: "search") }
+                    else if rs.isEmpty && ts.isEmpty && fs.isEmpty && ss.isEmpty { Empty(text: "لا نتائج لـ «\(q.trimmingCharacters(in: .whitespaces))».", icon: "search") }
+                    if !rs.isEmpty {
+                        SectionHead(title: "القرّاء")
+                        ForEach(rs) { r in
+                            Button { ui.path.append(.reciter(r.id)) } label: {
+                                HStack(spacing: 12) {
+                                    RemoteImage(raw: r.image).frame(width: 52, height: 52).clipShape(Circle())
+                                    VStack(alignment: .leading, spacing: 1) { Text(r.name).font(F.plex(14, .semibold)).foregroundStyle(c.text); Text("\((d?.recitations.filter { $0.reciterId == r.id }.count ?? 0).ar) تلاوة").font(F.plex(12.5)).foregroundStyle(c.muted) }
+                                    Spacer()
+                                }.padding(.horizontal, 18).padding(.vertical, 8).contentShape(Rectangle())
+                            }.buttonStyle(.plain)
+                        }
+                    }
+                    if !ss.isEmpty && d?.site.sec("mushaf") != false {
+                        SectionHead(title: "القرآن الكريم")
+                        ForEach(ss, id: \.self) { i in
+                            HStack(spacing: 12) {
+                                SurahMedal(n: i + 1, size: 46)
+                                VStack(alignment: .leading, spacing: 1) { Text("سورة \(Quran.surahs[i])").font(F.plex(14, .semibold)).foregroundStyle(c.text); Text("\(Quran.ayahs[i].ar) آية — صفحة \(Quran.surahPage[i].ar)").font(F.plex(12.5)).foregroundStyle(c.muted) }
+                                Spacer()
+                                Chip(text: "المصحف", icon: "book") { UserDefaults.standard.set(Quran.surahPage[i], forKey: "mushafPage"); ui.path.append(.mushaf) }
+                            }.padding(.horizontal, 18).padding(.vertical, 8).contentShape(Rectangle()).onTapGesture { ui.path.append(.surah(i + 1)) }
+                        }
+                    }
+                    if !ts.isEmpty { SectionHead(title: "التلاوات"); ForEach(ts) { TrackRow(t: $0, list: ts) } }
+                    if !fs.isEmpty {
+                        SectionHead(title: "دروس الفقه")
+                        ForEach(fs) { f in
+                            Button { ui.go(.fiqh) } label: {
+                                HStack(spacing: 12) {
+                                    RemoteImage(raw: ytId(f.video).map { "https://i.ytimg.com/vi/\($0)/default.jpg" }).frame(width: 72, height: 52).clipShape(RoundedRectangle(cornerRadius: 14))
+                                    VStack(alignment: .leading, spacing: 1) { Text(f.title).font(F.plex(14, .semibold)).foregroundStyle(c.text).lineLimit(2); Text(f.teacher).font(F.plex(12.5)).foregroundStyle(c.muted) }
+                                    Spacer()
+                                }.padding(.horizontal, 18).padding(.vertical, 8)
+                            }.buttonStyle(.plain)
+                        }
+                    }
+                }.padding(.bottom, 24)
             }
         }
-        .background(Backdrop()).navigationTitle("البحث").navigationBarTitleDisplayMode(.inline)
-        .onChange(of: q) { v in if v.count >= 2 { Repo.shared.event("search", ["q": v]) } }
+        .onAppear { DispatchQueue.main.asyncAfter(deadline: .now() + 0.25) { focus = true } }
+        .task(id: q) { if q.trimmingCharacters(in: .whitespaces).count >= 2 { try? await Task.sleep(nanoseconds: 1_200_000_000); if !Task.isCancelled { Repo.shared.event("search", ["q": q.trimmingCharacters(in: .whitespaces)]) } } }
     }
 }
