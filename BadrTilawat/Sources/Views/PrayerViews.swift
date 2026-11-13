@@ -95,39 +95,104 @@ struct AdhkarView: View {
     }
 }
 
+/// Prayer times page (like the Android app): the next prayer with a countdown ring, today's times with each alert, settings, the qibla.
 struct PrayerView: View {
     @EnvironmentObject var prayers: Prayers
     @EnvironmentObject var ui: UIState
     @Environment(\.pal) private var c
+    @State private var modes: [String: String] = [:]
     var body: some View {
         ScrollView {
-            VStack(spacing: 16) {
-                Button { ui.sheet = .prayer } label: { Label(prayers.place.isEmpty ? "حدّد مدينتك" : prayers.place, systemImage: "mappin.and.ellipse").font(F.plex(15, .semibold)).foregroundStyle(c.text) }.padding(.top, 16)
-                Text(Prayers.hijri()).font(F.plex(13)).foregroundStyle(c.muted)
+            VStack(spacing: 14) {
                 TimelineView(.periodic(from: .now, by: 1)) { ctx in
+                    let list = prayers.forDay(), now = ctx.date
                     if let n = prayers.next() {
-                        let left = max(0, Int(n.time.timeIntervalSince(ctx.date)))
-                        ZStack {
-                            Circle().stroke(c.lineSoft, lineWidth: 6)
-                            Circle().trim(from: 0, to: 1 - min(1, Double(left) / 21600)).stroke(c.goldGradient, style: StrokeStyle(lineWidth: 6, lineCap: .round)).rotationEffect(.degrees(-90))
-                            VStack(spacing: 4) {
-                                Text("الصلاة القادمة").font(F.plex(13)).foregroundStyle(c.muted)
-                                Text(n.name).font(F.amiri(36)).foregroundStyle(c.gold)
-                                Text(String(format: "%02d:%02d:%02d", left / 3600, left % 3600 / 60, left % 60)).font(.system(size: 30, weight: .bold, design: .rounded)).monospacedDigit().foregroundStyle(c.text)
-                                Text(Fmt.time(n.time)).font(F.plex(13)).foregroundStyle(c.muted)
+                        let prev = list.last { $0.key != "sunrise" && $0.time <= now }
+                        let left = max(0, Int(n.time.timeIntervalSince(now)))
+                        let span = max(1, n.time.timeIntervalSince(prev?.time ?? n.time.addingTimeInterval(-6 * 3600)))
+                        let frac = 1 - min(1, max(0, Double(left) / span))
+                        Panel(pad: 22) {
+                            VStack(spacing: 0) {
+                                Button { ui.sheet = .prayer } label: {
+                                    HStack(spacing: 4) { SiteIcon(name: "pin", size: 18, color: c.gold); Text(prayers.place.isEmpty ? "حدّد مدينتك" : prayers.place).font(F.plex(14, .semibold)).foregroundStyle(c.text); SiteIcon(name: "chev-d", size: 20, color: c.muted) }.padding(6)
+                                }.buttonStyle(.plain)
+                                Text(Prayers.hijri()).font(F.plex(12.5)).foregroundStyle(c.muted)
+                                ZStack {
+                                    Rosette(color: c.gold.opacity(0.14))
+                                    Circle().stroke(c.lineSoft, lineWidth: 6).padding(18)
+                                    Circle().trim(from: 0, to: frac).stroke(c.goldBrush, style: StrokeStyle(lineWidth: 6, lineCap: .round)).rotationEffect(.degrees(-90)).padding(18)
+                                    VStack(spacing: 0) {
+                                        Text("الصلاة القادمة").font(F.plex(12.5, .medium)).foregroundStyle(c.muted)
+                                        Text(n.name).font(F.amiri(34)).foregroundStyle(c.goldBrushV)
+                                        Text(String(format: "%02d:%02d:%02d", left / 3600, left % 3600 / 60, left % 60)).font(F.plex(24, .bold)).foregroundStyle(c.text).monospacedDigit().environment(\.layoutDirection, .leftToRight)
+                                        Text(Fmt.time(n.time)).font(F.plex(12.5)).foregroundStyle(c.muted)
+                                    }
+                                }.frame(width: 210, height: 210).padding(.top, 14)
+                            }.frame(maxWidth: .infinity)
+                        }
+                        Panel(pad: 8, lattice: false) {
+                            ForEach(list) { p in
+                                let on = p.key == n.key && p.time == n.time, past = p.time < now && !on
+                                HStack(spacing: 12) {
+                                    Ico(name: p.key == "sunrise" ? "sunrise" : ["fajr", "maghrib", "isha"].contains(p.key) ? "moon" : "sun", size: 24, color: on ? c.onGold : past ? c.faint : c.gold)
+                                    VStack(alignment: .leading, spacing: 0) {
+                                        Text(p.key == "dhuhr" && Calendar.current.component(.weekday, from: p.time) == 6 ? "الجمعة" : p.name).font(F.plex(16, .semibold)).foregroundStyle(on ? c.onGold : past ? c.faint : c.text)
+                                        if p.key == "sunrise" { Text("لا يُرفع له أذان").font(F.plex(11)).foregroundStyle(on ? c.onGold.opacity(0.8) : c.muted) }
+                                    }
+                                    Spacer()
+                                    Text(Fmt.time(p.time)).font(F.plex(16, .semibold)).foregroundStyle(on ? c.onGold : past ? c.faint : c.text)
+                                    if prayers.alertsOn {
+                                        if p.key == "sunrise" { Color.clear.frame(width: 34, height: 34) }
+                                        else {
+                                            let m = modes[p.key] ?? prayers.mode(p.key)
+                                            Button {
+                                                let nx = m == "adhan" ? "notify" : m == "notify" ? "off" : "adhan"
+                                                prayers.setMode(p.key, nx); modes[p.key] = nx
+                                                ui.say(nx == "adhan" ? "سيُرفع الأذان لصلاة \(p.name)" : nx == "notify" ? "إشعار فقط لصلاة \(p.name)" : "بدون تنبيه لصلاة \(p.name)")
+                                            } label: {
+                                                SiteIcon(name: m == "adhan" ? "volume" : m == "notify" ? "bell" : "mute", size: 19, color: on ? c.onGold : m == "off" ? c.faint : c.gold)
+                                                    .frame(width: 34, height: 34).background(RoundedRectangle(cornerRadius: 11).fill(on ? c.onGold.opacity(0.12) : m == "off" ? .clear : c.gold.opacity(0.13)))
+                                            }.buttonStyle(.plain).accessibilityLabel("تنبيه \(p.name)")
+                                        }
+                                    }
+                                }
+                                .padding(.horizontal, 16).padding(.vertical, 13)
+                                .background(RoundedRectangle(cornerRadius: 16).fill(on ? AnyShapeStyle(c.goldBrush) : AnyShapeStyle(Color.clear))).padding(2)
                             }
-                        }.frame(width: 240, height: 240)
+                        }
                     }
+                }.id(prayers.rev)
+                HStack(spacing: 10) {
+                    GhostButton(title: "صوت الأذان", icon: "volume") { ui.sheet = .prayer }.frame(maxWidth: .infinity)
+                    GhostButton(title: "الموقع والتنبيهات", icon: "slider.horizontal.3") { ui.sheet = .prayer }.frame(maxWidth: .infinity)
                 }
-                Panel(pad: 8) {
-                    ForEach(prayers.forDay()) { p in
-                        HStack { Text(p.name).font(F.plex(15, .semibold)); Spacer(); Image(systemName: icon(prayers.mode(p.key))).foregroundStyle(c.muted); Text(Fmt.time(p.time)).font(F.plex(15, .semibold)).foregroundStyle(c.gold) }
-                            .padding(.horizontal, 14).padding(.vertical, 12)
-                    }
-                }.padding(.horizontal, 16).id(prayers.rev)
-                HStack { GhostButton(title: "الموقع وتنبيه الأذان", icon: "slider.horizontal.3") { ui.sheet = .prayer }; GhostButton(title: "القبلة", icon: "location.north.circle") { ui.path.append(.qibla) } }
-            }.padding(.bottom, 24)
+                QiblaCard()
+            }.padding(16).padding(.bottom, 10)
         }
+    }
+}
+
+/// The qibla compass, on the prayer page (like the Android app).
+struct QiblaCard: View {
+    @EnvironmentObject var prayers: Prayers
+    @Environment(\.pal) private var c
+    var body: some View {
+        let q = prayers.qibla(), rel = q - prayers.heading
+        let ok = abs(((rel.truncatingRemainder(dividingBy: 360)) + 540).truncatingRemainder(dividingBy: 360) - 180) < 5
+        Panel(pad: 20) {
+            VStack(spacing: 10) {
+                HStack { SiteIcon(name: "compass", size: 22, color: c.gold); Text("اتجاه القبلة").font(F.amiri(22)).foregroundStyle(c.text); Spacer(); Text("\(Int(q).ar)° من الشمال").font(F.plex(12.5)).foregroundStyle(c.muted) }
+                ZStack {
+                    Circle().stroke(c.line, lineWidth: 2)
+                    ForEach(0..<36) { i in Rectangle().fill(i % 9 == 0 ? c.gold : c.faint).frame(width: 2, height: i % 9 == 0 ? 12 : 6).offset(y: -95).rotationEffect(.degrees(Double(i) * 10 - prayers.heading)) }
+                    Text("ش").font(F.plex(13, .bold)).foregroundStyle(c.danger).offset(y: -76).rotationEffect(.degrees(-prayers.heading))
+                    Image(systemName: "location.north.fill").font(.system(size: 54)).foregroundStyle(c.goldBrush).rotationEffect(.degrees(rel))
+                    Text("🕋").font(.system(size: 24)).offset(y: -118).rotationEffect(.degrees(rel))
+                }.frame(width: 200, height: 200).padding(24).animation(.easeOut(duration: 0.25), value: prayers.heading)
+                Text(ok ? "أنت متجه إلى القبلة ✓" : "أدر الهاتف حتى يشير السهم للأعلى").font(F.plex(14, .semibold)).foregroundStyle(c.gold)
+            }.frame(maxWidth: .infinity)
+        }
+        .onAppear { prayers.startHeading() }.onDisappear { prayers.stopHeading() }
     }
 }
 func icon(_ m: String) -> String { m == "adhan" ? "speaker.wave.2.fill" : m == "notify" ? "bell.fill" : "bell.slash" }
