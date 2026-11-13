@@ -26,6 +26,16 @@ jobs:
             CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY="" build > build.log 2>&1 || true
           grep -E "error:|BUILD (SUCCEEDED|FAILED)" build.log | sort -u | head -150 > errors.txt || true
           cat errors.txt
+      - name: Publish build errors early (branch ci-logs)
+        if: always()
+        run: |
+          rm -rf /tmp/ci && mkdir -p /tmp/ci && cd /tmp/ci && git init -q
+          cp "$GITHUB_WORKSPACE/build.log" "$GITHUB_WORKSPACE/errors.txt" . 2>/dev/null || true
+          cp -R "$GITHUB_WORKSPACE/shots" . 2>/dev/null || true
+          echo "${GITHUB_SHA}" > sha.txt; echo building-sim > stage.txt
+          git config user.name ci; git config user.email ci@users.noreply.github.com
+          git checkout -q -b ci-logs && git add -A && git commit -qm "build ${GITHUB_RUN_NUMBER}"
+          git push -f "https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}.git" HEAD:ci-logs
       - name: Simulator run (screenshots + crash check)
         if: always()
         continue-on-error: true
