@@ -104,7 +104,7 @@ struct ReadIndexView: View {
                             }.padding(.horizontal, 16)
                         }
                     }
-                    SearchField(text: $q, prompt: "ابحث باسم السورة أو رقمها").padding(.horizontal, 16)
+                    SearchField(text: $q, hint: "ابحث باسم السورة أو رقمها").padding(.horizontal, 16)
                     let lastSn: Int? = {
                         let p = last.components(separatedBy: "|").first ?? ""
                         guard p.hasSuffix("/" + cur.0.id), let n = Int(p.components(separatedBy: "/").dropFirst().first ?? "") else { return nil }
@@ -403,7 +403,6 @@ struct ReadView: View {
     }
 }
 
-extension Array { subscript(safe i: Int) -> Element? { indices.contains(i) ? self[i] : nil } }
 
 /// The reader's text: one justified right-to-left block in the Quran font; a tap on a word reports (ayah, word), a tap on
 /// the ayah number (ayah, -1). Rebuilt only when what it shows changes.
