@@ -1,11 +1,11 @@
 import SwiftUI
+import WebKit
 
 struct HomeView: View {
     @EnvironmentObject var repo: Repo
     @EnvironmentObject var ui: UIState
     @EnvironmentObject var store: Store
     @EnvironmentObject var player: AudioPlayer
-    @EnvironmentObject var prayers: Prayers
     @Environment(\.pal) private var c
     @State private var annClosed = UserDefaults.standard.string(forKey: "annClosed") ?? ""
 
@@ -14,40 +14,38 @@ struct HomeView: View {
         let s = d?.site
         let all = d?.sortedTracks ?? []
         ScrollView {
-            LazyVStack(spacing: 0) {
+            LazyVStack(alignment: .leading, spacing: 0) {
                 banner(s)
-                if s?.liveOn == true && s?.live["showOnHome"].bool(true) == true { LiveCard().padding(.horizontal, 16).padding(.top, 8).reveal() }
-                hero(s, all).reveal(0.05)
-                if s?.sec("prayer") != false { PrayerBand().padding(.horizontal, 16).padding(.top, 14).reveal(0.1) }
-                if s?.sec("ayah") != false { AyahOfDay().padding(.horizontal, 16).padding(.top, 14).reveal(0.15) }
+                if s?.liveOn == true && s?.live["showOnHome"].bool(true) == true { LiveStage().reveal() }
+                QuickHead()
+                if s?.sec("prayer") != false { PrayerBand().padding(.top, 12).reveal(0.05) }
+                QuickTiles()
+                ResumeCard(all: all)
                 if s?.sec("recitations") != false {
-                    SectionHead(title: "أحدث التلاوات", action: "عرض الكل") { ui.go(.recitations) }
-                    ForEach(all.prefix(7)) { t in TrackRow(t: t, list: all) }
-                    let weekly = (d?.weekly ?? []).compactMap { w in repo.track(w.id).map { ($0, w.count) } }.prefix(5)
+                    let vids = all.filter(\.isVideo)
+                    if !vids.isEmpty {
+                        SectionHead(title: "تلاوات مرئية", action: "عرض الكل", kicker: "\(vids.count.ar) \(vids.count == 1 ? "تلاوة" : "تلاوات")") { RecKind.value = "video"; ui.go(.recitations) }
+                        ScrollView(.horizontal, showsIndicators: false) { HStack(alignment: .top, spacing: 12) { ForEach(vids.prefix(10)) { t in VideoCard(t: t).frame(width: 250) } }.padding(.horizontal, 16) }
+                    }
+                    SectionHead(title: "أحدث التلاوات", action: "عرض الكل", kicker: "\(all.count.ar) تلاوة") { ui.go(.recitations) }
+                    ScrollView(.horizontal, showsIndicators: false) { HStack(alignment: .top, spacing: 12) { ForEach(all.prefix(10)) { t in TrackCard(t: t, list: all).frame(width: 150) } }.padding(.horizontal, 16) }
+                    let w1 = (d?.weekly ?? []).compactMap { w in repo.track(w.id).map { ($0, w.count) } }
+                    let weekly = Array((w1.isEmpty ? all.filter { (d?.plays[$0.id] ?? 0) > 0 }.sorted { (d?.plays[$0.id] ?? 0) > (d?.plays[$1.id] ?? 0) }.prefix(5).map { ($0, d?.plays[$0.id] ?? 0) } : w1).prefix(5))
                     if s?.feat("weeklyPopular") != false && !weekly.isEmpty {
                         SectionHead(title: "الأكثر استماعًا هذا الأسبوع")
-                        Panel(pad: 4) { ForEach(Array(weekly.enumerated()), id: \.offset) { i, w in TrackRow(t: w.0, list: weekly.map { $0.0 }, rank: i + 1, count: w.1) } }.padding(.horizontal, 12)
+                        Panel(pad: 4, lattice: false) { ForEach(Array(weekly.enumerated()), id: \.offset) { i, w in TrackRow(t: w.0, list: weekly.map { $0.0 }, rank: i + 1, count: w.1) } }.padding(.horizontal, 12)
                     }
                 }
                 if s?.sec("reciters") != false, let rs = d?.reciters, !rs.isEmpty {
-                    SectionHead(title: "القرّاء")
-                    ScrollView(.horizontal, showsIndicators: false) {
-                        HStack(spacing: 14) {
-                            ForEach(rs) { r in
-                                Button { ui.path.append(.reciter(r.id)) } label: {
-                                    VStack(spacing: 6) {
-                                        RemoteImage(raw: r.image).frame(width: 96, height: 120).clipShape(ArchShape()).overlay(ArchShape().stroke(c.gold.opacity(0.5)))
-                                        Text(r.name).font(F.plex(12, .medium)).foregroundStyle(c.text).lineLimit(2).multilineTextAlignment(.center).frame(width: 100)
-                                    }
-                                }.buttonStyle(Press())
-                            }
-                        }.padding(.horizontal, 16)
-                    }
+                    SectionHead(title: "القرّاء", kicker: "\(rs.count.ar) قارئ")
+                    ReciterRow(rs: rs)
                 }
-                if s?.sec("dua") != false { DuaCard().padding(16) }
-                Text(s?.footer["about"].str ?? "").font(F.plex(12.5)).foregroundStyle(c.muted).multilineTextAlignment(.center).padding(.horizontal, 30).padding(.top, 10)
-                if let cr = s?.footer["credit"].str, !cr.isEmpty { Text("إعداد وتطوير: \(cr)").font(F.plex(11.5)).foregroundStyle(c.faint).padding(.top, 6).padding(.bottom, 30) }
-            }
+                if s?.sec("ayah") != false { AyahOfDay().padding(.horizontal, 16).padding(.vertical, 8).reveal() }
+                if s?.sec("dua") != false { DuaCard() }
+                SectionHead(title: "استكشف أيضًا")
+                ExploreTiles()
+                HomeFooter()
+            }.padding(.bottom, 28)
         }
         .refreshable { await repo.refresh() }
     }
@@ -58,101 +56,448 @@ struct HomeView: View {
         let text = appBanner ? [n!.title, n!.text].filter { !$0.isEmpty }.joined(separator: " — ") : (s?.announcement ?? "")
         let link = appBanner ? n!.link : (s?.announcementLink ?? "")
         if !text.isEmpty && annClosed != String(text.prefix(80)) {
-            HStack(spacing: 10) {
-                Image(systemName: "megaphone.fill")
-                Text(text).font(F.plex(14, .medium)).frame(maxWidth: .infinity, alignment: .leading)
-                if !link.isEmpty, let u = URL(string: link) { Link("التفاصيل", destination: u).font(F.plex(13, .bold)) }
-                Button { annClosed = String(text.prefix(80)); UserDefaults.standard.set(annClosed, forKey: "annClosed") } label: { Image(systemName: "xmark") }
-            }.foregroundStyle(c.onGold).padding(12).background(RoundedRectangle(cornerRadius: 18).fill(c.goldGradient)).padding(.horizontal, 16).padding(.top, 8)
+            HStack(spacing: 8) {
+                Image(systemName: "megaphone.fill").foregroundStyle(c.onGold)
+                Text(text).font(F.plex(14, .medium)).foregroundStyle(c.onGold).frame(maxWidth: .infinity, alignment: .leading)
+                if !link.isEmpty, let u = URL(string: link) { Link(appBanner && !(n?.linkLabel.isEmpty ?? true) ? n!.linkLabel : "التفاصيل", destination: u).font(F.plex(14, .bold)).foregroundStyle(c.onGold) }
+                Button { annClosed = String(text.prefix(80)); UserDefaults.standard.set(annClosed, forKey: "annClosed") } label: { SiteIcon(name: "close", size: 22, color: c.onGold).frame(width: 40, height: 40) }.accessibilityLabel("إغلاق")
+            }.padding(.leading, 14).padding(.trailing, 4).padding(.vertical, 6).background(RoundedRectangle(cornerRadius: 18).fill(c.goldBrush)).padding(.horizontal, 16).padding(.vertical, 6)
         }
     }
+}
 
-    @ViewBuilder private func hero(_ s: Site?, _ all: [Track]) -> some View {
-        let r = repo.data?.reciters.first { $0.id == s?.featuredReciterId } ?? repo.data?.reciters.first
-        VStack(spacing: 12) {
-            Button { ui.sheet = .name } label: {
-                HStack(spacing: 6) { Text(greeting() + (store.name.isEmpty ? "" : "، \(store.name)")).font(F.plex(13, .semibold)).foregroundStyle(c.text); Text(store.name.isEmpty ? "عرّفنا باسمك" : "تغيير").font(F.plex(12)).foregroundStyle(c.gold) }
-                    .padding(.horizontal, 14).padding(.vertical, 6).background(Capsule().fill(c.surface.opacity(0.6))).overlay(Capsule().stroke(c.line))
-            }.buttonStyle(.plain)
-            if let r {
-                Button { ui.path.append(.reciter(r.id)) } label: {
-                    RemoteImage(raw: r.image).frame(width: 220, height: 270).clipShape(ArchShape()).overlay(ArchShape().stroke(c.gold.opacity(0.6), lineWidth: 1.5))
-                        .shadow(color: .black.opacity(0.35), radius: 18, y: 8)
-                }.buttonStyle(Press())
-            }
-            if let sub = s?.subtitle, !sub.isEmpty { Text(sub).font(F.plex(13, .semibold)).foregroundStyle(c.gold) }
-            Text((s?.heroTitle ?? "").replacingOccurrences(of: " | ", with: "\n")).font(F.amiri(32)).foregroundStyle(c.text).multilineTextAlignment(.center)
-            if let ht = s?.heroText, !ht.isEmpty { Text(ht).font(F.plex(14.5)).foregroundStyle(c.muted).multilineTextAlignment(.center).padding(.horizontal, 22) }
-            HStack(spacing: 10) {
-                GoldButton(title: "استمع الآن", icon: "play.fill") { if let t = all.first { player.play(t, in: all) } }
-                GhostButton(title: "كل التلاوات", icon: "headphones") { ui.go(.recitations) }
-            }.padding(.top, 4)
-        }.padding(.top, 18)
+/// «تلاوات مرئية» → the recitations list opens on its videos.
+enum RecKind { @MainActor static var value = "" }
+
+/// Greeting and the date / city, as on the site's home.
+struct QuickHead: View {
+    @EnvironmentObject var repo: Repo
+    @EnvironmentObject var store: Store
+    @EnvironmentObject var prayers: Prayers
+    @EnvironmentObject var ui: UIState
+    @Environment(\.pal) private var c
+    var body: some View {
+        let h = Calendar.current.component(.hour, from: Date())
+        let g = (4...11).contains(h) ? "صباح الخير" : (12...16).contains(h) ? "طاب يومك" : "مساء الخير"
+        let greet = repo.data?.site.feat("greeting") != false
+        Button { if greet { ui.sheet = .name } } label: {
+            VStack(alignment: .leading, spacing: 2) {
+                Text(greet && !store.name.isEmpty ? "\(g) يا \(store.name)" : "\(g)، أهلًا بك").font(F.amiri(24)).foregroundStyle(c.text).lineLimit(1)
+                Text([Prayers.hijri(), String(prayers.place.split(separator: "،").first ?? "")].filter { !$0.isEmpty }.joined(separator: " · ")).font(F.plex(12.5)).foregroundStyle(c.muted).lineLimit(1)
+            }.frame(maxWidth: .infinity, alignment: .leading)
+        }.buttonStyle(.plain).padding(.horizontal, 16).padding(.top, 14)
     }
-    private func greeting() -> String { let h = Calendar.current.component(.hour, from: Date()); return h < 12 ? "صباح الخير" : "مساء الخير" }
+}
+
+/// The home shortcuts: full rows of four; the person can pick their own (4 or 8, in their order), as on the site.
+struct QuickTiles: View {
+    @EnvironmentObject var repo: Repo
+    @EnvironmentObject var ui: UIState
+    @Environment(\.pal) private var c
+    @AppStorage("homeTiles") private var mineRaw = ""
+    @State private var edit = false
+    @State private var pick: [String] = []
+    struct T: Hashable { let icon: String, title: String, go: String, sec: String? }
+    private var all: [T] {
+        let s = repo.data?.site
+        return [T(icon: "mic", title: "التلاوات", go: "recitations", sec: "recitations"), T(icon: "play", title: "القرآن كاملًا", go: "listen", sec: "mushaf"),
+                T(icon: "book", title: "المصحف", go: "quran", sec: "mushaf"), T(icon: "beads", title: "الأذكار", go: "adhkar", sec: "adhkar"),
+                T(icon: "clock", title: "الصلاة", go: "prayer", sec: "prayer"), T(icon: "compass", title: "القبلة", go: "qibla", sec: nil),
+                T(icon: "image", title: "صمّم آية", go: "maker", sec: "maker"), T(icon: "library", title: "مكتبتي", go: "library", sec: nil),
+                T(icon: "chat", title: "المجتمع", go: "community", sec: "community"), T(icon: "live", title: "البث المباشر", go: "live", sec: "live"),
+                T(icon: "scroll", title: "دروس الفقه", go: "fiqh", sec: "fiqh"), T(icon: "clock", title: "الخط الزمني", go: "timeline", sec: "timeline"),
+                T(icon: "user", title: "عن الشيخ", go: "about", sec: "about")]
+            .filter { $0.sec == nil || s?.sec($0.sec!) != false }.filter { $0.go != "listen" || !repo.quranRecs().isEmpty }.filter { $0.go != "live" || s?.liveOn != false }
+    }
+    private var tiles: [T] {
+        let mine = mineRaw.split(separator: ",").map(String.init)
+        if !mine.isEmpty {
+            var chosen = mine.compactMap { k in all.first { $0.go == k } }
+            for t in all where !chosen.contains(t) && chosen.count % 4 != 0 { chosen.append(t) }
+            return Array(chosen.prefix(8))
+        }
+        let l = all.filter { $0.go != "about" }
+        let n = l.count >= 8 ? 8 : (l.count / 4) * 4
+        return n == 0 ? l : Array(l.prefix(n))
+    }
+    var body: some View {
+        VStack(spacing: 10) {
+            grid(tiles) { t in tile(t, 38, 20, 11.5) { open(t.go) } }.padding(.horizontal, 16).padding(.top, 14)
+            Button { pick = tiles.map(\.go); edit = true } label: {
+                HStack(spacing: 6) { Image(systemName: "slider.horizontal.3").font(.system(size: 13)).foregroundStyle(c.gold); Text("تخصيص الاختصارات").font(F.plex(12.5)).foregroundStyle(c.muted) }
+                    .padding(.horizontal, 12).padding(.vertical, 6).overlay(Capsule().stroke(c.lineSoft))
+            }.buttonStyle(Press())
+        }
+        .sheet(isPresented: $edit) {
+            ScrollView {
+                VStack(alignment: .leading, spacing: 8) {
+                    SheetHead(title: "تخصيص الاختصارات")
+                    Text("اختر ٤ أو ٨ اختصارات بالترتيب الذي تفضّله، ليبقى الشكل متساويًا.").font(F.plex(14)).foregroundStyle(c.muted).padding(.horizontal, 20)
+                    grid(all) { t in
+                        let i = pick.firstIndex(of: t.go)
+                        tile(t, 34, 18, 11, on: i != nil) { if let i { pick.remove(at: i) } else if pick.count < 8 { pick.append(t.go) } }
+                            .overlay(alignment: .topLeading) { if let i { Text((i + 1).ar).font(F.plex(10.5, .bold)).foregroundStyle(c.onGold).frame(width: 18, height: 18).background(Circle().fill(c.gold)).padding(5) } }
+                    }.padding(.horizontal, 16).padding(.vertical, 10)
+                    let ok = pick.count == 4 || pick.count == 8
+                    HStack(spacing: 10) {
+                        GoldButton(title: ok ? "حفظ" : "اخترت \(pick.count.ar) — اختر ٤ أو ٨") { if ok { mineRaw = pick.joined(separator: ","); edit = false } }
+                        GhostButton(title: "استعادة الافتراضي") { mineRaw = ""; edit = false }
+                    }.padding(.horizontal, 16)
+                }.padding(.bottom, 20)
+            }.background(c.bg2.ignoresSafeArea()).environment(\.layoutDirection, .rightToLeft).presentationDetents([.large])
+        }
+    }
+    private func grid(_ l: [T], @ViewBuilder _ cell: @escaping (T) -> some View) -> some View {
+        let rows = stride(from: 0, to: l.count, by: 4).map { Array(l[$0..<min(l.count, $0 + 4)]) }
+        return VStack(spacing: 8) {
+            ForEach(rows.indices, id: \.self) { r in
+                HStack(spacing: 8) { ForEach(rows[r], id: \.self) { cell($0) }; ForEach(0..<(4 - rows[r].count), id: \.self) { _ in Color.clear.frame(maxWidth: .infinity, maxHeight: 1) } }
+            }
+        }
+    }
+    private func tile(_ t: T, _ box: CGFloat, _ ic: CGFloat, _ fs: CGFloat, on: Bool = false, _ a: @escaping () -> Void) -> some View {
+        Button(action: a) {
+            VStack(spacing: 7) {
+                SiteIcon(name: t.icon, size: ic, color: c.gold).frame(width: box, height: box).background(RoundedRectangle(cornerRadius: 12).fill(c.gold.opacity(0.14)))
+                Text(t.title).font(F.plex(fs, .medium)).foregroundStyle(c.text).lineLimit(1).minimumScaleFactor(0.8)
+            }.frame(maxWidth: .infinity).padding(.top, 12).padding(.bottom, 10)
+            .background(RoundedRectangle(cornerRadius: 16).fill(on ? c.gold.opacity(0.1) : c.surface)).overlay(RoundedRectangle(cornerRadius: 16).stroke(on ? c.gold : c.lineSoft))
+        }.buttonStyle(Press(scale: 0.95))
+    }
+    private func open(_ go: String) {
+        switch go {
+        case "listen": ui.path.append(.listen)
+        case "qibla": ui.path.append(.qibla)
+        case "maker": ui.path.append(.maker(0, 0))
+        default: if let r = Route.tab(go) { ui.go(r) }
+        }
+    }
+}
+
+/// «تابع الاستماع»: the last recitation left half-way.
+struct ResumeCard: View {
+    let all: [Track]
+    @EnvironmentObject var repo: Repo
+    @EnvironmentObject var player: AudioPlayer
+    @EnvironmentObject var store: Store
+    @Environment(\.pal) private var c
+    var body: some View {
+        if repo.data?.site.feat("rememberPosition") != false, let (t, pos) = last {
+            Panel(pad: 12, lattice: false) {
+                HStack(spacing: 12) {
+                    RemoteImage(raw: t.cover.isEmpty ? repo.reciter(t.reciterId)?.image : t.cover).frame(width: 56, height: 56).clipShape(RoundedRectangle(cornerRadius: 14))
+                    VStack(alignment: .leading, spacing: 1) {
+                        Text("تابع الاستماع").font(F.plex(12.5, .medium)).foregroundStyle(c.gold)
+                        Text(t.title).font(F.plex(14, .semibold)).foregroundStyle(c.text).lineLimit(1)
+                        Text("توقفت عند \(Fmt.dur(Int(pos.0)).isEmpty ? "0:00" : Fmt.dur(Int(pos.0)))\(pos.1 > 0 ? " من \(Fmt.dur(Int(pos.1)))" : "")").font(F.plex(12.5)).foregroundStyle(c.muted)
+                        if pos.1 > 0 { ProgressView(value: min(1, pos.0 / pos.1)).tint(c.gold).padding(.top, 6) }
+                    }.frame(maxWidth: .infinity, alignment: .leading)
+                    PlayCircle(playing: false, size: 44) { play(t) }
+                }
+            }
+            .contentShape(Rectangle()).onTapGesture { play(t) }
+            .padding(.horizontal, 16).padding(.vertical, 8)
+        }
+    }
+    private var last: (Track, (Double, Double))? {
+        let p = UserDefaults.standard.dictionary(forKey: "positions") as? [String: Double] ?? [:]
+        for id in store.history { if id != player.current?.id, let s = p[id], s > 0, let t = repo.track(id) { return (t, (s, Double(t.durationSec))) } }
+        return nil
+    }
+    private func play(_ t: Track) { player.play(t, in: all.filter { $0.reciterId == t.reciterId && !$0.isVideo }) }
+}
+
+/// The reciters in their mihrab arches, swiped sideways.
+struct ReciterRow: View {
+    let rs: [Reciter]; var active = ""
+    @EnvironmentObject var repo: Repo
+    @EnvironmentObject var ui: UIState
+    @Environment(\.pal) private var c
+    var body: some View {
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(alignment: .top, spacing: 14) {
+                ForEach(rs) { r in
+                    Button { ui.path.append(.reciter(r.id)) } label: {
+                        VStack(spacing: 0) {
+                            ArchImg(raw: r.image).frame(width: 116, height: 150)
+                            Text(r.name).font(F.plex(14, .semibold)).foregroundStyle(r.id == active ? c.gold : c.text).lineLimit(2).multilineTextAlignment(.center).padding(.top, 8)
+                            Text("\((repo.data?.recitations.filter { $0.reciterId == r.id }.count ?? 0).ar) تلاوة").font(F.plex(11)).foregroundStyle(c.muted)
+                        }.frame(width: 116)
+                    }.buttonStyle(Press())
+                }
+            }.padding(.horizontal, 16)
+        }
+    }
+}
+
+/// «استكشف أيضًا»: two tiles a row.
+struct ExploreTiles: View {
+    @EnvironmentObject var repo: Repo
+    @EnvironmentObject var ui: UIState
+    @ObservedObject private var amb = Ambient.shared
+    @Environment(\.pal) private var c
+    var body: some View {
+        let s = repo.data?.site
+        let tiles: [(String, String, String, String, String?)] = [
+            ("waveform", "اقرأ واستمع واحفظ", "الآيات تضيء مع الصوت", "read", "mushaf"), ("live", "البث المباشر", "من المسجد الحرام", "live", "live"),
+            ("graduationcap", "دروس الفقه", "الفقه الشافعي", "fiqh", "fiqh"), ("chat", "المجتمع", "شارك وتابع", "community", "community"),
+            ("clock", "الخط الزمني", "التلاوات والمناسبات", "timeline", "timeline"), ("user", "عن الشيخ", "السيرة والمحطات", "about", "about"),
+            ("wave", amb.current.isEmpty ? "أصوات هادئة" : "أصوات هادئة (تعمل)", "مطر، رياح، أمواج", "#ambient", nil),
+        ].filter { $0.4 == nil || (s?.sec($0.4!) != false && ($0.3 != "live" || s?.liveOn != false)) }
+        let rows = stride(from: 0, to: tiles.count, by: 2).map { Array(tiles[$0..<min(tiles.count, $0 + 2)]) }
+        VStack(spacing: 10) {
+            ForEach(rows.indices, id: \.self) { r in
+                HStack(spacing: 10) {
+                    ForEach(rows[r], id: \.1) { t in
+                        Button { go(t.3) } label: {
+                            HStack(spacing: 10) {
+                                Ico(name: t.0, size: 22, color: c.gold).frame(width: 40, height: 40).background(RoundedRectangle(cornerRadius: 13).fill(c.gold.opacity(0.13)))
+                                VStack(alignment: .leading, spacing: 1) { Text(t.1).font(F.plex(14, .semibold)).foregroundStyle(c.text).lineLimit(1); Text(t.2).font(F.plex(11)).foregroundStyle(c.muted).lineLimit(1) }
+                                Spacer(minLength: 0)
+                            }.padding(12).frame(maxWidth: .infinity)
+                            .background(RoundedRectangle(cornerRadius: 20).fill(LinearGradient(colors: [c.surface2, c.surface], startPoint: .topLeading, endPoint: .bottomTrailing))).overlay(RoundedRectangle(cornerRadius: 20).stroke(c.line))
+                        }.buttonStyle(Press())
+                    }
+                    if rows[r].count == 1 { Color.clear.frame(maxWidth: .infinity, maxHeight: 1) }
+                }
+            }
+        }.padding(.horizontal, 12)
+    }
+    private func go(_ g: String) {
+        switch g {
+        case "#ambient": ui.sheet = .ambient
+        case "read": ui.path.append(.readIndex)
+        default: if let r = Route.tab(g) { ui.go(r) }
+        }
+    }
+}
+
+/// The site's footer: its title, about text, the contact chips and the credit.
+struct HomeFooter: View {
+    @EnvironmentObject var repo: Repo
+    @Environment(\.pal) private var c
+    var body: some View {
+        let s = repo.data?.site, f = s?.footer
+        VStack(spacing: 0) {
+            Ornament(width: 200)
+            Text(s?.title ?? "").font(F.amiri(24)).foregroundStyle(c.text).multilineTextAlignment(.center).padding(.top, 10)
+            if let a = f?["about"].str, !a.isEmpty { Text(a).font(F.plex(12.5)).foregroundStyle(c.muted).multilineTextAlignment(.center).padding(.top, 4) }
+            FlowLayout(spacing: 8) {
+                if let e = f?["email"].str, !e.isEmpty { Chip(text: "البريد", icon: "mail") { open("mailto:\(e)") } }
+                if let u = f?["instagram"].str, !u.isEmpty { Chip(text: "Instagram", icon: "insta") { open(u) } }
+                if let u = f?["youtube"].str, !u.isEmpty { Chip(text: "YouTube", icon: "yt") { open(u) } }
+                if let u = f?["telegram"].str, !u.isEmpty { Chip(text: "Telegram", icon: "send") { open(u) } }
+                if let u = f?["whatsapp"].str, !u.isEmpty { Chip(text: "واتساب", icon: "chat") { open(u.hasPrefix("http") ? u : "https://wa.me/" + u.filter(\.isNumber)) } }
+                if let u = f?["x"].str, !u.isEmpty { Chip(text: "X", icon: "number") { open(u) } }
+            }.padding(.top, 12)
+            if let cr = f?["credit"].str, !cr.isEmpty { Text("إعداد وتطوير: \(cr)").font(F.plex(11)).foregroundStyle(c.faint).padding(.top, 14) }
+        }.frame(maxWidth: .infinity).padding(.top, 18).padding(.horizontal, 24)
+    }
+    private func open(_ s: String) { if let u = URL(string: s) { UIApplication.shared.open(u) } }
 }
 
 struct DuaCard: View {
+    @EnvironmentObject var ui: UIState
     @Environment(\.pal) private var c
+    @State private var i = Int(Date().timeIntervalSince1970 / 86400) % Quran.duas.count
     var body: some View {
-        let i = (Calendar.current.ordinality(of: .day, in: .year, for: Date()) ?? 0) % Quran.duas.count
-        Panel {
-            Text("دعاء اليوم").font(F.plex(13, .semibold)).foregroundStyle(c.gold)
-            Text(Quran.duas[i]).font(F.amiri(21, bold: false)).foregroundStyle(c.text).padding(.top, 6)
-            Button { share(Quran.duas[i]) } label: { Label("مشاركة", systemImage: "square.and.arrow.up").font(F.plex(13)).foregroundStyle(c.gold) }.padding(.top, 8)
-        }
+        Panel(pad: 22) {
+            Text("دعاء اليوم").font(F.amiri(22)).foregroundStyle(c.gold)
+            Ornament(width: 110).padding(.vertical, 6)
+            Text(Quran.duas[i]).font(F.amiri(22, bold: false)).foregroundStyle(c.text).lineSpacing(14).id(i).transition(.opacity)
+            HStack(spacing: 8) {
+                Chip(text: "دعاء آخر", icon: "refresh") { withAnimation(.easeOut(duration: 0.4)) { i = (i + 1) % Quran.duas.count } }
+                Chip(text: "نسخ", icon: "copy") { UIPasteboard.general.string = Quran.duas[i]; ui.say("نُسخ الدعاء") }
+            }.padding(.top, 12)
+        }.padding(.horizontal, 16).padding(.vertical, 14)
     }
 }
 
-/// «آية اليوم» with play, reciter choice, repeat and «انشرها في المجتمع».
+/// A video recitation as a 16:9 card.
+struct VideoCard: View {
+    let t: Track
+    @EnvironmentObject var ui: UIState
+    @Environment(\.pal) private var c
+    var body: some View {
+        let r = Repo.shared.reciter(t.reciterId), top = t.video?.q.first?.h ?? 0
+        Button { ui.path.append(.watch(t.id)) } label: {
+            VStack(alignment: .leading, spacing: 0) {
+                ZStack {
+                    RemoteImage(raw: t.cover.isEmpty ? r?.image : t.cover)
+                    VStack {
+                        HStack { Spacer(); if top >= 720 { Text(top >= 1080 ? "1080p" : "HD").font(F.plex(10, .semibold)).foregroundStyle(.white).padding(.horizontal, 7).padding(.vertical, 1).background(Capsule().fill(.black.opacity(0.55))).overlay(Capsule().stroke(.white.opacity(0.28))) } }
+                        Spacer()
+                        HStack { if !t.durationText.isEmpty { Text(t.durationText).font(F.plex(11, .semibold)).foregroundStyle(.white).padding(.horizontal, 6).padding(.vertical, 1).background(RoundedRectangle(cornerRadius: 6).fill(.black.opacity(0.7))) }; Spacer() }
+                    }.padding(8)
+                }
+                .aspectRatio(16 / 9, contentMode: .fit).clipShape(RoundedRectangle(cornerRadius: 14)).overlay(RoundedRectangle(cornerRadius: 14).stroke(c.line))
+                Text(t.title).font(F.plex(13, .semibold)).foregroundStyle(c.text).lineLimit(2).multilineTextAlignment(.leading).padding(.top, 7)
+                HStack(spacing: 5) {
+                    RemoteImage(raw: r?.image).frame(width: 18, height: 18).clipShape(Circle())
+                    Text((r?.name ?? "").replacingOccurrences(of: "الشيخ ", with: "")).font(F.plex(11)).foregroundStyle(c.muted).lineLimit(1)
+                    if !relAgo(t).isEmpty { Text("· " + relAgo(t)).font(F.plex(11)).foregroundStyle(c.faint) }
+                }.padding(.top, 3)
+            }
+        }.buttonStyle(Press(scale: 0.98))
+    }
+}
+
+/// «آية اليوم» (like the site): the ayah, play with a seek bar, every reciter with his photo, repeat, and the actions.
 struct AyahOfDay: View {
     @EnvironmentObject var ayah: AyahPlayer
     @EnvironmentObject var store: Store
     @EnvironmentObject var repo: Repo
     @EnvironmentObject var ui: UIState
     @Environment(\.pal) private var c
-    @State private var ref = Quran.daily(Int64(Calendar.current.ordinality(of: .day, in: .era, for: Date()) ?? 1))
+    @State private var ref = Calendar.current.component(.weekday, from: Date()) == 6 ? (33, 56) : Quran.daily(Int64(Calendar.current.ordinality(of: .day, in: .era, for: Date()) ?? 1))
     @State private var text: String?
     @State private var repeatN = 1
-    var rv: String { store.ayahReciter.isEmpty ? (repo.data?.site.dailyReciter ?? "yasser") : store.ayahReciter }
+    @State private var tafsir = false
+    @State private var picking = false
+    var rv: String {
+        let opts = ayah.options(1, 1).map(\.value)
+        let p = store.ayahReciter.isEmpty ? (repo.data?.site.dailyReciter ?? "yasser") : store.ayahReciter
+        return opts.contains(p) ? p : (opts.contains("yasser") ? "yasser" : opts.first ?? "yasser")
+    }
     var body: some View {
         let (s, a) = ref
         let mine = ayah.key?.hasPrefix("\(s):\(a)|") == true
-        Panel {
-            HStack { Text("آية اليوم").font(F.plex(13, .semibold)).foregroundStyle(c.gold); Spacer(); Text("سورة \(Quran.surahs[s - 1]) · \(a.ar)").font(F.plex(12)).foregroundStyle(c.muted) }
-            Text(text.map { "﴿\($0)﴾" } ?? "…").font(F.quran(23)).foregroundStyle(c.text).lineSpacing(10).multilineTextAlignment(.center).frame(maxWidth: .infinity).padding(.vertical, 14)
-            HStack(spacing: 10) {
-                Button { if mine && ayah.playing { ayah.stop() } else { ayah.play(rv, s, a, repeat: repeatN) } } label: {
-                    Image(systemName: mine && ayah.playing ? "pause.fill" : "play.fill").foregroundStyle(c.onGold).frame(width: 46, height: 46).background(Circle().fill(c.gold))
-                }
-                Menu {
-                    ForEach(ayah.options(s, a), id: \.self) { o in Button(o.label + (o.ok ? "" : " (غير متاحة)")) { store.ayahReciter = o.value } }
-                } label: { Text(ayah.label(rv, s, a).isEmpty ? "القارئ" : ayah.label(rv, s, a)).font(F.plex(13)).foregroundStyle(c.text).lineLimit(1).padding(.horizontal, 12).padding(.vertical, 8).background(Capsule().fill(c.surface2)) }
-                Menu { ForEach([1, 3, 5, 10, 0], id: \.self) { n in Button(n == 0 ? "تكرار مستمر" : "\(n.ar) مرات") { repeatN = n } } } label: {
-                    Image(systemName: "repeat").foregroundStyle(repeatN != 1 ? c.gold : c.muted).padding(8)
+        let cite = "﴿\(text ?? "")﴾ [سورة \(Quran.surahs[s - 1]): \(a)]"
+        Panel(pad: 20) {
+            HStack {
+                VStack(alignment: .leading, spacing: 0) {
+                    Text("آية اليوم").font(F.amiri(22)).foregroundStyle(c.gold)
+                    Text("سورة \(Quran.surahs[s - 1]) — الآية \(a.ar)").font(F.plex(12.5)).foregroundStyle(c.muted)
                 }
                 Spacer()
+                Chip(text: nil, icon: "refresh") { newAyah() }
             }
-            if mine && !ayah.status.isEmpty { Text(ayah.status).font(F.plex(12)).foregroundStyle(c.muted).padding(.top, 4) }
-            HStack(spacing: 14) {
-                Button { Task { await newAyah() } } label: { Label("آية أخرى", systemImage: "arrow.triangle.2.circlepath") }
-                Button { share("﴿\(text ?? "")﴾ [سورة \(Quran.surahs[s - 1]): \(a)]") } label: { Label("مشاركة", systemImage: "square.and.arrow.up") }
-                if repo.data?.site.sec("community") != false { Button { ui.path.append(.compose("ayah:\(s):\(a)|\(rv)")) } label: { Label("انشرها في المجتمع", systemImage: "bubble.left") } }
-            }.font(F.plex(12.5)).foregroundStyle(c.gold).padding(.top, 10)
+            Ornament().frame(maxWidth: .infinity).padding(.vertical, 6)
+            Group {
+                if let t = text { Text("﴿\(t)﴾").font(F.quran(25)).foregroundStyle(c.text).lineSpacing(18).multilineTextAlignment(.center).frame(maxWidth: .infinity).padding(.vertical, 8) }
+                else { RoundedRectangle(cornerRadius: 14).fill(c.surface2).frame(height: 90).padding(.vertical, 10) }
+            }.animation(.easeOut(duration: 0.45), value: text)
+            HStack(spacing: 12) {
+                PlayCircle(playing: mine && ayah.playing, size: 58) { if mine && ayah.playing { ayah.stop() } else { ayah.play(rv, s, a, repeat: repeatN) } }
+                VStack(alignment: .leading, spacing: 2) {
+                    ProgressView(value: mine ? ayah.progress : 0).tint(c.gold).padding(.vertical, 10)
+                    Text(mine ? ayah.status : "اختر القارئ واضغط تشغيل").font(F.plex(11)).foregroundStyle(c.muted).lineLimit(1)
+                }
+            }.padding(.top, 6)
+            ReciterPhotos(opts: ayah.options(s, a).map { RecChoice(value: $0.value, label: $0.label, img: repo.recImg($0.value, $0.label)) }, value: rv) { store.ayahReciter = $0; ayah.stop() }.padding(.top, 10)
+            OptMenu(label: "التكرار", value: repeatN, opts: [(1, "مرة"), (3, "٣ مرات"), (5, "٥ مرات"), (10, "١٠ مرات"), (0, "مستمر")]) { repeatN = $0; ayah.stop() }.padding(.top, 10)
+            FlowLayout(spacing: 8) {
+                Chip(text: "اختر آية", icon: "book") { picking = true }
+                Chip(text: "آية أخرى", icon: "refresh") { newAyah() }
+                Chip(text: nil, icon: "copy") { UIPasteboard.general.string = cite; ui.say("نُسخت الآية") }
+                Chip(text: "التفسير", icon: "scroll") { tafsir = true }
+                if repo.data?.site.sec("maker") != false { Chip(text: "صمّمها", icon: "image") { ui.path.append(.maker(s, a)) } }
+                if repo.data?.site.sec("community") != false { Chip(text: "انشرها في المجتمع", icon: "chat") { ui.path.append(.compose("ayah:\(s):\(a)|\(rv)")) } }
+                Chip(text: "مشاركة", icon: "share") { share("\(cite)\n\(Repo.site)") }
+            }.padding(.top, 12)
         }
-        .task(id: "\(s):\(a)") { text = await load(s, a) }
+        .task(id: "\(s):\(a)") { text = nil; text = await load(s, a) }
+        .sheet(isPresented: $tafsir) { TafsirSheet(s: s, a: a, text: text ?? "").presentationDetents([.medium, .large]) }
+        .sheet(isPresented: $picking) { AyahPickSheet(s0: s, a0: a) { s2, a2 in picking = false; ayah.stop(); ref = (s2, a2) }.presentationDetents([.medium, .large]) }
     }
-    private func load(_ s: Int, _ a: Int) async -> String {
-        var t = (await repo.surahText(s))?[safe: a - 1] ?? ""
-        if a == 1 && s != 1, let r = t.range(of: "^بِسْمِ\\s+ٱللَّهِ\\s+ٱلرَّحْمَٰنِ\\s+ٱلرَّحِيمِ\\s*", options: .regularExpression) { t.removeSubrange(r) }
-        return t
+    private func load(_ s: Int, _ a: Int) async -> String { ayahClean(s, a, (await repo.surahText(s))?[safe: a - 1] ?? "") }
+    private func newAyah() {
+        ayah.stop()
+        Task { for _ in 0..<5 { let r = Quran.random(); if let t = (await repo.surahText(r.0))?[safe: r.1 - 1], t.count <= 230 { ref = r; return } }; ref = (13, 28) }
     }
-    private func newAyah() async { ayah.stop(); ref = Quran.random() }
+}
+
+/// One reciter to choose: the value as stored, the name shown, his photo (blank: the first letter instead).
+struct RecChoice: Hashable { let value: String, label: String, img: String }
+private func initial(_ n: String) -> String { String(n.replacingOccurrences(of: "^\\s*(الشيخ|القارئ|الإمام|فضيلة)\\s+", with: "", options: .regularExpression).trimmingCharacters(in: .whitespaces).prefix(1)) }
+/// A reciter's photo in a circle, or the first letter of his name.
+struct Avatar2: View {
+    let img: String?; let name: String; let size: CGFloat; var ring = false
+    @Environment(\.pal) private var c
+    var body: some View {
+        ZStack {
+            Circle().fill(c.surface3)
+            if let img, !img.isEmpty { RemoteImage(raw: img).clipShape(Circle()) } else { Text(initial(name).isEmpty ? "؟" : initial(name)).font(F.amiri(size * 0.38)).foregroundStyle(c.text) }
+        }
+        .frame(width: ring ? size - 6 : size, height: ring ? size - 6 : size).padding(ring ? 3 : 0)
+        .overlay(Circle().stroke(ring ? c.gold : c.lineSoft, lineWidth: ring ? 2 : 1))
+    }
+}
+/// Every reciter side by side with his photo; the chosen one has a ring.
+struct ReciterPhotos: View {
+    let opts: [RecChoice]; let value: String; var label = "بصوت"; let pick: (String) -> Void
+    @Environment(\.pal) private var c
+    var body: some View {
+        let list = opts.enumerated().sorted { ($0.element.img.isEmpty ? 1 : 0, $0.offset) < ($1.element.img.isEmpty ? 1 : 0, $1.offset) }.map(\.element).filter { !$0.value.isEmpty }
+        VStack(alignment: .leading, spacing: 6) {
+            HStack { Text(label).font(F.plex(12.5, .medium)).foregroundStyle(c.muted); Spacer(); Text(list.first { $0.value == value }?.label ?? "").font(F.plex(14, .semibold)).foregroundStyle(c.text).lineLimit(1) }
+            ScrollViewReader { sp in
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(alignment: .top, spacing: 6) {
+                        ForEach(list, id: \.value) { o in
+                            Button { pick(o.value) } label: {
+                                VStack(spacing: 5) {
+                                    Avatar2(img: o.img, name: o.label, size: 56, ring: o.value == value)
+                                    Text(noSheikh(o.label)).font(F.plex(12, o.value == value ? .bold : .regular)).foregroundStyle(o.value == value ? c.text : c.muted).lineLimit(2).multilineTextAlignment(.center)
+                                }.frame(width: 74).padding(.vertical, 4)
+                            }.buttonStyle(.plain).id(o.value)
+                        }
+                    }
+                }.onAppear { sp.scrollTo(value, anchor: .center) }
+            }
+        }
+    }
+}
+
+/// The tafsir of one ayah (الميسر / الجلالين / English).
+struct TafsirSheet: View {
+    let s: Int, a: Int, text: String
+    @EnvironmentObject var repo: Repo
+    @EnvironmentObject var ui: UIState
+    @Environment(\.pal) private var c
+    @AppStorage("tafsirEd") private var ed = "ar.muyassar"
+    @State private var t: String?
+    static let editions = [("ar.muyassar", "التفسير الميسّر"), ("ar.jalalayn", "الجلالين"), ("en.sahih", "English")]
+    var body: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 10) {
+                SheetHead(title: "تفسير سورة \(Quran.surahs[s - 1]) — الآية \(a.ar)")
+                Seg(items: TafsirSheet.editions.map(\.1), selected: TafsirSheet.editions.firstIndex { $0.0 == ed } ?? 0) { ed = TafsirSheet.editions[$0].0 }.padding(.horizontal, 20)
+                Text("﴿\(text)﴾").font(F.quran(21)).foregroundStyle(c.text).lineSpacing(14).multilineTextAlignment(.center).frame(maxWidth: .infinity).padding(.horizontal, 20)
+                if let t { Text(t).font(ed == "en.sahih" ? F.plex(16) : F.amiri(18, bold: false)).foregroundStyle(c.text).lineSpacing(10).environment(\.layoutDirection, ed == "en.sahih" ? .leftToRight : .rightToLeft).frame(maxWidth: .infinity, alignment: .leading).padding(.horizontal, 20) }
+                else { ProgressView().tint(c.gold).frame(maxWidth: .infinity).padding(30) }
+                HStack(spacing: 8) { Chip(text: "نسخ", icon: "copy") { UIPasteboard.general.string = "﴿\(text)﴾\n\(t ?? "")"; ui.say("نُسخ التفسير") } }.padding(.horizontal, 20)
+            }.padding(.bottom, 20)
+        }
+        .background(c.bg2.ignoresSafeArea()).environment(\.layoutDirection, .rightToLeft)
+        .task(id: ed) { t = nil; let m = await repo.tafsir(s, edition: ed); t = m[a] ?? "تعذّر تحميل التفسير الآن." }
+    }
+}
+
+/// Choosing an ayah: the surah, then the ayah number.
+struct AyahPickSheet: View {
+    let s0: Int, a0: Int; let pick: (Int, Int) -> Void
+    @Environment(\.pal) private var c
+    @State private var s = 1
+    @State private var a = 1
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            SheetHead(title: "اختر آية")
+            HStack(spacing: 8) {
+                OptMenu(label: "السورة", value: s, opts: (1...114).map { ($0, "\($0.ar) \(Quran.surahs[$0 - 1])") }) { s = $0; a = 1 }
+                OptMenu(label: "الآية", value: a, opts: (1...Quran.ayahs[s - 1]).map { ($0, $0.ar) }) { a = $0 }
+            }.padding(.horizontal, 20)
+            GoldButton(title: "عرض الآية", icon: "check") { pick(s, a) }.padding(.horizontal, 20)
+            Spacer()
+        }
+        .background(c.bg2.ignoresSafeArea()).environment(\.layoutDirection, .rightToLeft)
+        .onAppear { s = s0; a = a0 }
+    }
 }
 
 extension Array { subscript(safe i: Int) -> Element? { indices.contains(i) ? self[i] : nil } }
 
-/// Prayer strip on the home screen: next prayer + countdown.
+/// Prayer strip on the home screen (like the site): the city and the hijri date, the day's times, the time left to the next.
 struct PrayerBand: View {
     @EnvironmentObject var prayers: Prayers
     @EnvironmentObject var ui: UIState
@@ -160,54 +505,127 @@ struct PrayerBand: View {
     var body: some View {
         TimelineView(.periodic(from: .now, by: 1)) { ctx in
             let list = prayers.forDay(); let next = prayers.next()
-            Panel(pad: 14) {
+            Panel(pad: 16) {
                 HStack {
-                    Button { ui.sheet = .prayer } label: { Label(prayers.place.isEmpty ? "حدّد مدينتك" : prayers.place, systemImage: "mappin.and.ellipse").font(F.plex(13.5, .semibold)).foregroundStyle(c.text).lineLimit(1) }
-                    Spacer(); Text(Prayers.hijri()).font(F.plex(11.5)).foregroundStyle(c.muted)
-                }
-                if let n = next {
-                    let left = max(0, Int(n.time.timeIntervalSince(ctx.date)))
-                    HStack(alignment: .firstTextBaseline) {
-                        Text("\(n.name) بعد").font(F.plex(13)).foregroundStyle(c.muted)
-                        Text(String(format: "%02d:%02d:%02d", left / 3600, left % 3600 / 60, left % 60)).font(.system(size: 26, weight: .bold, design: .rounded)).foregroundStyle(c.gold).monospacedDigit()
-                    }.padding(.top, 8)
+                    Button { ui.sheet = .prayer } label: {
+                        HStack(spacing: 4) {
+                            SiteIcon(name: "pin", size: 18, color: c.gold)
+                            Text(prayers.place.isEmpty ? "حدّد مدينتك" : prayers.place).font(F.plex(14, .semibold)).foregroundStyle(c.text).lineLimit(1)
+                            SiteIcon(name: "chev-d", size: 18, color: c.muted)
+                        }.padding(.vertical, 4)
+                    }.buttonStyle(.plain)
+                    Spacer()
+                    Text(Prayers.hijri()).font(F.plex(12.5, .medium)).foregroundStyle(c.muted)
                 }
                 HStack(spacing: 0) {
                     ForEach(list) { p in
-                        let on = p.key == next?.key && p.time == next?.time
-                        VStack(spacing: 3) { Text(p.name).font(F.plex(11.5, on ? .bold : .regular)); Text(Fmt.time(p.time)).font(F.plex(12, .semibold)) }
-                            .foregroundStyle(on ? c.onGold : c.text).frame(maxWidth: .infinity).padding(.vertical, 7)
-                            .background(RoundedRectangle(cornerRadius: 12).fill(on ? AnyShapeStyle(c.goldGradient) : AnyShapeStyle(Color.clear)))
+                        let on = p.key == next?.key && p.time == next?.time, sun = p.key == "sunrise"
+                        VStack(spacing: 2) {
+                            Text(p.key == "dhuhr" && Calendar.current.component(.weekday, from: p.time) == 6 ? "الجمعة" : p.name).font(F.plex(12, .medium)).foregroundStyle(on ? c.onGold : sun ? c.faint : c.muted)
+                            Text(hm(p.time)).font(F.plex(15, .bold)).foregroundStyle(on ? c.onGold : sun ? c.faint : c.text)
+                        }.frame(maxWidth: .infinity).padding(.vertical, 8)
+                        .background(RoundedRectangle(cornerRadius: 14).fill(on ? AnyShapeStyle(c.goldBrush) : AnyShapeStyle(Color.clear))).padding(.horizontal, 2)
                     }
-                }.padding(.top, 10)
+                }.padding(.vertical, 12)
+                if let n = next {
+                    let left = max(0, Int(n.time.timeIntervalSince(ctx.date)))
+                    Button { ui.go(.prayer) } label: {
+                        HStack {
+                            Text("المتبقي على \(n.name)").font(F.plex(14)).foregroundStyle(c.muted)
+                            Spacer()
+                            Text(String(format: "%02d:%02d:%02d", left / 3600, left % 3600 / 60, left % 60)).font(F.plex(22, .medium)).foregroundStyle(c.gold).monospacedDigit().environment(\.layoutDirection, .leftToRight)
+                        }.padding(.horizontal, 14).padding(.vertical, 10).background(RoundedRectangle(cornerRadius: 16).fill(c.bg2.opacity(0.6)))
+                    }.buttonStyle(.plain)
+                }
             }
-            .onTapGesture { ui.go(.prayer) }
         }
+        .padding(.horizontal, 16).padding(.vertical, 8)
         .id(prayers.rev)
+    }
+    private func hm(_ d: Date) -> String { let f = DateFormatter(); f.locale = Locale(identifier: "ar"); f.dateFormat = "h:mm"; return f.string(from: d) }
+}
+
+/// The live stream on the home page (like the site): plays by itself without sound; a button turns the sound on;
+/// the next prayer's countdown in the corner; a tap opens the live page.
+struct LiveStage: View {
+    @EnvironmentObject var repo: Repo
+    @EnvironmentObject var ui: UIState
+    @EnvironmentObject var prayers: Prayers
+    @Environment(\.pal) private var c
+    @Environment(\.scenePhase) private var phase
+    @State private var sound = false
+    @State private var poster = true
+    @State private var pulse = false
+    @StateObject private var ctl = LiveCtl()
+    var body: some View {
+        let l = repo.data?.site.live
+        let id = ytId(l?["url"].str ?? "") ?? "eC4LfEVxvKg"
+        let auto = l?["autoplayHome"].bool(true) ?? true
+        ZStack {
+            c.surface3
+            if auto { LiveEmbed(id: id, ctl: ctl) }
+            RemoteImage(raw: "https://i.ytimg.com/vi/\(id)/hqdefault.jpg").opacity(poster || !auto ? 1 : 0).animation(.easeOut(duration: 0.6), value: poster)
+            LinearGradient(stops: [.init(color: .black.opacity(0.35), location: 0), .init(color: .clear, location: 0.5), .init(color: .black.opacity(0.8), location: 1)], startPoint: .top, endPoint: .bottom)
+                .contentShape(Rectangle()).onTapGesture { ui.go(.live) }
+            VStack {
+                HStack(alignment: .top) {
+                    HStack(spacing: 6) { Circle().fill(Color(hex: 0xFFE5484D)).frame(width: 8, height: 8).opacity(pulse ? 1 : 0.35); Text("مباشر").font(F.plex(12, .bold)).foregroundStyle(.white) }
+                        .padding(.horizontal, 10).padding(.vertical, 5).background(Capsule().fill(Color(hex: 0xCC000000)))
+                    Spacer()
+                    if l?["showPrayer"].bool(true) != false, let n = prayers.next() {
+                        TimelineView(.periodic(from: .now, by: 1)) { tl in
+                            let left = max(0, Int(n.time.timeIntervalSince(tl.date)))
+                            VStack(spacing: 0) {
+                                Text("\(n.name) بعد").font(F.plex(11)).foregroundStyle(Color(hex: 0xFFE3C88D))
+                                Text(String(format: "%02d:%02d:%02d", left / 3600, left % 3600 / 60, left % 60)).font(F.plex(15, .bold)).foregroundStyle(.white).monospacedDigit().environment(\.layoutDirection, .leftToRight)
+                            }.padding(.horizontal, 10).padding(.vertical, 5).background(RoundedRectangle(cornerRadius: 14).fill(Color(hex: 0xAA000000)))
+                        }
+                    }
+                }.padding(14)
+                Spacer()
+                HStack(alignment: .center, spacing: 12) {
+                    SiteIcon(name: "play", size: 28, color: c.onGold).frame(width: 46, height: 46).background(Circle().fill(c.goldBrush))
+                    VStack(alignment: .leading, spacing: 0) {
+                        Text(l?["title"].str.isEmpty == false ? l!["title"].str : "البث المباشر").font(F.plex(16, .semibold)).foregroundStyle(.white).lineLimit(1)
+                        Text(auto ? "اضغط لفتح البث" : "اضغط للمشاهدة بالصوت").font(F.plex(12.5)).foregroundStyle(.white.opacity(0.8))
+                    }
+                    Spacer()
+                    if auto {
+                        Button {
+                            sound.toggle()
+                            if sound { AdhanPlayer.shared.stop(); AudioPlayer.shared.pause(); AyahPlayer.shared.stop(); ctl.js("cmd('unMute');cmd('setVolume',[100]);cmd('playVideo')") } else { ctl.js("cmd('mute')") }
+                        } label: { SiteIcon(name: sound ? "volume" : "mute", size: 20, color: .white).frame(width: 42, height: 42).background(Circle().fill(Color(hex: 0xAA000000))) }
+                            .accessibilityLabel(sound ? "كتم الصوت" : "تشغيل الصوت")
+                    }
+                }.padding(14).allowsHitTesting(true)
+            }
+        }
+        .aspectRatio(16 / 9, contentMode: .fit)
+        .clipShape(RoundedRectangle(cornerRadius: 24)).overlay(RoundedRectangle(cornerRadius: 24).stroke(c.line))
+        .padding(.horizontal, 16).padding(.vertical, 8)
+        .onAppear { withAnimation(.easeInOut(duration: 0.9).repeatForever()) { pulse = true }; DispatchQueue.main.asyncAfter(deadline: .now() + 2.5) { poster = false } }
+        .onChange(of: phase) { p in ctl.js(p == .active ? "cmd('playVideo')" : "cmd('pauseVideo')") }
+        .onDisappear { ctl.js("cmd('pauseVideo')") }
     }
 }
 
-struct LiveCard: View {
-    @EnvironmentObject var repo: Repo
-    @EnvironmentObject var ui: UIState
-    @Environment(\.pal) private var c
-    var body: some View {
-        let l = repo.data?.site.live
-        Button { ui.go(.live) } label: {
-            ZStack(alignment: .bottomLeading) {
-                RemoteImage(raw: ytId(l?["url"].str ?? "").map { "https://i.ytimg.com/vi/\($0)/hqdefault.jpg" }).frame(height: 190)
-                LinearGradient(colors: [.clear, .black.opacity(0.75)], startPoint: .top, endPoint: .bottom)
-                HStack {
-                    VStack(alignment: .leading, spacing: 4) {
-                        HStack(spacing: 6) { Circle().fill(.red).frame(width: 8, height: 8); Text("مباشر").font(F.plex(12, .bold)) }
-                        Text(l?["title"].str ?? "البث المباشر").font(F.amiri(21))
-                    }
-                    Spacer()
-                    Image(systemName: "play.fill").foregroundStyle(c.onGold).frame(width: 44, height: 44).background(Circle().fill(c.gold))
-                }.foregroundStyle(.white).padding(14)
-            }.clipShape(RoundedRectangle(cornerRadius: 22))
-        }.buttonStyle(Press())
+/// Talks to the muted YouTube player inside the live card.
+final class LiveCtl: ObservableObject { weak var web: WKWebView?; func js(_ s: String) { web?.evaluateJavaScript(s) } }
+struct LiveEmbed: UIViewRepresentable {
+    let id: String; let ctl: LiveCtl
+    func makeUIView(context: Context) -> WKWebView {
+        let cfg = WKWebViewConfiguration(); cfg.allowsInlineMediaPlayback = true; cfg.mediaTypesRequiringUserActionForPlayback = []
+        let w = WKWebView(frame: .zero, configuration: cfg); w.isOpaque = false; w.backgroundColor = .black; w.scrollView.isScrollEnabled = false; w.isUserInteractionEnabled = false
+        ctl.web = w
+        let html = """
+        <html><head><meta name="viewport" content="width=device-width,initial-scale=1"><style>html,body{margin:0;background:#000;height:100%;overflow:hidden}iframe{border:0;width:100%;height:100%;pointer-events:none}</style></head>
+        <body><iframe id="p" src="https://www.youtube.com/embed/\(id)?playsinline=1&autoplay=1&mute=1&controls=0&rel=0&modestbranding=1&enablejsapi=1" allow="autoplay; encrypted-media"></iframe>
+        <script>function cmd(f,a){document.getElementById('p').contentWindow.postMessage(JSON.stringify({event:'command',func:f,args:a||[]}),'*')}</script></body></html>
+        """
+        w.loadHTMLString(html, baseURL: URL(string: Repo.site))
+        return w
     }
+    func updateUIView(_ w: WKWebView, context: Context) {}
 }
 
 func ytId(_ url: String) -> String? {

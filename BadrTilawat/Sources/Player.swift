@@ -182,11 +182,17 @@ final class AyahPlayer: ObservableObject {
     @Published private(set) var key: String?
     @Published private(set) var playing = false
     @Published private(set) var status = ""
+    /// 0…1 of the ayah playing (for the seek bar)
+    @Published private(set) var progress: Double = 0
+    private var tickObs: Any?
     private var left = 1, repeatN = 1
     private var then: (() -> Void)?
     private var endObs: NSObjectProtocol?
 
     private init() {
+        tickObs = player.addPeriodicTimeObserver(forInterval: CMTime(seconds: 0.2, preferredTimescale: 600), queue: .main) { [weak self] t in
+            Task { @MainActor in guard let self, let d = self.player.currentItem?.duration.seconds, d.isFinite, d > 0 else { return }; self.progress = min(1, t.seconds / d) }
+        }
         endObs = NotificationCenter.default.addObserver(forName: .AVPlayerItemDidPlayToEndTime, object: nil, queue: .main) { [weak self] n in
             Task { @MainActor in
                 guard let self, (n.object as? AVPlayerItem) === self.player.currentItem else { return }

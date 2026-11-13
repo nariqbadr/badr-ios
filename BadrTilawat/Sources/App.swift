@@ -78,6 +78,8 @@ final class UIState: ObservableObject {
     @Published var toast: String?
     /// the full-screen adhan (from its notification, or «تجربة»)
     @Published var adhan: AdhanKey?
+    /// a video in full screen: the app bar is hidden
+    @Published var videoFull = false
     private var toastTask: Task<Void, Never>?
     /// for code outside the views (the video engine, downloads)
     static weak var shared: UIState?
@@ -107,4 +109,10 @@ enum Route: Hashable {
         ["home": .home, "recitations": .recitations, "quran": .quran, "adhkar": .adhkar, "community": .community, "library": .library,
          "fiqh": .fiqh, "live": .live, "about": .about, "timeline": .timeline, "prayer": .prayer][k]
     }
+}
+
+/// The app bar is drawn by the app (like the Android app), so the system bar is hidden: keep the swipe-back gesture.
+extension UINavigationController: @retroactive UIGestureRecognizerDelegate {
+    override open func viewDidLoad() { super.viewDidLoad(); interactivePopGestureRecognizer?.delegate = self }
+    public func gestureRecognizerShouldBegin(_ g: UIGestureRecognizer) -> Bool { viewControllers.count > 1 }
 }

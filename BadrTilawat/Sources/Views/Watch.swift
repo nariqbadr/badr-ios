@@ -288,7 +288,7 @@ struct WatchView: View {
             } else { Empty(text: "هذه التلاوة غير متاحة الآن", icon: "film") }
         }
         .navigationTitle(full ? "" : "تلاوة مرئية")
-        .toolbar(full ? .hidden : .visible, for: .navigationBar)
+        .onChange(of: full) { ui.videoFull = $0 }.onDisappear { ui.videoFull = false }
         .onAppear { if let t { v.open(t); v.onEnd = { if auto, let n = next.first { ui.path.append(.watch(n.id)) } } }; bump() }
         .onChange(of: id) { _ in if let t { v.open(t) } }
         .onDisappear { if !v.pipOn && UIApplication.shared.applicationState == .active && !(ui.path.last.map { if case .watch = $0 { return true } else { return false } } ?? false) { v.close() } }

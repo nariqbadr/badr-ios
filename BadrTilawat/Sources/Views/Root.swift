@@ -2,12 +2,12 @@ import SwiftUI
 
 private struct TabDef { let key: String, label: String, icon: String, sec: String? }
 private let TAB_DEFS: [TabDef] = [
-    TabDef(key: "home", label: "الرئيسية", icon: "house", sec: nil), TabDef(key: "recitations", label: "التلاوات", icon: "mic", sec: "recitations"),
-    TabDef(key: "quran", label: "المصحف", icon: "book", sec: "mushaf"), TabDef(key: "adhkar", label: "الأذكار", icon: "circle.hexagongrid", sec: "adhkar"),
-    TabDef(key: "community", label: "المجتمع", icon: "bubble.left", sec: "community"), TabDef(key: "library", label: "مكتبتي", icon: "books.vertical", sec: nil),
-    TabDef(key: "fiqh", label: "الفقه", icon: "text.book.closed", sec: "fiqh"), TabDef(key: "live", label: "البث", icon: "dot.radiowaves.left.and.right", sec: "live"),
-    TabDef(key: "timeline", label: "الخط الزمني", icon: "clock", sec: "timeline"), TabDef(key: "about", label: "عن الشيخ", icon: "person", sec: "about"),
-    TabDef(key: "prayer", label: "الصلاة", icon: "clock.badge.checkmark", sec: "prayer"),
+    TabDef(key: "home", label: "الرئيسية", icon: "home", sec: nil), TabDef(key: "recitations", label: "التلاوات", icon: "mic", sec: "recitations"),
+    TabDef(key: "quran", label: "المصحف", icon: "book", sec: "mushaf"), TabDef(key: "adhkar", label: "الأذكار", icon: "beads", sec: "adhkar"),
+    TabDef(key: "community", label: "المجتمع", icon: "chat", sec: "community"), TabDef(key: "library", label: "مكتبتي", icon: "library", sec: nil),
+    TabDef(key: "fiqh", label: "الفقه", icon: "scroll", sec: "fiqh"), TabDef(key: "live", label: "البث", icon: "live", sec: "live"),
+    TabDef(key: "timeline", label: "الخط الزمني", icon: "clock", sec: "timeline"), TabDef(key: "about", label: "عن الشيخ", icon: "user", sec: "about"),
+    TabDef(key: "prayer", label: "الصلاة", icon: "clock", sec: "prayer"),
 ]
 
 struct RootView: View {
@@ -32,11 +32,17 @@ struct RootView: View {
         ZStack {
             Backdrop()
             NavigationStack(path: $ui.path) {
-                screen(ui.tab)
-                    .navigationDestination(for: Route.self) { r in pushed(r) }
-                    .toolbar { topBar }
-                    .navigationBarTitleDisplayMode(.inline)
-                    .toolbarBackground(c.bg.opacity(0.92), for: .navigationBar)
+                VStack(spacing: 0) {
+                    TopBar(home: ui.tab == "home", tab: true, title: TAB_DEFS.first { $0.key == ui.tab }?.label ?? "")
+                    screen(ui.tab).frame(maxHeight: .infinity)
+                }
+                .toolbar(.hidden, for: .navigationBar)
+                .navigationDestination(for: Route.self) { r in
+                    VStack(spacing: 0) {
+                        if !ui.videoFull { TopBar(home: false, tab: false, title: title(r)) }
+                        pushed(r).frame(maxHeight: .infinity)
+                    }.toolbar(.hidden, for: .navigationBar).background(Backdrop())
+                }
             }
             .safeAreaInset(edge: .bottom, spacing: 0) {
                 VStack(spacing: 0) {
@@ -45,7 +51,7 @@ struct RootView: View {
                     bottomBar
                 }
             }
-            if ui.drawer { DrawerView().transition(.move(edge: .trailing)) }
+            if ui.drawer { DrawerView() }
             if let t = ui.toast {
                 VStack { Spacer(); Text(t).font(F.plex(14, .medium)).foregroundStyle(c.text).padding(.horizontal, 18).padding(.vertical, 11)
                     .background(Capsule().fill(c.surface3)).overlay(Capsule().stroke(c.line)).padding(.bottom, 160) }.transition(.opacity).allowsHitTesting(false)
@@ -88,17 +94,25 @@ struct RootView: View {
         }
     }
 
-    @ToolbarContentBuilder private var topBar: some ToolbarContent {
-        ToolbarItem(placement: .principal) {
-            HStack(spacing: 8) {
-                Image("Logo").resizable().scaledToFit().frame(width: 30, height: 30)
-                Text(ui.tab == "home" ? "بدر التلاوات" : (TAB_DEFS.first { $0.key == ui.tab }?.label ?? "")).font(F.amiri(20)).foregroundStyle(ui.tab == "home" ? c.gold : c.text)
-                Spacer()
-            }.frame(maxWidth: .infinity)
-        }
-        ToolbarItemGroup(placement: .navigationBarLeading) {
-            Button { ui.path.append(.search) } label: { Image(systemName: "magnifyingglass") }
-            Button { ui.sheet = .theme } label: { Image(systemName: "paintpalette") }
+    /// the bar's title for a screen opened on top of a tab (like the Android app's)
+    private func title(_ r: Route) -> String {
+        switch r {
+        case .reciter(let id): return repo.reciter(id)?.name ?? "القارئ"
+        case .surah(let n): return "سورة \(Quran.surahs[max(0, min(113, n - 1))])"
+        case .mushaf: return "المصحف"
+        case .search: return "البحث"
+        case .qibla: return "اتجاه القبلة"
+        case .compose: return "منشور جديد"
+        case .user(let h): return "@" + h
+        case .people: return "المجتمع"
+        case .thread: return "المنشور"
+        case .watch: return "تلاوة مرئية"
+        case .listen: return "القرآن الكريم كاملًا"
+        case .clip: return "اصنع مقطعًا"
+        case .maker: return "صانع التصاميم"
+        case .blocked: return "الحظر والكتم"
+        case .readIndex, .read: return "اقرأ واستمع واحفظ"
+        default: return ["recitations": "التلاوات", "quran": "القرآن الكريم", "adhkar": "الأذكار", "library": "مكتبتي", "prayer": "مواقيت الصلاة", "live": "البث المباشر", "fiqh": "دروس الفقه", "about": "عن الشيخ", "timeline": "الخط الزمني", "community": "المجتمع", "home": "الرئيسية"][r.tabKey ?? ""] ?? ""
         }
     }
 
@@ -106,22 +120,26 @@ struct RootView: View {
         HStack(spacing: 0) {
             ForEach(tabs, id: \.key) { t in
                 let sel = ui.tab == t.key && ui.path.isEmpty
-                Button { ui.go(Route.tab(t.key) ?? .home) } label: {
-                    VStack(spacing: 3) {
-                        Image(systemName: t.icon).font(.system(size: 19, weight: .medium)).foregroundStyle(c.gold).frame(width: 52, height: 30)
-                            .background(Capsule().fill(c.gold.opacity(sel ? 0.16 : 0)))
-                        Text(t.label).font(F.plex(10.5, sel ? .bold : .medium)).foregroundStyle(sel ? c.gold : c.text.opacity(0.85)).lineLimit(1)
-                    }.frame(maxWidth: .infinity)
-                }.buttonStyle(Press())
+                Button { ui.go(Route.tab(t.key) ?? .home) } label: { navItem(t.icon, t.label, sel) }.buttonStyle(Press(scale: 0.92))
             }
-            Button { ui.drawer = true } label: {
-                VStack(spacing: 3) { Image(systemName: "line.3.horizontal").font(.system(size: 19, weight: .medium)).foregroundStyle(c.gold).frame(width: 52, height: 30); Text("القائمة").font(F.plex(10.5, .medium)).foregroundStyle(c.text.opacity(0.85)) }.frame(maxWidth: .infinity)
-            }.buttonStyle(Press())
+            Button { ui.drawer = true } label: { navItem("menu", "القائمة", false) }.buttonStyle(Press(scale: 0.92))
         }
-        .padding(.top, 6).padding(.bottom, 2)
-        .background(LinearGradient(colors: [c.bg2.opacity(0.97), c.bg], startPoint: .top, endPoint: .bottom).ignoresSafeArea(edges: .bottom))
-        .overlay(alignment: .top) { LinearGradient(colors: [.clear, c.gold.opacity(0.45), .clear], startPoint: .leading, endPoint: .trailing).frame(height: 1) }
+        .padding(.horizontal, 4).padding(.vertical, 6)
+        .background(LinearGradient(colors: [c.bg2.opacity(0.97), c.bg.opacity(0.99)], startPoint: .top, endPoint: .bottom).ignoresSafeArea(edges: .bottom))
+        .overlay(alignment: .top) { LinearGradient(colors: [.clear, c.gold.opacity(0.45), .clear], startPoint: .leading, endPoint: .trailing).frame(height: 1.2) }
     }
+    private func navItem(_ icon: String, _ label: String, _ sel: Bool) -> some View {
+        VStack(spacing: 3) {
+            ZStack {
+                Capsule().fill(c.gold.opacity(0.14)).scaleEffect(x: sel ? 1 : 0.5, y: 1).opacity(sel ? 1 : 0)
+                SiteIcon(name: icon, size: 24, color: c.gold)
+            }.frame(width: 52, height: 32)
+            Text(label).font(F.plex(11, sel ? .bold : .medium)).foregroundStyle(sel ? c.gold : c.text.opacity(0.85)).lineLimit(1)
+        }
+        .frame(maxWidth: .infinity).padding(.vertical, 4).contentShape(Rectangle())
+        .animation(.spring(response: 0.3, dampingFraction: 0.7), value: sel)
+    }
+
 
     @ViewBuilder private func screen(_ k: String) -> some View {
         switch k {
@@ -171,55 +189,116 @@ struct RootView: View {
     }
 }
 
-/// The site's side menu: every section with its icon in the theme's accent colour.
+/// The app bar like the site and the Android app: the emblem and «بدر التلاوات» (gold) on tabs, or back + the title;
+/// then search, the notices bell (red dot when there is something new) and the theme.
+struct TopBar: View {
+    let home: Bool; let tab: Bool; let title: String
+    @EnvironmentObject var ui: UIState
+    @EnvironmentObject var repo: Repo
+    @EnvironmentObject var store: Store
+    @Environment(\.pal) private var c
+    @Environment(\.dismiss) private var dismiss
+    var body: some View {
+        let unseen = !(repo.data?.notices ?? []).isEmpty && Set((repo.data?.notices ?? []).map(\.id)) != Set(store.str("seenNotices").split(separator: ",").map(String.init))
+        HStack(spacing: 0) {
+            if !tab {
+                Button { if !ui.path.isEmpty { ui.path.removeLast() } else { dismiss() } } label: { Image(systemName: "arrow.right").font(.system(size: 20, weight: .medium)).foregroundStyle(c.text).frame(width: 48, height: 48) }.accessibilityLabel("رجوع")
+            } else {
+                Image("Logo").resizable().scaledToFit().frame(width: 38, height: 38).padding(.leading, 6).padding(.trailing, 8)
+            }
+            if home { Text("بدر التلاوات").font(F.amiri(22)).foregroundStyle(c.goldBrushV) }
+            else { Text(title).font(F.amiri(21)).foregroundStyle(c.text).lineLimit(1) }
+            Spacer(minLength: 4)
+            barButton("search", "بحث") { ui.path.append(.search) }
+            barButton("bell", "التنبيهات") { store.set("seenNotices", (repo.data?.notices ?? []).map(\.id).joined(separator: ",")); store.objectWillChange.send(); ui.sheet = .notices }
+                .overlay(alignment: .topTrailing) { if unseen { Circle().fill(c.danger).frame(width: 8, height: 8).offset(x: -12, y: 12) } }
+            barButton("palette", "المظهر") { ui.sheet = .theme }
+        }
+        .padding(.horizontal, 8).frame(height: 58)
+        .background(c.bg.opacity(home ? 0 : 0.92).ignoresSafeArea(edges: .top))
+        .overlay(alignment: .bottom) { if !home { LinearGradient(colors: [.clear, c.gold.opacity(0.35), .clear], startPoint: .leading, endPoint: .trailing).frame(height: 1) } }
+    }
+    private func barButton(_ icon: String, _ label: String, _ a: @escaping () -> Void) -> some View {
+        Button(action: a) { SiteIcon(name: icon, size: 24, color: c.text).frame(width: 48, height: 48) }.buttonStyle(Press(scale: 0.9)).accessibilityLabel(label)
+    }
+}
+
+/// The side menu, as on the site: four quick tiles, then the sections in groups; the current page is highlighted.
 struct DrawerView: View {
     @EnvironmentObject var ui: UIState
     @EnvironmentObject var repo: Repo
     @Environment(\.pal) private var c
-    private struct Item: Identifiable { let id: String, label: String, icon: String, sec: String?, action: () -> Void }
+    @State private var shown = false
+    private struct Item: Identifiable { let id: String, label: String, icon: String, sec: String?; var feat: String? = nil; let action: () -> Void }
     var body: some View {
         let s = repo.data?.site
-        let items: [Item] = [
-            Item(id: "home", label: "الرئيسية", icon: "house", sec: nil) { ui.go(.home) },
-            Item(id: "recitations", label: "التلاوات", icon: "mic", sec: "recitations") { ui.go(.recitations) },
-            Item(id: "quran", label: "المصحف", icon: "book", sec: "mushaf") { ui.go(.quran) },
-            Item(id: "adhkar", label: "الأذكار", icon: "circle.hexagongrid", sec: "adhkar") { ui.go(.adhkar) },
-            Item(id: "fiqh", label: "دروس الفقه", icon: "text.book.closed", sec: "fiqh") { ui.go(.fiqh) },
-            Item(id: "live", label: "البث المباشر", icon: "dot.radiowaves.left.and.right", sec: "live") { ui.go(.live) },
-            Item(id: "timeline", label: "الخط الزمني", icon: "clock", sec: "timeline") { ui.go(.timeline) },
-            Item(id: "community", label: "المجتمع", icon: "bubble.left", sec: "community") { ui.go(.community) },
-            Item(id: "about", label: "عن الشيخ", icon: "person", sec: "about") { ui.go(.about) },
-            Item(id: "name", label: "اسمك في التطبيق", icon: "person.text.rectangle", sec: nil) { ui.drawer = false; ui.sheet = .name },
-            Item(id: "library", label: "مكتبتي", icon: "books.vertical", sec: nil) { ui.go(.library) },
-            Item(id: "prayer", label: "مواقيت الصلاة", icon: "clock.badge.checkmark", sec: "prayer") { ui.go(.prayer) },
-            Item(id: "wird", label: "الورد اليومي", icon: "calendar", sec: "mushaf") { ui.drawer = false; ui.sheet = .wird },
-            Item(id: "ambient", label: "أصوات هادئة للاستماع", icon: "cloud.rain", sec: nil) { ui.drawer = false; ui.sheet = .ambient },
-            Item(id: "maker", label: "صانع التصاميم", icon: "paintbrush", sec: "maker") { ui.drawer = false; ui.path.append(.maker(0, 0)) },
-            Item(id: "qibla", label: "اتجاه القبلة", icon: "location.north.circle", sec: nil) { ui.drawer = false; ui.path.append(.qibla) },
-        ].filter { $0.sec == nil || s?.sec($0.sec!) != false }
-        ZStack(alignment: .trailing) {
-            Color.black.opacity(0.55).ignoresSafeArea().onTapGesture { ui.drawer = false }
+        func ok(_ it: Item) -> Bool { (it.sec == nil || s?.sec(it.sec!) != false) && (it.feat == nil || s?.j["features"][it.feat!].bool(true) != false) && (it.id != "live" || s?.liveOn != false) && (it.id != "listen" || !repo.quranRecs().isEmpty) }
+        let quick: [Item] = [
+            Item(id: "home", label: "الرئيسية", icon: "home", sec: nil) { ui.go(.home) }, Item(id: "recitations", label: "التلاوات", icon: "mic", sec: "recitations") { ui.go(.recitations) },
+            Item(id: "quran", label: "المصحف", icon: "book", sec: "mushaf") { ui.go(.quran) }, Item(id: "prayer", label: "الصلاة", icon: "clock", sec: "prayer") { ui.go(.prayer) },
+        ].filter(ok)
+        let push: (Route) -> Void = { r in ui.drawer = false; ui.path.append(r) }
+        let sheet: (SheetKind) -> Void = { k in ui.drawer = false; ui.sheet = k }
+        let groups: [(String, [Item])] = [
+            ("القرآن والتلاوات", [Item(id: "listen", label: "القرآن الكريم كاملًا", icon: "play", sec: "mushaf") { push(.listen) }, Item(id: "library", label: "مكتبتي", icon: "library", sec: nil) { ui.go(.library) },
+                                  Item(id: "wird", label: "الورد اليومي", icon: "calendar", sec: "mushaf") { sheet(.wird) }, Item(id: "ambient", label: "أصوات هادئة للاستماع", icon: "rain", sec: nil) { sheet(.ambient) }]),
+            ("الصلاة والأذكار", [Item(id: "prayer2", label: "مواقيت الصلاة والأذان", icon: "clock", sec: "prayer") { ui.go(.prayer) }, Item(id: "qibla", label: "اتجاه القبلة", icon: "compass", sec: nil, feat: "qibla") { push(.qibla) },
+                                 Item(id: "adhkar", label: "الأذكار", icon: "beads", sec: "adhkar") { ui.go(.adhkar) }]),
+            ("تعلّم وشارك", [Item(id: "maker", label: "صمّم آية للمشاركة", icon: "image", sec: "maker") { push(.maker(0, 0)) }, Item(id: "live", label: "البث المباشر", icon: "live", sec: "live") { ui.go(.live) },
+                             Item(id: "fiqh", label: "دروس الفقه", icon: "scroll", sec: "fiqh") { ui.go(.fiqh) }, Item(id: "community", label: "المجتمع", icon: "chat", sec: "community") { ui.go(.community) }]),
+            ("عن الشيخ", [Item(id: "about", label: "عن الشيخ", icon: "user", sec: "about") { ui.go(.about) }, Item(id: "timeline", label: "الخط الزمني", icon: "clock", sec: "timeline") { ui.go(.timeline) }]),
+            ("الإعدادات", [Item(id: "theme", label: "المظهر", icon: "palette", sec: nil) { sheet(.theme) }, Item(id: "name", label: "اسمك في التطبيق", icon: "user", sec: nil, feat: "greeting") { sheet(.name) }]),
+        ].map { ($0.0, $0.1.filter(ok)) }.filter { !$0.1.isEmpty }
+        func sel(_ id: String) -> Bool { ui.path.isEmpty && (ui.tab == id || (id == "prayer2" && ui.tab == "prayer")) }
+        return ZStack(alignment: .leading) {
+            Color.black.opacity(shown ? 0.55 : 0).ignoresSafeArea().onTapGesture { close() }
             VStack(alignment: .leading, spacing: 0) {
-                HStack { Text("القائمة").font(F.plex(17, .bold)); Spacer(); Button { ui.drawer = false } label: { Image(systemName: "xmark").foregroundStyle(c.muted) } }
-                    .padding(.horizontal, 20).padding(.vertical, 14)
+                HStack(spacing: 10) {
+                    Image("Logo").resizable().scaledToFit().frame(width: 34, height: 34)
+                    Text("بدر التلاوات").font(F.plex(16, .bold)).foregroundStyle(c.goldBrushV)
+                    Spacer()
+                    Button { close() } label: { SiteIcon(name: "close", size: 22, color: c.muted).frame(width: 44, height: 44) }.accessibilityLabel("إغلاق")
+                }.padding(.leading, 18).padding(.trailing, 8).padding(.top, 8).padding(.bottom, 4)
                 ScrollView {
-                    VStack(alignment: .leading, spacing: 2) {
-                        ForEach(items) { it in
-                            let sel = ui.tab == it.id && ui.path.isEmpty
-                            Button(action: it.action) {
-                                HStack(spacing: 16) { Image(systemName: it.icon).font(.system(size: 20)).foregroundStyle(c.gold).frame(width: 26); Text(it.label).font(F.plex(17, .medium)).foregroundStyle(sel ? c.gold : c.text); Spacer() }
-                                    .padding(.horizontal, 16).padding(.vertical, 14).background(RoundedRectangle(cornerRadius: 16).fill(c.gold.opacity(sel ? 0.1 : 0)))
-                            }.buttonStyle(Press())
+                    VStack(alignment: .leading, spacing: 0) {
+                        HStack(spacing: 8) {
+                            ForEach(quick) { it in
+                                let on = sel(it.id)
+                                Button(action: it.action) {
+                                    VStack(spacing: 6) { SiteIcon(name: it.icon, size: 22, color: c.gold); Text(it.label).font(F.plex(12, on ? .bold : .medium)).foregroundStyle(on ? c.gold : c.text).lineLimit(1) }
+                                        .frame(maxWidth: .infinity).padding(.vertical, 12)
+                                        .background(RoundedRectangle(cornerRadius: 16).fill(on ? c.gold.opacity(0.14) : c.surface)).overlay(RoundedRectangle(cornerRadius: 16).stroke(on ? c.gold.opacity(0.5) : c.lineSoft))
+                                }.buttonStyle(Press(scale: 0.95))
+                            }
+                        }.padding(.top, 4).padding(.bottom, 6)
+                        ForEach(groups, id: \.0) { title, items in
+                            Text(title).font(F.plex(12.5, .semibold)).foregroundStyle(c.muted).padding(.leading, 6).padding(.top, 14).padding(.bottom, 6)
+                            VStack(spacing: 0) {
+                                ForEach(Array(items.enumerated()), id: \.element.id) { i, it in
+                                    if i > 0 { Rectangle().fill(c.lineSoft).frame(height: 1).padding(.leading, 52) }
+                                    Button(action: it.action) {
+                                        HStack(spacing: 14) {
+                                            SiteIcon(name: it.icon, size: 22, color: c.gold)
+                                            Text(it.label).font(F.plex(15.5, .medium)).foregroundStyle(sel(it.id) ? c.gold : c.text).lineLimit(1)
+                                            Spacer()
+                                            Image(systemName: "chevron.left").font(.system(size: 13, weight: .semibold)).foregroundStyle(c.faint)
+                                        }.padding(.horizontal, 14).padding(.vertical, 13).background(sel(it.id) ? c.gold.opacity(0.1) : .clear).contentShape(Rectangle())
+                                    }.buttonStyle(.plain)
+                                }
+                            }.background(RoundedRectangle(cornerRadius: 18).fill(c.surface)).clipShape(RoundedRectangle(cornerRadius: 18)).overlay(RoundedRectangle(cornerRadius: 18).stroke(c.lineSoft))
                         }
-                        Link("سياسة الخصوصية", destination: URL(string: Repo.site + "privacy")!).font(F.plex(12)).foregroundStyle(c.faint).padding(16)
-                    }.padding(.horizontal, 12)
+                        Link("سياسة الخصوصية", destination: URL(string: Repo.site + "privacy")!).font(F.plex(12)).foregroundStyle(c.faint).padding(.leading, 8).padding(.top, 16).padding(.bottom, 12)
+                    }.padding(.horizontal, 14).padding(.vertical, 4)
                 }
             }
-            .frame(width: min(UIScreen.main.bounds.width * 0.8, 380)).frame(maxHeight: .infinity)
+            .frame(maxWidth: min(390, UIScreen.main.bounds.width * 0.84), maxHeight: .infinity, alignment: .top)
             .background(c.bg2.ignoresSafeArea())
+            .overlay(alignment: .trailing) { Rectangle().fill(c.line).frame(width: 1).ignoresSafeArea() }
+            .offset(x: shown ? 0 : -UIScreen.main.bounds.width)   // mirrored in right-to-left: off the right edge
         }
-        .environment(\.layoutDirection, .rightToLeft)
+        .onAppear { withAnimation(.timingCurve(0.4, 0, 0.2, 1, duration: 0.34)) { shown = true } }
     }
+    private func close() { withAnimation(.easeIn(duration: 0.24)) { shown = false }; DispatchQueue.main.asyncAfter(deadline: .now() + 0.24) { ui.drawer = false } }
 }
 
 struct Maintenance: View {

@@ -59,6 +59,17 @@ final class Repo: ObservableObject {
 
     func reciter(_ id: String?) -> Reciter? { data?.reciters.first { $0.id == id } }
     /// a part of a longer recording (one surah of a whole juz…) is listed as "<id>__s<surah>"
+    /// A reciter's photo for a choice («آية اليوم», the mushaf): the dashboard's photo for that name, the site reciter's, the recording's.
+    func recImg(_ v: String, _ label: String) -> String {
+        let names = data?.site.j["reciterNames"]
+        let img = names?[v]["image"].str ?? ""
+        if !img.isEmpty { return img }
+        if v.hasPrefix("tk:") || v.hasPrefix("tkr:") { let id = String(v.split(separator: ":", maxSplits: 1).last ?? ""); if let r = reciter(id), !r.image.isEmpty { return r.image } }
+        if v.hasPrefix("sr:"), let q = quranRec(String(v.dropFirst(3))) { let i = quranImage(q); if !i.isEmpty { return i } }
+        let norm = { (x: String) in x.replacingOccurrences(of: "^\\s*(الشيخ|القارئ|الإمام)\\s+", with: "", options: .regularExpression).split(separator: " ").map(String.init) }
+        let w = norm(label); guard w.count >= 2 else { return "" }
+        return data?.reciters.first { let y = norm($0.name); y.first == w.first && y.last == w.last }?.image ?? ""
+    }
     static func partBase(_ id: String?) -> String? { id?.replacingOccurrences(of: "__s\\d{1,3}$", with: "", options: .regularExpression) }
     func track(_ id: String?) -> Track? { let b = Repo.partBase(id); return data?.recitations.first { $0.id == b } ?? quranTrack(b) }
     func image(for t: Track) -> String { t.image.isEmpty ? (reciter(t.reciterId)?.image ?? "") : t.image }
