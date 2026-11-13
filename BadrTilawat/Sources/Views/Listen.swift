@@ -516,38 +516,38 @@ struct SearchField: View {
     @Environment(\.pal) private var c
     var body: some View {
         HStack(spacing: 8) {
-            Image(systemName: "magnifyingglass").foregroundStyle(c.muted)
+            SiteIcon(name: "search", size: 22, color: c.gold)
             TextField(hint, text: $text).font(F.plex(15)).autocorrectionDisabled()
-            if !text.isEmpty { Button { text = "" } label: { Image(systemName: "xmark.circle.fill").foregroundStyle(c.faint) } }
-        }.padding(12).background(RoundedRectangle(cornerRadius: 16).fill(c.surface.opacity(0.7))).overlay(RoundedRectangle(cornerRadius: 16).stroke(c.line))
+            if !text.isEmpty { Button { text = "" } label: { SiteIcon(name: "close", size: 20, color: c.muted) }.accessibilityLabel("مسح") }
+        }.padding(.horizontal, 14).padding(.vertical, 13).background(RoundedRectangle(cornerRadius: 18).fill(c.surface.opacity(0.45))).overlay(RoundedRectangle(cornerRadius: 18).stroke(c.line))
     }
 }
 
-/// A bottom sheet of options (title + rows), as on Android.
+/// A bottom sheet with the site's look: the title, a close button and the ornament, then the rows.
 struct MenuSheet<Content: View>: View {
     let title: String
     @ViewBuilder var content: Content
     @Environment(\.pal) private var c
     var body: some View {
         ScrollView {
-            VStack(alignment: .leading, spacing: 4) {
-                Text(title).font(F.plex(17, .bold)).foregroundStyle(c.text).padding(.horizontal, 20).padding(.top, 22).padding(.bottom, 6)
+            VStack(alignment: .leading, spacing: 0) {
+                SheetHead(title: title)
                 content
             }.padding(.bottom, 20)
         }.background(c.bg2.ignoresSafeArea()).environment(\.layoutDirection, .rightToLeft)
     }
 }
 struct MenuRow: View {
-    let icon: String, title: String; var sub: String? = nil; var on = false; let action: () -> Void
+    let icon: String, title: String; var sub: String? = nil; var on = false; var tint: Color? = nil; let action: () -> Void
     @Environment(\.pal) private var c
     var body: some View {
         Button(action: action) {
             HStack(spacing: 14) {
-                Image(systemName: icon).font(.system(size: 18)).foregroundStyle(on ? c.gold : c.text.opacity(0.8)).frame(width: 26)
-                VStack(alignment: .leading, spacing: 2) { Text(title).font(F.plex(15, .medium)).foregroundStyle(on ? c.gold : c.text); if let sub, !sub.isEmpty { Text(sub).font(F.plex(12)).foregroundStyle(c.muted).multilineTextAlignment(.leading) } }
+                Ico(name: icon, size: 21, color: tint ?? c.gold).frame(width: 38, height: 38).background(RoundedRectangle(cornerRadius: 12).fill(c.gold.opacity(0.10)))
+                VStack(alignment: .leading, spacing: 2) { Text(title).font(F.plex(16)).foregroundStyle(tint ?? (on ? c.gold : c.text)); if let sub, !sub.isEmpty { Text(sub).font(F.plex(12.5)).foregroundStyle(c.muted).multilineTextAlignment(.leading) } }
                 Spacer()
-                if on { Image(systemName: "checkmark").foregroundStyle(c.gold) }
-            }.padding(.horizontal, 20).padding(.vertical, 12).contentShape(Rectangle())
-        }.buttonStyle(Press())
+                if on { SiteIcon(name: "check", size: 20, color: c.gold) }
+            }.padding(.horizontal, 22).padding(.vertical, 13).contentShape(Rectangle())
+        }.buttonStyle(.plain)
     }
 }

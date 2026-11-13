@@ -67,7 +67,7 @@ struct HomeView: View {
 }
 
 /// «تلاوات مرئية» → the recitations list opens on its videos.
-enum RecKind { @MainActor static var value = "" }
+enum RecKind { @MainActor static var value = "all" }
 
 /// Greeting and the date / city, as on the site's home.
 struct QuickHead: View {

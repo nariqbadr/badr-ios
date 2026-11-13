@@ -1,39 +1,97 @@
 import SwiftUI
 import UserNotifications
 
+/// Adhkar like the site: one dhikr at a time with a big counter (or the full list); the counts reset every day.
 struct AdhkarView: View {
+    @EnvironmentObject var ui: UIState
     @Environment(\.pal) private var c
-    @State private var kind = "morning"
-    @State private var counts: [Int: Int] = [:]
+    @State private var tab = { let h = Calendar.current.component(.hour, from: Date()); return (3...12).contains(h) ? "morning" : (13...20).contains(h) ? "evening" : "sleep" }()
+    @AppStorage("adhkarList") private var listMode = false
+    @State private var counts: [Int] = []
+    @State private var page = 0
     private static let data: [String: [(text: String, count: Int)]] = {
         guard let u = Bundle.main.url(forResource: "adhkar", withExtension: "json"), let d = try? Data(contentsOf: u) else { return [:] }
         return J(data: d).dict.mapValues { $0.array.map { (text: $0["text"].str, count: max(1, $0["count"].int)) } }
     }()
+    private static func text(_ t: String) -> String {
+        let r = try! NSRegularExpression(pattern: "\\s*\\((\\d+)\\)"); var s = t.trimmingCharacters(in: .whitespaces)
+        for m in r.matches(in: s, range: NSRange(s.startIndex..., in: s)).reversed() { if let g = Range(m.range, in: s), let n = Range(m.range(at: 1), in: s) { s.replaceSubrange(g, with: " ﴿\(Int(s[n])?.ar ?? "")﴾") } }
+        return s
+    }
+    private func key(_ i: Int) -> String { "dk-\(Wird.today)-\(tab)-\(i)" }
     var body: some View {
-        let kinds = [("morning", "أذكار الصباح"), ("evening", "أذكار المساء"), ("sleep", "أذكار النوم")].filter { AdhkarView.data[$0.0] != nil }
-        let list = AdhkarView.data[kind] ?? []
-        let done = list.indices.filter { (counts[$0] ?? 0) >= list[$0].count }.count
-        ScrollView {
-            LazyVStack(spacing: 12) {
-                HStack(spacing: 8) { ForEach(kinds, id: \.0) { k, l in Pill(title: l, on: kind == k) { kind = k; counts = [:] } } }.padding(.top, 14)
-                Text("\(done.ar) من \(list.count.ar) — أُنجزت").font(F.plex(12.5)).foregroundStyle(c.muted)
-                ForEach(Array(list.enumerated()), id: \.offset) { i, z in
-                    let n = counts[i] ?? 0, finished = n >= z.count
-                    Button { if !finished { counts[i] = n + 1; UIImpactFeedbackGenerator(style: .light).impactOccurred() } } label: {
-                        VStack(spacing: 12) {
-                            Text(z.text).font(F.amiri(19, bold: false)).foregroundStyle(c.text).lineSpacing(8).multilineTextAlignment(.center)
-                            HStack {
-                                Text(finished ? "تمّ ✓" : "اضغط للعدّ").font(F.plex(12)).foregroundStyle(finished ? c.ok : c.muted)
-                                Spacer()
-                                Text("\(n.ar) / \(z.count.ar)").font(F.plex(15, .bold)).foregroundStyle(c.gold)
-                            }
+        let cats = [("morning", "الصباح"), ("evening", "المساء"), ("sleep", "النوم")].filter { !(AdhkarView.data[$0.0] ?? []).isEmpty }
+        let list = AdhkarView.data[tab] ?? []
+        let done = list.indices.filter { (counts[safe: $0] ?? 0) >= list[$0].count }.count
+        VStack(spacing: 0) {
+            HStack(spacing: 8) {
+                Seg(items: cats.map { "أذكار \($0.1)" }, selected: cats.firstIndex { $0.0 == tab } ?? 0) { tab = cats[$0].0 }
+                Chip(text: nil, icon: listMode ? "rectangle.portrait" : "list.bullet", on: listMode) { listMode.toggle() }
+            }.padding(.horizontal, 16).padding(.vertical, 8)
+            HStack(spacing: 10) {
+                ProgressView(value: list.isEmpty ? 0 : Double(done) / Double(list.count)).tint(c.gold).animation(.easeOut(duration: 0.5), value: done)
+                Text(listMode ? "أنجزت \(done.ar) من \(list.count.ar)" : "\((page + 1).ar) من \(list.count.ar) — أنجزت \(done.ar)").font(F.plex(12.5, .medium)).foregroundStyle(c.muted)
+            }.padding(.horizontal, 18).padding(.vertical, 2)
+            if list.isEmpty { Empty(text: "لا توجد أذكار"); Spacer() }
+            else if listMode {
+                ScrollView {
+                    LazyVStack(spacing: 12) {
+                        ForEach(Array(list.enumerated()), id: \.offset) { i, dk in
+                            let n = counts[safe: i] ?? 0, fin = n >= dk.count
+                            Panel(pad: 18, lattice: false) {
+                                Text(AdhkarView.text(dk.text)).font(F.amiri(20, bold: false)).foregroundStyle(fin ? c.muted : c.text).lineSpacing(14)
+                                HStack(spacing: 12) {
+                                    ZStack { Circle().fill(fin ? AnyShapeStyle(c.goldBrush) : AnyShapeStyle(c.surface3)); if fin { SiteIcon(name: "check", size: 22, color: c.onGold) } else { Text((dk.count - n).ar).font(F.plex(16, .semibold)).foregroundStyle(c.gold) } }.frame(width: 44, height: 44)
+                                    Text(fin ? "اكتمل" : "اضغط للعدّ").font(F.plex(12.5)).foregroundStyle(c.muted)
+                                }.padding(.top, 12)
+                            }.contentShape(Rectangle()).onTapGesture { if !fin { count(i, list) } }
                         }
-                        .padding(18).background(RoundedRectangle(cornerRadius: 22).fill(finished ? c.gold.opacity(0.08) : c.surface)).overlay(RoundedRectangle(cornerRadius: 22).stroke(finished ? c.gold.opacity(0.5) : c.line))
-                        .opacity(finished ? 0.75 : 1)
-                    }.buttonStyle(.plain).padding(.horizontal, 16)
+                    }.padding(.horizontal, 16).padding(.top, 10).padding(.bottom, 24)
                 }
-            }.padding(.bottom, 24)
+            } else {
+                TabView(selection: $page) {
+                    ForEach(Array(list.enumerated()), id: \.offset) { i, dk in
+                        let n = counts[safe: i] ?? 0, left = max(0, dk.count - n), fin = left == 0
+                        VStack(spacing: 0) {
+                            Panel(pad: 22) {
+                                ScrollView { Text(AdhkarView.text(dk.text)).font(F.amiri(22, bold: false)).foregroundStyle(c.text).lineSpacing(16).multilineTextAlignment(.center).frame(maxWidth: .infinity) }
+                            }.frame(maxHeight: .infinity)
+                            Button { count(i, list) } label: {
+                                ZStack {
+                                    Circle().fill(c.surface2)
+                                    Circle().stroke(c.lineSoft, lineWidth: 8).padding(6)
+                                    Circle().trim(from: 0, to: dk.count > 0 ? Double(n) / Double(dk.count) : 1).stroke(c.goldBrush, style: StrokeStyle(lineWidth: 8, lineCap: .round)).rotationEffect(.degrees(-90)).padding(6)
+                                        .animation(.spring(response: 0.4, dampingFraction: 0.8), value: n)
+                                    VStack(spacing: 0) {
+                                        if fin { SiteIcon(name: "check", size: 52, color: c.gold) } else { Text(left.ar).font(F.plex(46, .bold)).foregroundStyle(c.gold) }
+                                        Text(fin ? "اكتمل" : "اضغط للعدّ").font(F.plex(12.5, .medium)).foregroundStyle(c.muted)
+                                    }
+                                }.frame(width: 150, height: 150)
+                            }.buttonStyle(Press(scale: 0.92)).padding(.top, 16)
+                            HStack(spacing: 8) {
+                                Button { withAnimation { page = max(0, i - 1) } } label: { SiteIcon(name: "chev-r", size: 24, color: c.text).frame(width: 44, height: 44) }.accessibilityLabel("السابق")
+                                Chip(text: nil, icon: "copy") { UIPasteboard.general.string = AdhkarView.text(dk.text); ui.say("نُسخ الذكر") }
+                                Chip(text: nil, icon: "arrow.counterclockwise") { UserDefaults.standard.set(0, forKey: key(i)); if counts.indices.contains(i) { counts[i] = 0 } }
+                                Button { withAnimation { page = min(list.count - 1, i + 1) } } label: { SiteIcon(name: "chev-l", size: 24, color: c.text).frame(width: 44, height: 44) }.accessibilityLabel("التالي")
+                            }.padding(.vertical, 14)
+                        }.padding(.horizontal, 18).padding(.vertical, 10).tag(i)
+                    }
+                }.tabViewStyle(.page(indexDisplayMode: .never))
+            }
         }
+        .onAppear { load(list) }
+        .onChange(of: tab) { _ in let l = AdhkarView.data[tab] ?? []; load(l) }
+    }
+    private func load(_ list: [(text: String, count: Int)]) {
+        counts = list.indices.map { UserDefaults.standard.integer(forKey: key($0)) }
+        page = list.indices.first { counts[$0] < list[$0].count } ?? 0
+    }
+    private func count(_ i: Int, _ list: [(text: String, count: Int)]) {
+        let n = counts[safe: i] ?? 0
+        if n >= list[i].count { if i < list.count - 1 { withAnimation { page = i + 1 } }; return }
+        let v = n + 1; counts[i] = v; UserDefaults.standard.set(v, forKey: key(i))
+        if v >= list[i].count { UINotificationFeedbackGenerator().notificationOccurred(.success) } else { UIImpactFeedbackGenerator(style: .light).impactOccurred() }
+        if v >= list[i].count && i < list.count - 1 && !listMode { DispatchQueue.main.asyncAfter(deadline: .now() + 0.45) { withAnimation { page = i + 1 } } }
     }
 }
 

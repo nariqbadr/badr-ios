@@ -1,174 +1,207 @@
 import SwiftUI
-import PDFKit
 
+/// «القرآن»: the mushaf, read-and-listen and the surah index in one place (like the Android app).
 struct QuranView: View {
     @EnvironmentObject var ui: UIState
+    @EnvironmentObject var repo: Repo
     @Environment(\.pal) private var c
     @State private var q = ""
     var body: some View {
+        let mus = repo.data?.site.sec("mushaf") != false
+        let last = Store.shared.str("lastRead").split(separator: ":").compactMap { Int($0) }
         ScrollView {
-            LazyVStack(spacing: 0) {
-                HStack(spacing: 12) {
-                    tile("المصحف الشريف", "صفحات مصحف المدينة", "book") { ui.path.append(.mushaf) }
-                    tile("اقرأ واستمع واحفظ", "الكلمات تضيء مع التلاوة", "waveform") { ui.path.append(.readIndex) }
-                }.padding(16)
-                QuranFullBanner().padding(.horizontal, 16).padding(.bottom, 12)
-                TextField("ابحث عن سورة باسمها أو رقمها", text: $q).font(F.plex(15)).padding(12)
-                    .background(RoundedRectangle(cornerRadius: 16).fill(c.surface.opacity(0.7))).overlay(RoundedRectangle(cornerRadius: 16).stroke(c.line)).padding(.horizontal, 16)
-                ForEach(Array(Quran.surahs.enumerated()).filter { q.isEmpty || $0.element.contains(q) || "\($0.offset + 1)" == q }, id: \.offset) { i, n in
-                    Button { ui.path.append(.surah(i + 1)) } label: {
-                        HStack(spacing: 14) {
-                            ZStack { Image(systemName: "seal").font(.system(size: 34, weight: .ultraLight)).foregroundStyle(c.gold); Text((i + 1).ar).font(F.plex(12, .bold)).foregroundStyle(c.gold) }.frame(width: 40)
-                            VStack(alignment: .leading, spacing: 2) { Text("سورة \(n)").font(F.amiri(19)).foregroundStyle(c.text); Text("\(Quran.ayahs[i].ar) آية · صفحة \(Quran.surahPage[i].ar)").font(F.plex(12)).foregroundStyle(c.muted) }
-                            Spacer()
-                            Image(systemName: "chevron.left").foregroundStyle(c.faint)
-                        }.padding(.horizontal, 18).padding(.vertical, 10).contentShape(Rectangle())
-                    }.buttonStyle(.plain)
+            LazyVStack(alignment: .leading, spacing: 0) {
+                if q.isEmpty {
+                    if mus {
+                        HStack(spacing: 10) {
+                            BigTile(icon: "book", title: "المصحف الشريف", sub: "صفحات مصحف المدينة") { ui.path.append(.mushaf) }
+                            BigTile(icon: "waveform", title: "اقرأ واستمع واحفظ", sub: "الكلمات تضيء مع التلاوة") { ui.path.append(.readIndex) }
+                        }.padding(.horizontal, 16).padding(.vertical, 8)
+                        WirdCard().padding(.horizontal, 16).padding(.vertical, 6)
+                        QuranFullBanner().padding(.horizontal, 16).padding(.vertical, 4)
+                    }
+                    if last.count == 2, (1...114).contains(last[0]) {
+                        Button { ui.path.append(.surah(last[0] * 1000 + last[1])) } label: {
+                            HStack(spacing: 10) {
+                                SiteIcon(name: "bookmark", size: 24, color: c.onGold)
+                                VStack(alignment: .leading, spacing: 0) { Text("تابع القراءة").font(F.plex(12.5, .medium)); Text("سورة \(Quran.surahs[last[0] - 1]) — الآية \(last[1].ar)").font(F.plex(14, .semibold)) }.foregroundStyle(c.onGold)
+                                Spacer(); SiteIcon(name: "chev-l", size: 22, color: c.onGold)
+                            }.padding(14).background(RoundedRectangle(cornerRadius: 18).fill(c.goldBrush))
+                        }.buttonStyle(Press()).padding(.horizontal, 16).padding(.vertical, 4)
+                    }
                 }
-            }.padding(.bottom, 20)
+                SectionHead(title: "فهرس السور", kicker: "١١٤ سورة")
+                SearchField(text: $q, hint: "ابحث عن سورة باسمها أو رقمها").padding(.horizontal, 16).padding(.vertical, 4)
+                ForEach(Array(Quran.surahs.enumerated()).filter { q.isEmpty || QuranMeta.norm($0.element).contains(QuranMeta.norm(q.trimmingCharacters(in: .whitespaces))) || "\($0.offset + 1)" == q.trimmingCharacters(in: .whitespaces) }, id: \.offset) { i, n in
+                    HStack(spacing: 14) {
+                        SurahMedal(n: i + 1, size: 44)
+                        VStack(alignment: .leading, spacing: 0) { Text("سورة \(n)").font(F.amiri(20, bold: false)).foregroundStyle(c.text); Text("\(Quran.ayahs[i].ar) آية · صفحة \(Quran.surahPage[i].ar)").font(F.plex(12.5)).foregroundStyle(c.muted) }
+                        Spacer()
+                        if mus { Button { UserDefaults.standard.set(Quran.surahPage[i], forKey: "mushafPage"); ui.path.append(.mushaf) } label: { SiteIcon(name: "book", size: 22, color: c.faint).frame(width: 44, height: 44) }.buttonStyle(.plain).accessibilityLabel("افتح في المصحف") }
+                    }
+                    .padding(.horizontal, 18).padding(.vertical, 10).contentShape(Rectangle())
+                    .onTapGesture { ui.path.append(.surah(i + 1)) }
+                }
+            }.padding(.bottom, 24)
         }
     }
-    private func tile(_ t: String, _ s: String, _ icon: String, _ a: @escaping () -> Void) -> some View {
-        Button(action: a) {
-            VStack(alignment: .leading, spacing: 6) { Image(systemName: icon).font(.system(size: 22)).foregroundStyle(c.gold); Text(t).font(F.plex(15, .bold)).foregroundStyle(c.text); Text(s).font(F.plex(12)).foregroundStyle(c.muted) }
-                .frame(maxWidth: .infinity, alignment: .leading).padding(16).background(RoundedRectangle(cornerRadius: 22).fill(c.surface)).overlay(RoundedRectangle(cornerRadius: 22).stroke(c.line))
+}
+
+/// The surah number inside the eight-pointed star.
+struct SurahMedal: View {
+    let n: Int; var size: CGFloat = 40
+    @Environment(\.pal) private var c
+    var body: some View {
+        ZStack {
+            Canvas { ctx, s in ctx.stroke(star8(CGPoint(x: s.width / 2, y: s.height / 2), s.width / 2 - 1.5), with: .color(c.gold.opacity(0.75)), lineWidth: 1.3) }
+            Text(n.ar).font(F.plex(size * 0.3, .bold)).foregroundStyle(c.gold)
+        }.frame(width: size, height: size)
+    }
+}
+
+struct BigTile: View {
+    let icon: String, title: String, sub: String; let action: () -> Void
+    @Environment(\.pal) private var c
+    var body: some View {
+        Button(action: action) {
+            Panel(pad: 16) {
+                Ico(name: icon, size: 30, color: c.gold)
+                Text(title).font(F.plex(16, .semibold)).foregroundStyle(c.text).padding(.top, 10).lineLimit(1).minimumScaleFactor(0.8)
+                Text(sub).font(F.plex(12.5)).foregroundStyle(c.muted).lineLimit(2)
+            }
         }.buttonStyle(Press())
     }
 }
 
-/// «اقرأ واستمع واحفظ»: the surah's text, tap an ayah to hear it, or play the whole surah ayah after ayah.
+/// «الورد اليومي» on the Quran page: today's portion, the khatma's progress, «اقرأ الورد» and «أتممت».
+struct WirdCard: View {
+    @EnvironmentObject var ui: UIState
+    @EnvironmentObject var store: Store
+    @Environment(\.pal) private var c
+    @State private var msg: String?
+    var body: some View {
+        let on = Wird.on
+        VStack(alignment: .leading, spacing: 0) {
+            HStack(spacing: 10) {
+                SiteIcon(name: "calendar", size: 20, color: c.gold).frame(width: 38, height: 38).background(Circle().fill(c.gold.opacity(0.18)))
+                VStack(alignment: .leading, spacing: 0) {
+                    Text("الورد اليومي").font(F.plex(16, .semibold)).foregroundStyle(c.text)
+                    Text(!on ? "اجعل لك وردًا ثابتًا من القرآن كل يوم" : Wird.doneToday ? "أتممت ورد اليوم — بارك الله فيك" : "ورد اليوم بانتظارك").font(F.plex(12.5)).foregroundStyle(c.muted)
+                }
+                Spacer()
+                if on { Button { ui.sheet = .wird } label: { SiteIcon(name: "gear", size: 22, color: c.muted).frame(width: 44, height: 44) }.accessibilityLabel("إعدادات الورد") }
+            }
+            if !on { GoldButton(title: "ابدأ وردك", icon: "plus") { ui.sheet = .wird }.frame(maxWidth: .infinity).padding(.top, 12) }
+            else {
+                let (f, t) = Wird.range
+                Text(Wird.doneToday ? "الورد القادم" : "ورد اليوم").font(F.plex(12.5, .medium)).foregroundStyle(c.gold).padding(.top, 14)
+                Text(f == t ? "صفحة \(f.ar)" : "من صفحة \(f.ar) إلى \(t.ar)").font(F.amiri(24, bold: false)).foregroundStyle(c.text)
+                Text("سورة \(Quran.surahs[Wird.surahOfPage(f) - 1]) · الجزء \(Wird.juzOf(f).ar)").font(F.plex(12.5)).foregroundStyle(c.muted)
+                GeometryReader { g in ZStack(alignment: .leading) { Capsule().fill(c.surface3); Capsule().fill(c.goldBrush).frame(width: g.size.width * max(0.015, Double(Wird.percent) / 100)) } }.frame(height: 7).padding(.top, 12)
+                HStack { Text("الختمة \(Wird.percent.ar)٪").font(F.plex(11)).foregroundStyle(c.muted); Spacer(); if Wird.khatmas > 0 { Text("ختمات: \(Wird.khatmas.ar)").font(F.plex(11)).foregroundStyle(c.gold) } }.padding(.top, 6)
+                HStack(spacing: 10) {
+                    GoldButton(title: "اقرأ الورد", icon: "book") { UserDefaults.standard.set(f, forKey: "mushafPage"); ui.path.append(.mushaf) }.frame(maxWidth: .infinity)
+                    if !Wird.doneToday { GhostButton(title: "أتممت", icon: "check") { msg = Wird.done() ? "مبارك! أتممت ختم القرآن الكريم — تقبّل الله منك" : "تقبّل الله منك — حُفظ موضع وردك القادم" }.frame(maxWidth: .infinity) }
+                    else if Wird.canUndo { GhostButton(title: "تراجع") { Wird.undo() }.frame(maxWidth: .infinity) }
+                }.padding(.top, 12)
+                if let msg { Text(msg).font(F.plex(12.5)).foregroundStyle(c.gold).padding(.top, 8) }
+            }
+        }
+        .padding(18)
+        .background(RoundedRectangle(cornerRadius: 24).fill(LinearGradient(colors: [c.gold.opacity(0.17), c.surface, c.surface], startPoint: .topLeading, endPoint: .bottomTrailing)))
+        .overlay(RoundedRectangle(cornerRadius: 24).stroke(c.gold.opacity(0.38)))
+    }
+}
+
+/// Surah reader: every ayah with its audio (any reciter), continuous play; a long press for tafsir and more.
 struct SurahView: View {
-    @State var s: Int
+    let s0: Int
+    init(s: Int) { s0 = s }
     @EnvironmentObject var repo: Repo
+    @EnvironmentObject var ui: UIState
     @EnvironmentObject var ayah: AyahPlayer
     @EnvironmentObject var store: Store
-    @EnvironmentObject var ui: UIState
     @Environment(\.pal) private var c
-    @State private var ayahs: [String] = []
-    @State private var tafsir: [Int: String] = [:]
-    @State private var showTafsir: Int?
-    @State private var continuous = false
-    @State private var size: CGFloat = 26
-    var rv: String { store.ayahReciter.isEmpty ? (repo.data?.site.dailyReciter ?? "yasser") : store.ayahReciter }
-    var body: some View {
-        ScrollViewReader { proxy in
-            ScrollView {
-                LazyVStack(spacing: 0) {
-                    Text("سورة \(Quran.surahs[s - 1])").font(F.amiri(30)).foregroundStyle(c.gold).padding(.top, 16)
-                    Text("\(Quran.ayahs[s - 1].ar) آية").font(F.plex(12)).foregroundStyle(c.muted)
-                    HStack(spacing: 10) {
-                        Button { if continuous { continuous = false; ayah.stop() } else { continuous = true; playFrom(1) } } label: {
-                            Label(continuous ? "إيقاف" : "تشغيل السورة", systemImage: continuous ? "stop.fill" : "play.fill").font(F.plex(13, .bold)).foregroundStyle(c.onGold).padding(.horizontal, 16).padding(.vertical, 9).background(Capsule().fill(c.gold))
-                        }
-                        Menu { ForEach(ayah.options(s, 1), id: \.self) { o in Button(o.label) { store.ayahReciter = o.value } } } label: {
-                            Text(ayah.label(rv, s, 1).isEmpty ? "القارئ" : ayah.label(rv, s, 1)).font(F.plex(13)).foregroundStyle(c.text).lineLimit(1).padding(.horizontal, 12).padding(.vertical, 9).background(Capsule().fill(c.surface2))
-                        }
-                        Button { size = size >= 34 ? 22 : size + 4 } label: { Image(systemName: "textformat.size").foregroundStyle(c.gold) }
-                    }.padding(.vertical, 12)
-                    if s != 1 && s != 9 { Text("بِسْمِ ٱللَّهِ ٱلرَّحْمَٰنِ ٱلرَّحِيمِ").font(F.quran(24)).foregroundStyle(c.text).padding(.bottom, 8) }
-                    if ayahs.isEmpty { ProgressView().padding(40) }
-                    ForEach(Array(ayahs.enumerated()), id: \.offset) { i, t in
-                        let a = i + 1, on = ayah.key?.hasPrefix("\(s):\(a)|") == true
-                        Button { continuous = false; if on && ayah.playing { ayah.stop() } else { ayah.play(rv, s, a) } } label: {
-                            Text(clean(a, t) + " ﴿\(a.ar)﴾").font(F.quran(size)).lineSpacing(size * 0.55).foregroundStyle(on ? c.gold : c.text)
-                                .multilineTextAlignment(.center).frame(maxWidth: .infinity).padding(.horizontal, 18).padding(.vertical, 10)
-                                .background(RoundedRectangle(cornerRadius: 16).fill(on ? c.gold.opacity(0.1) : .clear))
-                        }.buttonStyle(.plain).id(a)
-                        .contextMenu {
-                            Button { Task { if tafsir.isEmpty { tafsir = await repo.tafsir(s) }; showTafsir = a } } label: { Label("التفسير الميسر", systemImage: "text.book.closed") }
-                            Button { share("﴿\(clean(a, t))﴾ [سورة \(Quran.surahs[s - 1]): \(a)]") } label: { Label("مشاركة", systemImage: "square.and.arrow.up") }
-                            if repo.data?.site.sec("community") != false { Button { ui.path.append(.compose("ayah:\(s):\(a)|\(rv)")) } label: { Label("انشرها في المجتمع", systemImage: "bubble.left") } }
-                        }
-                    }
-                    HStack {
-                        if s < 114 { GhostButton(title: "السورة التالية") { ayah.stop(); s += 1 } }
-                        if s > 1 { GhostButton(title: "السورة السابقة") { ayah.stop(); s -= 1 } }
-                    }.padding(24)
-                }
-            }
-            .onChange(of: ayah.key) { k in if continuous, let k, let a = Int(k.split(separator: "|")[0].split(separator: ":")[1]) { withAnimation { proxy.scrollTo(a, anchor: .center) } } }
-        }
-        .background(Backdrop())
-        .navigationTitle("سورة \(Quran.surahs[s - 1])").navigationBarTitleDisplayMode(.inline)
-        .task(id: s) { ayahs = []; tafsir = [:]; ayahs = await repo.surahText(s) ?? [] }
-        .sheet(item: Binding(get: { showTafsir.map { IntBox(v: $0) } }, set: { showTafsir = $0?.v })) { b in
-            ScrollView { VStack(alignment: .leading, spacing: 10) {
-                Text("التفسير الميسر — الآية \(b.v.ar)").font(F.plex(15, .bold)).foregroundStyle(c.gold)
-                Text(tafsir[b.v] ?? "تعذّر تحميل التفسير.").font(F.plex(16)).foregroundStyle(c.text).lineSpacing(6)
-            }.padding(22) }.presentationDetents([.medium, .large]).environment(\.layoutDirection, .rightToLeft)
-        }
-        .onDisappear { continuous = false }
+    @State private var ayahs: [String]?
+    @State private var failed = false
+    @AppStorage("qsize") private var size = 26.0
+    @State private var cont = true
+    @State private var act: Int?
+    @State private var tafsir: Int?
+    private var s: Int { s0 > 1000 ? s0 / 1000 : s0 }
+    private var start: Int { s0 > 1000 ? s0 % 1000 : 1 }
+    private var rv: String {
+        let opts = ayah.options(1, 1).map(\.value)
+        let p = store.ayahReciter.isEmpty ? (repo.data?.site.dailyReciter ?? "yasser") : store.ayahReciter
+        return opts.contains(p) ? p : (opts.contains("yasser") ? "yasser" : opts.first ?? "yasser")
     }
-    private func clean(_ a: Int, _ t: String) -> String { ayahClean(s, a, t) }
-    private func playFrom(_ a: Int) {
-        guard continuous, a <= Quran.ayahs[s - 1] else { continuous = false; return }
-        ayah.play(rv, s, a) { playFrom(a + 1) }
+    var body: some View {
+        let cur: Int? = ayah.key.flatMap { k in k.hasPrefix("\(s):") ? Int(k.dropFirst("\(s):".count).prefix { $0 != "|" }) : nil }
+        let opts = ayah.options(s, 1)
+        VStack(spacing: 0) {
+            HStack(spacing: 6) {
+                OptMenu(label: "", value: rv, opts: opts.map { ($0.value, $0.label + ($0.ok ? "" : " (غير متاحة)")) }) { store.ayahReciter = $0; ayah.stop() }.frame(maxWidth: .infinity, alignment: .leading)
+                Chip(text: nil, icon: "queue", on: cont) { cont.toggle(); ui.say(cont ? "تشغيل متتابع للآيات" : "تشغيل آية واحدة") }
+                Chip(text: nil, icon: "zoom-out") { size = max(18, size - 2) }
+                Chip(text: nil, icon: "zoom-in") { size = min(44, size + 2) }
+            }.padding(.horizontal, 12).padding(.vertical, 6)
+            ScrollViewReader { sp in
+                ScrollView {
+                    LazyVStack(spacing: 0) {
+                        Panel(pad: 18) {
+                            VStack(spacing: 0) {
+                                Text("سورة \(Quran.surahs[s - 1])").font(F.amiri(30)).foregroundStyle(c.goldBrushV)
+                                Text("\(Quran.ayahs[s - 1].ar) آية · الجزء \(Quran.juzOfPage(Quran.surahPage[s - 1]).ar)").font(F.plex(12.5)).foregroundStyle(c.muted)
+                                Ornament().padding(.vertical, 8)
+                                if s != 1 && s != 9 { Text("بِسْمِ ٱللَّهِ ٱلرَّحْمَٰنِ ٱلرَّحِيمِ").font(F.quran(24)).foregroundStyle(c.text) }
+                                HStack(spacing: 8) {
+                                    Chip(text: cur != nil && ayah.playing ? "إيقاف" : "استمع للسورة", icon: cur != nil && ayah.playing ? "pause" : "play") { if cur != nil && ayah.playing { ayah.stop() } else { playFrom(1, sp) } }
+                                    if repo.data?.site.sec("mushaf") != false { Chip(text: "في المصحف", icon: "book") { UserDefaults.standard.set(Quran.surahPage[s - 1], forKey: "mushafPage"); ui.path.append(.mushaf) } }
+                                }.padding(.top, 10)
+                            }.frame(maxWidth: .infinity)
+                        }.padding(.bottom, 10)
+                        if let ayahs {
+                            ForEach(1...ayahs.count, id: \.self) { a in
+                                let on = cur == a
+                                Text("\(ayahClean(s, a, ayahs[a - 1])) ﴿\(a.ar)﴾").font(F.quran(size)).foregroundStyle(on ? c.gold : c.text).lineSpacing(size * 0.75).multilineTextAlignment(.leading)
+                                    .frame(maxWidth: .infinity, alignment: .leading).padding(.horizontal, 12).padding(.vertical, 10)
+                                    .background(RoundedRectangle(cornerRadius: 18).fill(on ? c.gold.opacity(0.13) : .clear)).padding(.vertical, 3)
+                                    .contentShape(Rectangle())
+                                    .onTapGesture { if on { ayah.stop() } else { playFrom(a, sp) } }
+                                    .onLongPressGesture { act = a }
+                                    .id(a)
+                            }
+                            Text("اضغط على الآية لسماعها، واضغط مطوّلًا للتفسير والمزيد").font(F.plex(11)).foregroundStyle(c.faint).frame(maxWidth: .infinity).padding(.top, 14)
+                        } else {
+                            Group { if failed { Text("تعذّر تحميل السورة — تحقق من الاتصال").font(F.plex(14)).foregroundStyle(c.muted) } else { ProgressView().tint(c.gold) } }.padding(40)
+                        }
+                    }.padding(.horizontal, 14).padding(.top, 4).padding(.bottom, 32)
+                }
+                .task(id: s) { ayahs = await repo.surahText(s); failed = ayahs == nil; if start > 1 { try? await Task.sleep(nanoseconds: 300_000_000); sp.scrollTo(start, anchor: .top) } }
+            }
+        }
+        .onDisappear { ayah.stop() }
+        .sheet(item: Binding(get: { act.map(IntBox.init(v:)) }, set: { act = $0?.v })) { b in
+            let a = b.v, text = ayahClean(s, a, ayahs?[safe: a - 1] ?? ""), cite = "﴿\(text)﴾ [سورة \(Quran.surahs[s - 1]): \(a)]"
+            MenuSheet(title: "سورة \(Quran.surahs[s - 1]) — الآية \(a.ar)") {
+                MenuRow(icon: "play", title: "استمع للآية") { act = nil; ayah.play(rv, s, a) }
+                MenuRow(icon: "scroll", title: "التفسير") { act = nil; DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) { tafsir = a } }
+                MenuRow(icon: "copy", title: "نسخ") { UIPasteboard.general.string = cite; ui.say("نُسخت الآية"); act = nil }
+                MenuRow(icon: "share", title: "مشاركة") { act = nil; share("\(cite)\n\(Repo.site)") }
+                MenuRow(icon: "bookmark", title: "علامة القراءة هنا") { Store.shared.set("lastRead", "\(s):\(a)"); ui.say("حُفظت علامة القراءة"); act = nil }
+                if repo.data?.site.sec("maker") != false { MenuRow(icon: "image", title: "صمّمها") { act = nil; ui.path.append(.maker(s, a)) } }
+                if repo.data?.site.sec("community") != false { MenuRow(icon: "chat", title: "انشرها في المجتمع") { act = nil; ui.path.append(.compose("ayah:\(s):\(a)|\(rv)")) } }
+            }.presentationDetents([.medium, .large])
+        }
+        .sheet(item: Binding(get: { tafsir.map(IntBox.init(v:)) }, set: { tafsir = $0?.v })) { b in
+            TafsirSheet(s: s, a: b.v, text: ayahClean(s, b.v, ayahs?[safe: b.v - 1] ?? "")).presentationDetents([.medium, .large])
+        }
+    }
+    private func playFrom(_ a: Int, _ sp: ScrollViewProxy) {
+        Store.shared.set("lastRead", "\(s):\(a)")
+        AudioPlayer.shared.pause()
+        ayah.play(rv, s, a) { if cont && a < Quran.ayahs[s - 1] { playFrom(a + 1, sp) } }
+        withAnimation { sp.scrollTo(a, anchor: .center) }
     }
 }
 struct IntBox: Identifiable { let v: Int; var id: Int { v } }
-
-/// The site's mushaf PDF (downloaded once, then works offline).
-struct MushafView: View {
-    @EnvironmentObject var repo: Repo
-    @Environment(\.pal) private var c
-    @State private var doc: PDFDocument?
-    @State private var progress: Double = 0
-    @State private var failed = false
-    @State private var page = UserDefaults.standard.integer(forKey: "mushafPage")
-    @State private var jump = false
-    var body: some View {
-        ZStack {
-            if let doc {
-                PDFPages(doc: doc, page: $page)
-            } else if failed {
-                VStack(spacing: 14) { Empty(text: "تعذّر تحميل المصحف — تحقق من الإنترنت.", icon: "wifi.slash"); GhostButton(title: "إعادة المحاولة") { failed = false; Task { await load() } } }
-            } else {
-                VStack(spacing: 12) { ProgressView().tint(c.gold); Text("جارٍ تحميل المصحف لأول مرة… قد يستغرق دقيقة").font(F.plex(14)).foregroundStyle(c.muted) }
-            }
-        }
-        .background(Backdrop())
-        .navigationTitle("المصحف — صفحة \(max(1, page + 1 - (repo.data?.site.mushafOffset ?? 0)).ar)").navigationBarTitleDisplayMode(.inline)
-        .toolbar { Button { jump = true } label: { Image(systemName: "list.bullet") } }
-        .sheet(isPresented: $jump) {
-            NavigationStack {
-                List(Array(Quran.surahs.enumerated()), id: \.offset) { i, n in
-                    Button("\((i + 1).ar). سورة \(n)") { page = Quran.surahPage[i] - 1 + (repo.data?.site.mushafOffset ?? 0); jump = false }.foregroundStyle(c.text)
-                }.navigationTitle("اذهب إلى سورة").navigationBarTitleDisplayMode(.inline)
-            }.environment(\.layoutDirection, .rightToLeft)
-        }
-        .task { await load() }
-        .onChange(of: page) { UserDefaults.standard.set($0, forKey: "mushafPage") }
-    }
-    private func load() async {
-        let f = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0].appendingPathComponent("mushaf.pdf")
-        if let d = PDFDocument(url: f) { doc = d; return }
-        guard let u = Repo.media(repo.data?.site.mushafUrl ?? "/standard1-quran.pdf") else { failed = true; return }
-        do {
-            let (tmp, _) = try await URLSession.shared.download(from: u)
-            try? FileManager.default.removeItem(at: f)
-            try FileManager.default.moveItem(at: tmp, to: f)
-            doc = PDFDocument(url: f); if doc == nil { failed = true }
-        } catch { failed = true }
-    }
-}
-
-struct PDFPages: UIViewRepresentable {
-    let doc: PDFDocument
-    @Binding var page: Int
-    func makeUIView(context: Context) -> PDFView {
-        let v = PDFView(); v.document = doc; v.displayMode = .singlePage; v.displayDirection = .horizontal; v.autoScales = true
-        v.usePageViewController(true); v.displaysRTL = true; v.backgroundColor = .clear
-        if let p = doc.page(at: max(0, min(page, doc.pageCount - 1))) { v.go(to: p) }
-        NotificationCenter.default.addObserver(context.coordinator, selector: #selector(Coordinator.changed(_:)), name: .PDFViewPageChanged, object: v)
-        return v
-    }
-    func updateUIView(_ v: PDFView, context: Context) {
-        if let cur = v.currentPage, doc.index(for: cur) != page, let p = doc.page(at: max(0, min(page, doc.pageCount - 1))) { v.go(to: p) }
-    }
-    func makeCoordinator() -> Coordinator { Coordinator(self) }
-    final class Coordinator: NSObject {
-        let parent: PDFPages
-        init(_ p: PDFPages) { parent = p }
-        @objc func changed(_ n: Notification) { if let v = n.object as? PDFView, let p = v.currentPage { let i = parent.doc.index(for: p); DispatchQueue.main.async { self.parent.page = i } } }
-    }
-}
