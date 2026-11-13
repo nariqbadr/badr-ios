@@ -106,7 +106,7 @@ enum Route: Hashable {
         case .library: return "library"; case .fiqh: return "fiqh"; case .live: return "live"; case .about: return "about"; case .timeline: return "timeline"; case .prayer: return "prayer"; default: return nil }
     }
     /// a link to the site → the matching screen (/recitations/, /track/x, /reciter/x, /quran/18 …)
-    static func fromSite(_ u: String) -> Route? {
+    @MainActor static func fromSite(_ u: String) -> Route? {
         guard let url = URL(string: u) else { return nil }
         let p = url.path.split(separator: "/").map { String($0).removingPercentEncoding ?? String($0) }
         switch p.first ?? "" {
