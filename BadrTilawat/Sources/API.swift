@@ -68,7 +68,7 @@ final class Repo: ObservableObject {
         if v.hasPrefix("sr:"), let q = quranRec(String(v.dropFirst(3))) { let i = quranImage(q); if !i.isEmpty { return i } }
         let norm = { (x: String) in x.replacingOccurrences(of: "^\\s*(الشيخ|القارئ|الإمام)\\s+", with: "", options: .regularExpression).split(separator: " ").map(String.init) }
         let w = norm(label); guard w.count >= 2 else { return "" }
-        return data?.reciters.first { let y = norm($0.name); y.first == w.first && y.last == w.last }?.image ?? ""
+        return data?.reciters.first { r in let y = norm(r.name); return y.first == w.first && y.last == w.last }?.image ?? ""
     }
     static func partBase(_ id: String?) -> String? { id?.replacingOccurrences(of: "__s\\d{1,3}$", with: "", options: .regularExpression) }
     func track(_ id: String?) -> Track? { let b = Repo.partBase(id); return data?.recitations.first { $0.id == b } ?? quranTrack(b) }
