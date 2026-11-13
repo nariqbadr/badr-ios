@@ -145,7 +145,7 @@ private struct PlayDot: View {
             .frame(width: size, height: size).background(Circle().fill(on ? c.gold : .clear)).overlay(Circle().stroke(c.gold.opacity(on ? 1 : 0.55)))
     }
 }
-private func countLabel(_ repo: Repo, _ r: QuranRec) -> String {
+@MainActor private func countLabel(_ repo: Repo, _ r: QuranRec) -> String {
     if repo.quranJuz(r) { return "٣٠ جزءًا" }
     let n = repo.quranNums(r).count
     return n == 1 ? "سورة واحدة" : n == 2 ? "سورتان" : "\(n.ar) \(n <= 10 ? "سور" : "سورة")"
@@ -154,7 +154,7 @@ private func ytURL(_ r: QuranRec, _ index: Int = 0) -> URL? { URL(string: "https
 private func msFmt(_ s: Double) -> String { let x = Int(s); return x >= 3600 ? String(format: "%d:%02d:%02d", x / 3600, x % 3600 / 60, x % 60) : String(format: "%d:%02d", x / 60, x % 60) }
 
 /// Where a recording was left: the surah and how far into the whole.
-private func progress(_ repo: Repo, _ r: QuranRec, _ p: AudioPlayer) -> (id: String?, frac: Double, pos: Double) {
+@MainActor private func progress(_ repo: Repo, _ r: QuranRec, _ p: AudioPlayer) -> (id: String?, frac: Double, pos: Double) {
     let pre = "quran-\(r.id)-", nums = repo.quranNums(r)
     var id: String?, pos = 0.0, dur = 0.0
     if let cur = p.current?.id, cur.hasPrefix(pre) { id = cur; pos = p.position; dur = p.duration }
@@ -270,8 +270,10 @@ private struct ReciterQuranView: View {
     @State private var picked = Set<String>()
     @State private var sheet: String?
     @State private var more: Track?
-    @State private var ra = 67, rb = 114
+    @State private var ra = 67
+    @State private var rb = 114
 
+    init(recs: [QuranRec], r: QuranRec, back: (() -> Void)?) { self.recs = recs; self.r = r; self.back = back }
     private func saved(_ id: String) -> Bool { _ = dl.savedTick; return OfflineFiles.local(id) != nil }
 
     var body: some View {
