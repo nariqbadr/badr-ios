@@ -123,6 +123,7 @@ struct RootView: View {
         case .people(let h, let l): PeopleView(handle: h, list: l)
         case .thread(let id): ThreadView(id: id)
         case .watch(let id): WatchView(id: id)
+        case .listen: ListenView().navigationTitle("القرآن الكريم كاملًا")
         case .clip(let id): ClipView(trackId: id)
         default: screen(r.tabKey ?? "home")
         }

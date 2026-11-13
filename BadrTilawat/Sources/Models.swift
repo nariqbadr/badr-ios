@@ -24,6 +24,12 @@ struct Track: Identifiable, Hashable {
         order = j["order"].int; createdAt = j["createdAt"].str; publishAt = j["publishAt"].str; tags = j["tags"].strings
         featured = j["featured"].bool(); durationSec = j["durationSec"].int; location = j["location"].str; duration = j["duration"].str
     }
+    /// A recitation made in the app (a surah of «القرآن الكريم كاملًا»).
+    init(id: String, reciterId: String, title: String, surah: String, surahNumber: Int, audio: String, image: String, durationSec: Int) {
+        self.id = id; self.reciterId = reciterId; self.title = title; self.surah = surah; self.surahNumber = surahNumber; self.audio = audio; self.image = image
+        description = ""; downloadable = true; order = 0; createdAt = ""; publishAt = ""; tags = []; featured = false; self.durationSec = durationSec
+        location = ""; duration = ""; ayahStart = 0; ayahEnd = 0; recordedAt = ""; video = nil
+    }
     /// newest first (publish date, else creation date)
     var stamp: Date { Fmt.parse(publishAt) ?? Fmt.parse(createdAt) ?? .distantPast }
     var durationText: String { !duration.isEmpty ? duration : Fmt.dur(durationSec) }
@@ -99,6 +105,12 @@ struct SiteData {
     /// analysed recitations: trackId → [surah, from, to]; whole-surah reciters → surahs
     let readableTracks: [String: [Int]]
     let readableSr: [String: [Int]]
+    /// «استمع كاملًا»: the whole-Quran recordings (nil: an older site that only sends quranFull)
+    let quranFulls: [QuranRec]?
+    let quranFull: (id: String, name: String, base: String, dur: [String: Int])
+    /// adhan voices to choose from
+    let adhans: [(id: String, name: String, muezzin: String, url: String, fajr: String)]
+    let raw: J
 
     init(_ j: J) {
         rev = j["rev"].str
@@ -113,6 +125,10 @@ struct SiteData {
         surahReciters = j["surahReciters"].array.map { ($0["id"].str, $0["name"].str) }
         readableTracks = j["readable"]["tracks"].dict.mapValues { $0.array.map { $0.int } }
         readableSr = j["readable"]["sr"].dict.mapValues { $0.array.map { $0.int } }
+        quranFulls = j["quranFulls"].isNull ? nil : j["quranFulls"].array.map(QuranRec.init)
+        let qf = j["quranFull"]; quranFull = (qf["id"].str, qf["name"].str, qf["base"].str, qf["dur"].dict.mapValues { $0.int })
+        adhans = j["adhans"].array.map { ($0["id"].str, $0["name"].str, $0["muezzin"].str, $0["url"].str, $0["fajr"].str) }
+        raw = j
     }
     var sortedTracks: [Track] { recitations.sorted { $0.stamp != $1.stamp ? $0.stamp > $1.stamp : $0.order > $1.order } }
 }

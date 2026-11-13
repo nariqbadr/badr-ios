@@ -12,6 +12,7 @@ struct QuranView: View {
                     tile("المصحف الشريف", "صفحات مصحف المدينة", "book") { ui.path.append(.mushaf) }
                     tile("اقرأ واستمع", "الآيات مع صوت القارئ", "headphones") { ui.path.append(.surah(1)) }
                 }.padding(16)
+                QuranFullBanner().padding(.horizontal, 16).padding(.bottom, 12)
                 TextField("ابحث عن سورة باسمها أو رقمها", text: $q).font(F.plex(15)).padding(12)
                     .background(RoundedRectangle(cornerRadius: 16).fill(c.surface.opacity(0.7))).overlay(RoundedRectangle(cornerRadius: 16).stroke(c.line)).padding(.horizontal, 16)
                 ForEach(Array(Quran.surahs.enumerated()).filter { q.isEmpty || $0.element.contains(q) || "\($0.offset + 1)" == q }, id: \.offset) { i, n in

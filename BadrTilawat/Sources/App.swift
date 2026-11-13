@@ -81,7 +81,7 @@ enum SheetKind: String, Identifiable { case prayer, theme, name, notices; var id
 enum Route: Hashable {
     case home, recitations, quran, adhkar, community, library, fiqh, live, about, timeline, prayer, search, qibla
     case reciter(String), surah(Int), mushaf, compose(String), user(String), people(String, String), thread(Int)
-    case watch(String), clip(String)
+    case watch(String), clip(String), listen
     var tabKey: String? {
         switch self { case .home: return "home"; case .recitations: return "recitations"; case .quran: return "quran"; case .adhkar: return "adhkar"; case .community: return "community"
         case .library: return "library"; case .fiqh: return "fiqh"; case .live: return "live"; case .about: return "about"; case .timeline: return "timeline"; case .prayer: return "prayer"; default: return nil }

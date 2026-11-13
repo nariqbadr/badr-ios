@@ -15,10 +15,8 @@ struct RecitationsView: View {
         let list = filtered(all)
         ScrollView {
             LazyVStack(alignment: .leading, spacing: 0) {
-                HStack(spacing: 8) {
-                    Image(systemName: "magnifyingglass").foregroundStyle(c.muted)
-                    TextField("ابحث بالسورة أو القارئ أو المكان", text: $q).font(F.plex(15))
-                }.padding(12).background(RoundedRectangle(cornerRadius: 16).fill(c.surface.opacity(0.7))).overlay(RoundedRectangle(cornerRadius: 16).stroke(c.line)).padding(16)
+                QuranFullBanner().padding(.horizontal, 16).padding(.top, 12)
+                SearchField(text: $q, hint: "ابحث بالسورة أو القارئ أو المكان").padding(16)
                 if hasVideo {
                     HStack(spacing: 8) {
                         Pill(title: "الكل", on: kind.isEmpty) { kind = "" }

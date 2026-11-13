@@ -20,6 +20,11 @@ final class AudioPlayer: ObservableObject {
     @Published var repeatMode = 0      // 0 off, 1 all, 2 one
     @Published var shuffle = false
     @Published private(set) var sleepAt: Date?
+    /// «تكرار عددًا محددًا»: each recitation plays repN times, then the next (0 = off)
+    @Published private(set) var repN = 0
+    @Published private(set) var repDone = 0
+    func repeatTimes(_ n: Int) { repN = n; repDone = 1; repeatMode = 0 }
+    func setRepeat(_ m: Int) { repeatMode = m; repN = 0; repDone = 0 }
     private var sleepEndOfTrack = false
     private var sleepTask: Task<Void, Never>?
     private var lastSave = Date.distantPast
@@ -42,8 +47,9 @@ final class AudioPlayer: ObservableObject {
     }
 
     // MARK: control
-    func play(_ t: Track, in list: [Track]? = nil) {
+    func play(_ t: Track, in list: [Track]? = nil, fromStart: Bool = false) {
         AyahPlayer.shared.stop()
+        if fromStart { for x in list ?? [t] { Store.shared.savePosition(x.id, 0, 0) } }
         let l = list ?? [t]
         queue = l; index = l.firstIndex(of: t) ?? 0
         if !l.contains(t) { queue = [t]; index = 0 }
@@ -97,6 +103,7 @@ final class AudioPlayer: ObservableObject {
         let resume = Store.shared.position(t.id)
         if resume > 0 { player.seek(to: CMTime(seconds: resume, preferredTimescale: 600)) }
         position = resume; duration = Double(t.durationSec)
+        if repN > 0 { repDone = 1 }
         player.play(); player.rate = Store.shared.speed
         playing = true; buffering = true; progressSent = []
         Store.shared.addHistory(t.id)
@@ -118,6 +125,8 @@ final class AudioPlayer: ObservableObject {
         if let t = current { Store.shared.savePosition(t.id, 0, 0) }
         if sleepEndOfTrack { sleepEndOfTrack = false; playing = false; nowPlaying(); return }
         if repeatMode == 2 { seek(0); player.play(); return }
+        if repN > 1 && repDone < repN { repDone += 1; seek(0); player.play(); return }
+        if repN > 0 { repDone = 1 }
         if index + 1 < queue.count || repeatMode == 1 || shuffle { next() } else { playing = false; nowPlaying() }
     }
 
