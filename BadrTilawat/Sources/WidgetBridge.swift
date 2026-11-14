@@ -1,6 +1,7 @@
 import Foundation
 import WidgetKit
 import UIKit
+import SwiftUI
 
 /// Shares with the home-screen widgets (App Group): the prayer times ahead, the ayahs of the coming days, what is playing, the theme.
 @MainActor
