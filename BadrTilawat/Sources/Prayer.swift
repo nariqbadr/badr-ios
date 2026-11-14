@@ -117,6 +117,7 @@ final class Prayers: NSObject, ObservableObject, CLLocationManagerDelegate {
     func schedule() {
         let c = UNUserNotificationCenter.current()
         c.removeAllPendingNotificationRequests()
+        WidgetBridge.prayers()
         let wird = Wird.requests()
         guard alertsOn else { wird.forEach { c.add($0) }; return }
         let pre = preMinutes

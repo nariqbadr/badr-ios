@@ -63,6 +63,19 @@ struct RootView: View {
         }
         .fullScreenCover(isPresented: $ui.playerOpen) { PlayerView() }
         .fullScreenCover(item: $ui.adhan) { a in AdhanScreen(key: a.key) }
+        .onOpenURL { u in
+            // from the home-screen widgets: badr://prayer · badr://ayah/s/a · badr://player · badr://adhkar
+            guard u.scheme == "badr" else { return }
+            let p = [u.host ?? ""] + u.pathComponents.filter { $0 != "/" }
+            ui.drawer = false; ui.sheet = nil
+            switch p[0] {
+            case "prayer": ui.go(.prayer)
+            case "adhkar": ui.go(.adhkar)
+            case "player": if player.current != nil { ui.playerOpen = true } else { ui.go(.recitations) }
+            case "ayah": if p.count >= 3, let s = Int(p[1]), let a = Int(p[2]) { ui.tab = "quran"; ui.path = [.surah(s * 1000 + a)] }
+            default: ui.go(.home)
+            }
+        }
         .sheet(item: $ui.menuFor) { t in TrackMenu(t: t).presentationDetents([.medium, .large]) }
         .sheet(item: $ui.sheet) { k in sheetView(k).presentationDetents([.large]) }
         .animation(.easeInOut(duration: 0.3), value: ui.drawer)
@@ -89,6 +102,7 @@ struct RootView: View {
         case "wird": ui.sheet = .wird
         case "ambient": ui.sheet = .ambient
         case "blocked": ui.path = [.blocked]
+        case "widgets": ui.path = [.widgets]
         case "adhan": ui.adhan = AdhanKey(key: "fajr")
         default: if let t = Route.tab(r) { ui.go(t) }
         }
@@ -112,6 +126,7 @@ struct RootView: View {
         case .maker: return "صانع التصاميم"
         case .blocked: return "الحظر والكتم"
         case .readIndex, .read: return "اقرأ واستمع واحفظ"
+        case .widgets: return "الويدجت"
         case .cm(let a): return a == "notifications" ? "الإشعارات" : a.hasPrefix("search") ? "استكشف" : "المجتمع"
         default: return ["recitations": "التلاوات", "quran": "القرآن الكريم", "adhkar": "الأذكار", "library": "مكتبتي", "prayer": "مواقيت الصلاة", "live": "البث المباشر", "fiqh": "دروس الفقه", "about": "عن الشيخ", "timeline": "الخط الزمني", "community": "المجتمع", "home": "الرئيسية"][r.tabKey ?? ""] ?? ""
         }
@@ -174,6 +189,7 @@ struct RootView: View {
         case .maker(let s, let a): MakerView(s0: s, a0: a)
         case .blocked: BlockedView()
         case .cm(let a): CommunityView(arg: a)
+        case .widgets: WidgetsHelpView()
         case .readIndex: ReadIndexView()
         case .read(let a, let b): ReadView(a: a, b: b).id(a + "/" + b)
         default: screen(r.tabKey ?? "home")
@@ -249,7 +265,8 @@ struct DrawerView: View {
             ("تعلّم وشارك", [Item(id: "maker", label: "صمّم آية للمشاركة", icon: "image", sec: "maker") { push(.maker(0, 0)) }, Item(id: "live", label: "البث المباشر", icon: "live", sec: "live") { ui.go(.live) },
                              Item(id: "fiqh", label: "دروس الفقه", icon: "scroll", sec: "fiqh") { ui.go(.fiqh) }, Item(id: "community", label: "المجتمع", icon: "chat", sec: "community") { ui.go(.community) }]),
             ("عن الشيخ", [Item(id: "about", label: "عن الشيخ", icon: "user", sec: "about") { ui.go(.about) }, Item(id: "timeline", label: "الخط الزمني", icon: "clock", sec: "timeline") { ui.go(.timeline) }]),
-            ("الإعدادات", [Item(id: "theme", label: "المظهر", icon: "palette", sec: nil) { sheet(.theme) }, Item(id: "name", label: "اسمك في التطبيق", icon: "user", sec: nil, feat: "greeting") { sheet(.name) }]),
+            ("الإعدادات", [Item(id: "theme", label: "المظهر", icon: "palette", sec: nil) { sheet(.theme) }, Item(id: "name", label: "اسمك في التطبيق", icon: "user", sec: nil, feat: "greeting") { sheet(.name) },
+                           Item(id: "widgets", label: "الويدجت على الشاشة الرئيسية", icon: "image", sec: nil) { push(.widgets) }]),
         ].map { ($0.0, $0.1.filter(ok)) }.filter { !$0.1.isEmpty }
         func sel(_ id: String) -> Bool { ui.path.isEmpty && (ui.tab == id || (id == "prayer2" && ui.tab == "prayer")) }
         return ZStack(alignment: .leading) {

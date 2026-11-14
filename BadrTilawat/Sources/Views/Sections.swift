@@ -283,3 +283,29 @@ struct NoticesSheet: View {
         else if let x = URL(string: u) { UIApplication.shared.open(x) }
     }
 }
+
+/// «الويدجت على الشاشة الرئيسية»: what each widget shows and how to add it.
+struct WidgetsHelpView: View {
+    @Environment(\.pal) private var c
+    var body: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 12) {
+                Text("أضف ويدجت «بدر التلاوات» إلى الشاشة الرئيسية لترى مواعيد الصلاة وآية اليوم والأذكار دون فتح التطبيق.").font(F.plex(14)).foregroundStyle(c.muted)
+                ForEach([("clock", "مواقيت الصلاة", "الصلاة القادمة والعدّ التنازلي ومواقيت اليوم — صغير أو متوسط"), ("book", "آية اليوم", "آية تتغير كل يوم؛ المسها لتقرأها وتسمعها في التطبيق"),
+                         ("play", "المشغّل", "التلاوة الحالية — المسه لفتح المشغّل"), ("beads", "الأذكار", "أذكار الصباح والمساء والنوم حسب الوقت")], id: \.1) { i, t, s in
+                    Panel(pad: 14, lattice: false) {
+                        HStack(spacing: 12) {
+                            SiteIcon(name: i, size: 22, color: c.gold).frame(width: 40, height: 40).background(RoundedRectangle(cornerRadius: 13).fill(c.gold.opacity(0.13)))
+                            VStack(alignment: .leading, spacing: 1) { Text(t).font(F.plex(15, .semibold)).foregroundStyle(c.text); Text(s).font(F.plex(12.5)).foregroundStyle(c.muted) }
+                        }
+                    }
+                }
+                Text("طريقة الإضافة").font(F.amiri(22)).foregroundStyle(c.text).padding(.top, 8)
+                ForEach(Array(["المس مكانًا فارغًا في الشاشة الرئيسية مطوّلًا حتى تهتز الأيقونات.", "اضغط «تعديل» أو علامة + في الأعلى.", "ابحث عن «بدر التلاوات» واختر الويدجت والحجم.", "اضغط «إضافة ويدجت» ثم «تم»."].enumerated()), id: \.offset) { k, s in
+                    HStack(alignment: .top, spacing: 10) { Text((k + 1).ar).font(F.plex(13, .bold)).foregroundStyle(c.onGold).frame(width: 24, height: 24).background(Circle().fill(c.gold)); Text(s).font(F.plex(14)).foregroundStyle(c.text) }
+                }
+                Text("تأخذ الويدجت ألوان المظهر الذي تختاره في التطبيق.").font(F.plex(12.5)).foregroundStyle(c.faint).padding(.top, 6)
+            }.padding(16)
+        }
+    }
+}

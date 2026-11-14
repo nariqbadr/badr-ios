@@ -142,6 +142,7 @@ final class AudioPlayer: ObservableObject {
     // MARK: lock screen
     private var art: MPMediaItemArtwork?
     private func nowPlaying() {
+        WidgetBridge.now()
         guard let t = current else { MPNowPlayingInfoCenter.default().nowPlayingInfo = nil; return }
         var info: [String: Any] = [MPMediaItemPropertyTitle: t.title, MPMediaItemPropertyArtist: Repo.shared.reciter(t.reciterId)?.name ?? "",
                                    MPMediaItemPropertyPlaybackDuration: duration, MPNowPlayingInfoPropertyElapsedPlaybackTime: position,
