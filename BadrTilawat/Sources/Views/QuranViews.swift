@@ -181,7 +181,7 @@ struct SurahView: View {
             }
         }
         .onDisappear { ayah.stop() }
-        .sheet(item: Binding(get: { act.map(IntBox.init(v:)) }, set: { act = $0?.v })) { b in
+        .bzSheet(item: Binding(get: { act.map(IntBox.init(v:)) }, set: { act = $0?.v })) { b in
             let a = b.v, text = ayahClean(s, a, ayahs?[safe: a - 1] ?? ""), cite = "﴿\(text)﴾ [سورة \(Quran.surahs[s - 1]): \(a)]"
             MenuSheet(title: "سورة \(Quran.surahs[s - 1]) — الآية \(a.ar)") {
                 MenuRow(icon: "play", title: "استمع للآية") { act = nil; ayah.play(rv, s, a) }
@@ -193,7 +193,7 @@ struct SurahView: View {
                 if repo.data?.site.sec("community") != false { MenuRow(icon: "chat", title: "انشرها في المجتمع") { act = nil; ui.path.append(.compose("ayah:\(s):\(a)|\(rv)")) } }
             }.presentationDetents([.medium, .large])
         }
-        .sheet(item: Binding(get: { tafsir.map(IntBox.init(v:)) }, set: { tafsir = $0?.v })) { b in
+        .bzSheet(item: Binding(get: { tafsir.map(IntBox.init(v:)) }, set: { tafsir = $0?.v })) { b in
             TafsirSheet(s: s, a: b.v, text: ayahClean(s, b.v, ayahs?[safe: b.v - 1] ?? "")).presentationDetents([.medium, .large])
         }
     }

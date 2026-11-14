@@ -36,6 +36,7 @@ struct RootView: View {
                     TopBar(home: ui.tab == "home", tab: true, title: TAB_DEFS.first { $0.key == ui.tab }?.label ?? "")
                     screen(ui.tab).frame(maxHeight: .infinity)
                 }
+                .background(Backdrop())
                 .toolbar(.hidden, for: .navigationBar)
                 .navigationDestination(for: Route.self) { r in
                     VStack(spacing: 0) {
@@ -76,8 +77,8 @@ struct RootView: View {
             default: ui.go(.home)
             }
         }
-        .sheet(item: $ui.menuFor) { t in TrackMenu(t: t).presentationDetents([.medium, .large]) }
-        .sheet(item: $ui.sheet) { k in sheetView(k).presentationDetents([.large]) }
+        .bzSheet(item: $ui.menuFor) { t in TrackMenu(t: t).presentationDetents([.medium, .large]) }
+        .bzSheet(item: $ui.sheet) { k in sheetView(k).presentationDetents([.large]) }
         .animation(.easeInOut(duration: 0.3), value: ui.drawer)
         .task { await repo.refresh(); if let t = repo.data?.site.defaultTheme { store.applyDefaultTheme(t) }; if let r = RootView.shot { openShot(r) } }
         .onChange(of: ui.tab) { t in Repo.shared.page = TAB_DEFS.first { $0.key == t }?.label ?? "الرئيسية"; Repo.shared.event("page", ["pageLabel": Repo.shared.page]) }

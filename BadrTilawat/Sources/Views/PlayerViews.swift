@@ -165,14 +165,14 @@ struct PlayerView: View {
             .gesture(DragGesture().onEnded { if $0.translation.height > 80 { dismiss() } })
             .onAppear { withAnimation(.easeInOut(duration: 2.6).repeatForever()) { breathe = true } }
             .environment(\.layoutDirection, .rightToLeft)
-            .sheet(isPresented: $showQueue) { QueueSheet().presentationDetents([.medium, .large]) }
-            .sheet(isPresented: $showAmb) { AmbientSheet().presentationDetents([.medium]) }
-            .sheet(isPresented: $showSpeed) {
+            .bzSheet(isPresented: $showQueue) { QueueSheet().presentationDetents([.medium, .large]) }
+            .bzSheet(isPresented: $showAmb) { AmbientSheet().presentationDetents([.medium]) }
+            .bzSheet(isPresented: $showSpeed) {
                 MenuSheet(title: "سرعة التشغيل") {
                     ForEach([Float(0.75), 1, 1.25, 1.5, 1.75, 2], id: \.self) { s in MenuRow(icon: "gauge.with.needle", title: "\(speedText(s))×" + (s == 1 ? " (عادية)" : ""), on: store.speed == s) { p.setSpeed(s); showSpeed = false } }
                 }.presentationDetents([.medium])
             }
-            .sheet(isPresented: $showSleep) {
+            .bzSheet(isPresented: $showSleep) {
                 MenuSheet(title: "مؤقت الإيقاف") {
                     if let at = p.sleepAt { Text("سيتوقف التشغيل بعد \((Int(at.timeIntervalSinceNow / 60) + 1).ar) دقيقة تقريبًا.").font(F.plex(14)).foregroundStyle(c.muted).padding(.horizontal, 22).padding(.vertical, 4) }
                     ForEach([(0, "إيقاف المؤقت"), (10, "١٠ دقائق"), (15, "١٥ دقيقة"), (30, "٣٠ دقيقة"), (45, "٤٥ دقيقة"), (60, "ساعة"), (-1, "عند نهاية التلاوة الحالية")], id: \.0) { m, l in
@@ -262,7 +262,7 @@ struct TrackMenu: View {
             }.padding(.bottom, 16)
         }
         .background(c.bg2.ignoresSafeArea()).environment(\.layoutDirection, .rightToLeft)
-        .sheet(isPresented: $addList) {
+        .bzSheet(isPresented: $addList) {
             MenuSheet(title: "إضافة إلى قائمة تشغيل") {
                 ForEach(store.playlists) { pl in MenuRow(icon: "queue", title: pl.name, sub: "\(pl.ids.count.ar) تلاوة") { _ = store.addToPlaylist(pl.name, t.id); ui.say("أُضيفت إلى «\(pl.name)»"); addList = false; dismiss() } }
                 HStack(spacing: 10) {

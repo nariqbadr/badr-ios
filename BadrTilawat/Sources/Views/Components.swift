@@ -492,3 +492,28 @@ func share(_ text: String) {
     UIApplication.shared.connectedScenes.compactMap { ($0 as? UIWindowScene)?.keyWindow }.first?.rootViewController?.topMost.present(av, animated: true)
 }
 extension UIViewController { var topMost: UIViewController { presentedViewController?.topMost ?? self } }
+
+
+// MARK: - sheets and lists in the app's colours (the system's black never shows)
+
+/// Every sheet sits on the theme's sheet colour, like Android's bottom sheets (containerColor = bg2).
+struct SheetSkin: ViewModifier {
+    @Environment(\.pal) private var c
+    func body(content: Content) -> some View {
+        if #available(iOS 16.4, *) { content.presentationBackground(c.bg2).environment(\.pal, c).preferredColorScheme(c.dark ? .dark : .light) }
+        else { content.background(c.bg2.ignoresSafeArea()).environment(\.pal, c).preferredColorScheme(c.dark ? .dark : .light) }
+    }
+}
+extension View {
+    func bzSheet<V: View>(isPresented: Binding<Bool>, onDismiss: (() -> Void)? = nil, @ViewBuilder content: @escaping () -> V) -> some View {
+        sheet(isPresented: isPresented, onDismiss: onDismiss) { content().modifier(SheetSkin()) }
+    }
+    func bzSheet<I: Identifiable, V: View>(item: Binding<I?>, onDismiss: (() -> Void)? = nil, @ViewBuilder content: @escaping (I) -> V) -> some View {
+        sheet(item: item, onDismiss: onDismiss) { content($0).modifier(SheetSkin()) }
+    }
+    /// A system List drawn on the theme's colours instead of the system's black and grey.
+    func bzList(_ c: Palette) -> some View {
+        self.scrollContentBackground(.hidden).background(c.bg2.ignoresSafeArea())
+            .toolbarBackground(c.bg2, for: .navigationBar).toolbarBackground(.visible, for: .navigationBar)
+    }
+}

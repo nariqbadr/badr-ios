@@ -292,7 +292,7 @@ struct WatchView: View {
         .onAppear { if let t { v.open(t); v.onEnd = { if auto, let n = next.first { ui.path.append(.watch(n.id)) } } }; bump() }
         .onChange(of: id) { _ in if let t { v.open(t) } }
         .onDisappear { if !v.pipOn && UIApplication.shared.applicationState == .active && !(ui.path.last.map { if case .watch = $0 { return true } else { return false } } ?? false) { v.close() } }
-        .sheet(item: Binding(get: { sheet.map { SheetID(id: $0) } }, set: { sheet = $0?.id })) { s in
+        .bzSheet(item: Binding(get: { sheet.map { SheetID(id: $0) } }, set: { sheet = $0?.id })) { s in
             if let t { if s.id == "q" { qualitySheet(t) } else { downloadSheet(t) } }
         }
         .environment(\.layoutDirection, .rightToLeft)
@@ -383,11 +383,11 @@ struct WatchView: View {
         let pref = Int(store.str("videoQ", "0")) ?? 0
         return NavigationStack {
             List {
-                Button { store.set("videoQ", "0"); v.setQ(VideoEngine.pickQ(t)); sheet = nil } label: { row("تلقائي", "يختار المناسب لاتصالك", on: pref == 0) }
+                Button { store.set("videoQ", "0"); v.setQ(VideoEngine.pickQ(t)); sheet = nil } label: { row("تلقائي", "يختار المناسب لاتصالك", on: pref == 0) }.listRowBackground(c.surface)
                 ForEach(qs, id: \.h) { q in
                     Button { store.set("videoQ", "\(q.h)"); v.setQ(q.h); sheet = nil } label: { row("\(qLabel(q.h)) \(qName(q.h))", sizeTxt(q.size), on: v.h == q.h && pref != 0) }
-                }
-            }.navigationTitle("جودة الفيديو").navigationBarTitleDisplayMode(.inline)
+                }.listRowBackground(c.surface)
+            }.bzList(c).navigationTitle("جودة الفيديو").navigationBarTitleDisplayMode(.inline)
         }.presentationDetents([.medium]).environment(\.layoutDirection, .rightToLeft)
     }
     private func downloadSheet(_ t: Track) -> some View {
@@ -400,7 +400,7 @@ struct WatchView: View {
                     ForEach(qs, id: \.h) { q in
                         Button { if saved == q.h { ui.say("محفوظة بهذه الجودة بالفعل") } else { dl.start(t, q.h); ui.say("بدأ تنزيل الملف") }; sheet = nil } label: { row("\(qLabel(q.h)) \(qName(q.h))", sizeTxt(q.size), on: saved == q.h) }
                     }
-                }
+                }.listRowBackground(c.surface)
                 if !t.audio.isEmpty {
                     Section("حفظ الصوت للاستماع دون إنترنت") {
                         Button {
@@ -409,10 +409,10 @@ struct WatchView: View {
                             ui.say("جارٍ حفظ الصوت…")
                             Task { let ok = await OfflineFiles.save(t); ui.say(ok ? "حُفظ الصوت — يمكنك سماعه بدون إنترنت" : "تعذّر حفظ الملف. تأكد من المساحة والاتصال.") }
                         } label: { row("صوت فقط", sizeTxt(t.video?.audioSize ?? 0), on: audioSaved) }
-                    }
+                    }.listRowBackground(c.surface)
                 }
-                if saved != nil { Section { Button(role: .destructive) { VideoFiles.delete(t.id); dl.objectWillChange.send(); ui.say("حُذفت من الجهاز"); sheet = nil } label: { Text("حذف النسخة المحفوظة").font(F.plex(15)) } } }
-            }.navigationTitle("تحميل التلاوة").navigationBarTitleDisplayMode(.inline)
+                if saved != nil { Section { Button(role: .destructive) { VideoFiles.delete(t.id); dl.objectWillChange.send(); ui.say("حُذفت من الجهاز"); sheet = nil } label: { Text("حذف النسخة المحفوظة").font(F.plex(15)) } }.listRowBackground(c.surface) }
+            }.bzList(c).navigationTitle("تحميل التلاوة").navigationBarTitleDisplayMode(.inline)
         }.presentationDetents([.medium, .large]).environment(\.layoutDirection, .rightToLeft)
     }
     private func row(_ a: String, _ b: String, on: Bool) -> some View {

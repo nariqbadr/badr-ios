@@ -361,7 +361,7 @@ private struct ReciterQuranView: View {
                 }.padding(10).background(RoundedRectangle(cornerRadius: 18).fill(c.surface)).overlay(RoundedRectangle(cornerRadius: 18).stroke(c.gold.opacity(0.4))).padding(12)
             }
         }
-        .sheet(item: Binding(get: { sheet.map { SID(id: $0) } }, set: { sheet = $0?.id })) { s in
+        .bzSheet(item: Binding(get: { sheet.map { SID(id: $0) } }, set: { sheet = $0?.id })) { s in
             Group {
                 switch s.id {
                 case "rep": repeatSheet(all, mine: mine, last: last)
@@ -370,7 +370,7 @@ private struct ReciterQuranView: View {
                 }
             }.environment(\.layoutDirection, .rightToLeft).presentationDetents([.medium, .large])
         }
-        .sheet(item: $more) { t in
+        .bzSheet(item: $more) { t in
             MenuSheet(title: t.title) {
                 MenuRow(icon: "repeat", title: "تكرار هذه السورة") { more = nil; player.play(t, in: all); player.setRepeat(2); ui.say("ستُكرَّر \(t.title)") }
                 MenuRow(icon: "text.line.first.and.arrowtriangle.forward", title: "تشغيل بعد الحالية") { more = nil; player.playNext(t); ui.say("ستُشغَّل بعد التلاوة الحالية") }

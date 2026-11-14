@@ -163,7 +163,7 @@ struct ComposeView: View {
                 pick = []
             }
         }
-        .sheet(isPresented: $auth) { AuthSheet() }
+        .bzSheet(isPresented: $auth) { AuthSheet() }
     }
 }
 

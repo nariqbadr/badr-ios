@@ -130,8 +130,8 @@ struct MakerView: View {
             Task { if let m = try? await it.loadTransferable(type: PickedMovie.self) { let id = m.url.absoluteString; myVideos.append((id, "فيديو من جهازي")); vcat = "mine"; ctx.videoFrames.files[id] = m.url; o.videos.append(id) } }
         }
         .onDisappear { job?.cancel(); audio?.stop(); ctx.videoFrames.release() }
-        .sheet(isPresented: $pickSurah) { SurahPickSheet(s: o.surah) { s in pickSurah = false; o.surah = s; o.from = 1; o.to = min(Quran.ayahs[s - 1], 2) } }
-        .sheet(item: Binding(get: { result.map { R(url: $0.0, video: $0.1) } }, set: { if $0 == nil { result = nil } })) { r in resultSheet(r) }
+        .bzSheet(isPresented: $pickSurah) { SurahPickSheet(s: o.surah) { s in pickSurah = false; o.surah = s; o.from = 1; o.to = min(Quran.ayahs[s - 1], 2) } }
+        .bzSheet(item: Binding(get: { result.map { R(url: $0.0, video: $0.1) } }, set: { if $0 == nil { result = nil } })) { r in resultSheet(r) }
         .environment(\.layoutDirection, .rightToLeft)
     }
     private struct R: Identifiable { let url: URL; let video: Bool; var id: String { url.absoluteString } }
@@ -476,8 +476,8 @@ struct SurahPickSheet: View {
             List {
                 ForEach(Array(Quran.surahs.enumerated()).filter { q.isEmpty || QuranMeta.norm($0.element).contains(QuranMeta.norm(q)) || "\($0.offset + 1)" == q }, id: \.offset) { i, n in
                     Button { pick(i + 1) } label: { HStack { Text((i + 1).ar).font(F.plex(13)).foregroundStyle(c.gold).frame(width: 34); Text("سورة \(n)").font(F.amiri(18)).foregroundStyle(i + 1 == s ? c.gold : c.text); Spacer(); Text("\(Quran.ayahs[i].ar) آية").font(F.plex(12)).foregroundStyle(c.muted) } }
-                }
-            }.searchable(text: $q, prompt: "ابحث عن سورة").navigationTitle("اختر السورة").navigationBarTitleDisplayMode(.inline)
+                }.listRowBackground(c.surface)
+            }.bzList(c).searchable(text: $q, prompt: "ابحث عن سورة").navigationTitle("اختر السورة").navigationBarTitleDisplayMode(.inline)
         }.environment(\.layoutDirection, .rightToLeft)
     }
 }

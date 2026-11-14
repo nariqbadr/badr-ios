@@ -380,7 +380,7 @@ struct ReadView: View {
             }
         }
         .onDisappear { if player.nowLabel?.0 == tid { player.nowLabel = nil } }
-        .sheet(isPresented: $whoOpen) {
+        .bzSheet(isPresented: $whoOpen) {
             MenuSheet(title: "اختر التلاوة") {
                 ForEach(repo.readSources(sn), id: \.self) { x in
                     let on = x.kind == src.kind && x.id == src.id

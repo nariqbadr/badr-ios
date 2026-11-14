@@ -172,15 +172,15 @@ struct MushafView: View {
                 Button("أ+") { size = min(2.6, size + 0.2) }.foregroundStyle(c.gold).frame(width: 44, height: 32)
             }.font(F.plex(15, .bold)).padding(.vertical, 2)
         }
-        .sheet(item: Binding(get: { menu.map(IntBox.init(v:)) }, set: { menu = $0?.v })) { b in
+        .bzSheet(item: Binding(get: { menu.map(IntBox.init(v:)) }, set: { menu = $0?.v })) { b in
             AyahMenu(g: b.v, page: page, seekMs: player.playing && ma.current == 0 ? trackStart(b.v) : nil,
                      onPlay: { menu = nil; player.pause(); ma.play(b.v, rv) },
                      onTrack: { ms in menu = nil; player.seek(max(0, Double(ms - 80) / 1000)); lastFollow = 0 },
                      onMark: { p in if !marks.contains(p) { marks.append(p) }; UserDefaults.standard.set(marks.sorted().map(String.init).joined(separator: ","), forKey: "mushafMarks"); ui.say("حُفظت علامة على هذه الصفحة"); menu = nil })
                 .presentationDetents([.medium, .large])
         }
-        .sheet(isPresented: $jump) { MushafJump(page: page) { p in jump = false; page = p }.presentationDetents([.large]) }
-        .sheet(isPresented: $tafsir) { PageTafsirSheet(page: page).presentationDetents([.medium, .large]) }
+        .bzSheet(isPresented: $jump) { MushafJump(page: page) { p in jump = false; page = p }.presentationDetents([.large]) }
+        .bzSheet(isPresented: $tafsir) { PageTafsirSheet(page: page).presentationDetents([.medium, .large]) }
     }
 
     /// the ayah timings of the recitation playing now (its own, or the whole-Quran reciter's)
@@ -357,7 +357,7 @@ struct AyahMenu: View {
         }
         .background(c.bg2.ignoresSafeArea()).environment(\.layoutDirection, .rightToLeft)
         .onAppear { UserDefaults.standard.set(g, forKey: "mushafAyah") }
-        .sheet(isPresented: $tafsir) { TafsirSheet(s: s, a: a, text: text).presentationDetents([.medium, .large]) }
+        .bzSheet(isPresented: $tafsir) { TafsirSheet(s: s, a: a, text: text).presentationDetents([.medium, .large]) }
     }
 }
 
@@ -461,7 +461,7 @@ struct ReciterButton: View {
                 SiteIcon(name: "chev-d", size: 16, color: c.muted)
             }.padding(.leading, 5).padding(.trailing, 8).padding(.vertical, 4).background(Capsule().fill(c.surface.opacity(0.6))).overlay(Capsule().stroke(c.line))
         }.buttonStyle(.plain)
-        .sheet(isPresented: $open) {
+        .bzSheet(isPresented: $open) {
             ScrollView {
                 VStack(alignment: .leading, spacing: 6) {
                     SheetHead(title: title)

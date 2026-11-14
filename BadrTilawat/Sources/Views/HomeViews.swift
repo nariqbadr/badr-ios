@@ -128,7 +128,7 @@ struct QuickTiles: View {
                     .padding(.horizontal, 12).padding(.vertical, 6).overlay(Capsule().stroke(c.lineSoft))
             }.buttonStyle(Press())
         }
-        .sheet(isPresented: $edit) {
+        .bzSheet(isPresented: $edit) {
             ScrollView {
                 VStack(alignment: .leading, spacing: 8) {
                     SheetHead(title: "تخصيص الاختصارات")
@@ -397,8 +397,8 @@ struct AyahOfDay: View {
             }.padding(.top, 12)
         }
         .task(id: "\(s):\(a)") { text = nil; text = await load(s, a) }
-        .sheet(isPresented: $tafsir) { TafsirSheet(s: s, a: a, text: text ?? "").presentationDetents([.medium, .large]) }
-        .sheet(isPresented: $picking) { AyahPickSheet(s0: s, a0: a) { s2, a2 in picking = false; ayah.stop(); ref = (s2, a2) }.presentationDetents([.medium, .large]) }
+        .bzSheet(isPresented: $tafsir) { TafsirSheet(s: s, a: a, text: text ?? "").presentationDetents([.medium, .large]) }
+        .bzSheet(isPresented: $picking) { AyahPickSheet(s0: s, a0: a) { s2, a2 in picking = false; ayah.stop(); ref = (s2, a2) }.presentationDetents([.medium, .large]) }
     }
     private func load(_ s: Int, _ a: Int) async -> String { ayahClean(s, a, (await repo.surahText(s))?[safe: a - 1] ?? "") }
     private func newAyah() {

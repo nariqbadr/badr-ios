@@ -200,14 +200,14 @@ struct PostCard: View {
             Rectangle().fill(c.lineSoft).frame(height: 1)
         }
         .id(tick)
-        .sheet(isPresented: $more) { moreSheet.presentationDetents([.medium, .large]) }
-        .sheet(isPresented: $repostMenu) {
+        .bzSheet(isPresented: $more) { moreSheet.presentationDetents([.medium, .large]) }
+        .bzSheet(isPresented: $repostMenu) {
             MenuSheet(title: "إعادة النشر") {
                 MenuRow(icon: "repost", title: p.reposted ? "تراجع عن إعادة النشر" : "إعادة نشر") { repostMenu = false; Task { if let e = await cm.repost(p) { ui.say(e) } else { ui.say(p.reposted ? "أُعيد النشر" : "أُلغيت إعادة النشر") }; tick += 1 } }
                 MenuRow(icon: "quote", title: "اقتباس") { repostMenu = false; ui.path.append(.compose("quote:\(p.id)")) }
             }.presentationDetents([.height(240)])
         }
-        .sheet(item: $limitFor) { LimitSheet(m: $0) }
+        .bzSheet(item: $limitFor) { LimitSheet(m: $0) }
         .confirmationDialog("حذف المنشور؟", isPresented: $askDelete) { Button("حذف", role: .destructive) { Task { do { try await cm.delete(p); ui.say("حُذف المنشور"); tick += 1 } catch { ui.say(Community.msg(error)) } } } }
         .confirmationDialog("لماذا تبلّغ عن هذا المنشور؟", isPresented: $askReport, titleVisibility: .visible) {
             ForEach(REPORT_REASONS, id: \.self) { r in Button(r) { Task { do { try await cm.report(p, r); ui.say("شكرًا — وصل البلاغ للإدارة وسيُراجع خلال ٢٤ ساعة") } catch { ui.say(Community.msg(error)) } } } }
@@ -363,8 +363,8 @@ struct CommunityView: View {
             }
         }
         .task { await cm.loadMe(); ready = true }
-        .sheet(isPresented: $auth) { AuthSheet() }
-        .sheet(isPresented: $edit) { EditProfileSheet() }
+        .bzSheet(isPresented: $auth) { AuthSheet() }
+        .bzSheet(isPresented: $edit) { EditProfileSheet() }
     }
 }
 
@@ -462,7 +462,7 @@ struct UserView: View {
                    empty: tab == "likes" ? "لا إعجابات بعد." : tab == "media" ? "لا صور أو فيديو بعد." : tab == "replies" ? "لا ردود بعد." : cm.me?.handle == handle ? "لم تنشر شيئًا بعد — اكتب أول منشور لك." : "لا منشورات بعد.") { pg in
             if let pg, let u = pg.user { profile(u, pg) }
         }
-        .sheet(item: $limitFor) { LimitSheet(m: $0) }
+        .bzSheet(item: $limitFor) { LimitSheet(m: $0) }
     }
     @ViewBuilder private func profile(_ u: Member, _ pg: Community.Page) -> some View {
         let mine = cm.me?.handle == handle
