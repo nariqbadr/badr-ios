@@ -125,14 +125,14 @@ private struct WirdStart: View {
                 Section {
                     HStack { TextField("رقم الصفحة (١–٦٠٤)", text: Binding(get: { page }, set: { page = String($0.filter(\.isNumber).prefix(3)) })).keyboardType(.numberPad)
                         Button("حفظ") { guard let p = Int(page), (1...604).contains(p) else { ui.say("اكتب رقم صفحة من ١ إلى ٦٠٤"); return }; Wird.setStart(p); ui.say("حُفظ موضع الورد"); dismiss() }.foregroundStyle(c.gold) }
-                }.listRowBackground(c.surface) header: { Text("رقم الصفحة") }
+                } header: { Text("رقم الصفحة") }.listRowBackground(c.surface)
                 Section {
                     ForEach(0..<114, id: \.self) { i in
                         Button { Wird.setStart(Quran.surahPage[i]); ui.say("حُفظ موضع الورد: سورة \(Quran.surahs[i])"); dismiss() } label: {
                             HStack { Text((i + 1).ar).foregroundStyle(c.gold).frame(width: 34); Text("سورة \(Quran.surahs[i])").font(F.amiri(18)).foregroundStyle(c.text); Spacer(); Text("صفحة \(Quran.surahPage[i].ar)").font(F.plex(12)).foregroundStyle(c.muted) }
                         }
                     }
-                }.listRowBackground(c.surface) header: { Text("أو من أول سورة") }
+                } header: { Text("أو من أول سورة") }.listRowBackground(c.surface)
             }.bzList(c).navigationTitle("ابدأ وردك من…").navigationBarTitleDisplayMode(.inline)
         }.environment(\.layoutDirection, .rightToLeft)
     }
