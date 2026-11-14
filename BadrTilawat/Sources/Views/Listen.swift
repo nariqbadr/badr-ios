@@ -141,7 +141,7 @@ private struct PlayDot: View {
     let playing: Bool, on: Bool, size: CGFloat
     @Environment(\.pal) private var c
     var body: some View {
-        Image(systemName: playing ? "pause.fill" : "play.fill").font(.system(size: size * 0.4)).foregroundStyle(on ? c.onGold : c.gold)
+        Ico(name: playing ? "pause.fill" : "play.fill", size: 20).font(.system(size: size * 0.4)).foregroundStyle(on ? c.onGold : c.gold)
             .frame(width: size, height: size).background(Circle().fill(on ? c.gold : .clear)).overlay(Circle().stroke(c.gold.opacity(on ? 1 : 0.55)))
     }
 }
@@ -292,7 +292,7 @@ private struct ReciterQuranView: View {
         return ZStack(alignment: .bottom) {
             ScrollView {
                 LazyVStack(alignment: .leading, spacing: 8) {
-                    if let back { Button(action: back) { HStack(spacing: 4) { Image(systemName: "chevron.right"); Text("كل القرّاء") }.font(F.plex(14)).foregroundStyle(c.muted) }.padding(.horizontal, 18).padding(.top, 6) }
+                    if let back { Button(action: back) { HStack(spacing: 4) { Ico(name: "chevron.right", size: 20); Text("كل القرّاء") }.font(F.plex(14)).foregroundStyle(c.muted) }.padding(.horizontal, 18).padding(.top, 6) }
                     // hero
                     VStack(spacing: 14) {
                         HStack(spacing: 14) {
@@ -319,14 +319,14 @@ private struct ReciterQuranView: View {
                             GoldButton(title: "تشغيل من \(all[0].surah)", icon: "play.fill") { player.play(all[0], in: all) }
                             GhostButton(title: "عشوائي", icon: "shuffle") { if let t = all.randomElement() { player.play(t, in: all); player.shuffle = true } }
                         }
-                        Button { sheet = "rep" } label: { Image(systemName: "repeat").font(.system(size: 18, weight: .semibold)).foregroundStyle(repOn ? c.onGold : c.gold).frame(width: 46, height: 46).background(Circle().fill(repOn ? c.gold : .clear)).overlay(Circle().stroke(repOn ? c.gold : c.line)) }
+                        Button { sheet = "rep" } label: { Ico(name: "repeat", size: 21.6).foregroundStyle(repOn ? c.onGold : c.gold).frame(width: 46, height: 46).background(Circle().fill(repOn ? c.gold : .clear)).overlay(Circle().stroke(repOn ? c.gold : c.line)) }
                             .accessibilityLabel("التكرار")
                     }.padding(.horizontal, 16)
                     // saving in progress
                     if dl.running || !dl.queue.isEmpty {
                         let cur = dl.queue.first.flatMap { repo.track($0) }
                         HStack(spacing: 12) {
-                            Image(systemName: "arrow.down").foregroundStyle(c.onGold).frame(width: 38, height: 38).background(Circle().fill(c.gold))
+                            Ico(name: "arrow.down", size: 20).foregroundStyle(c.onGold).frame(width: 38, height: 38).background(Circle().fill(c.gold))
                             VStack(alignment: .leading, spacing: 2) {
                                 Text(dl.running ? "جارٍ الحفظ: \(cur?.title ?? "")" : "توقّف الحفظ").font(F.plex(14, .semibold)).foregroundStyle(c.text)
                                 Text("تبقّى \(dl.queue.count.ar) سورة\(dl.running ? " · يمكنك متابعة الاستماع أثناء الحفظ" : "")").font(F.plex(12)).foregroundStyle(c.muted)
@@ -345,8 +345,8 @@ private struct ReciterQuranView: View {
                                 Pill(title: "مدنية", on: filter == "madani") { filter = "madani" }
                             }
                         }
-                        Button { sheet = "dl" } label: { Image(systemName: "arrow.down.circle").font(.system(size: 20)).foregroundStyle(c.gold) }.accessibilityLabel("التحميل")
-                        Button { select.toggle(); picked = [] } label: { Image(systemName: select ? "xmark" : "checklist").font(.system(size: 18)).foregroundStyle(c.gold) }.accessibilityLabel(select ? "إلغاء التحديد" : "تحديد سور")
+                        Button { sheet = "dl" } label: { Ico(name: "arrow.down.circle", size: 24.0).foregroundStyle(c.gold) }.accessibilityLabel("التحميل")
+                        Button { select.toggle(); picked = [] } label: { Ico(name: select ? "xmark" : "checklist", size: 21.6).foregroundStyle(c.gold) }.accessibilityLabel(select ? "إلغاء التحديد" : "تحديد سور")
                     }.padding(.horizontal, 16)
                     if shown.isEmpty { Empty(text: filter == "saved" ? "لم تحفظ أي سورة بعد. اضغط زر التحميل لحفظ القرآن كاملًا أو بعض السور." : "لا توجد سورة بهذا الاسم.") }
                     ForEach(shown) { t in row(t, all) }
@@ -396,9 +396,9 @@ private struct ReciterQuranView: View {
             }
             Spacer(minLength: 4)
             if on && player.repN > 1 { Text("\(min(max(1, player.repDone), player.repN).ar)/\(player.repN.ar)").font(F.plex(11, .bold)).foregroundStyle(c.onGold).padding(.horizontal, 8).padding(.vertical, 2).background(Capsule().fill(c.gold)) }
-            else if on && player.repeatMode == 2 { Image(systemName: "repeat.1").foregroundStyle(c.gold) }
+            else if on && player.repeatMode == 2 { Ico(name: "repeat.1", size: 20).foregroundStyle(c.gold) }
             if select {
-                Image(systemName: isPicked ? "checkmark.square.fill" : "square").font(.system(size: 22)).foregroundStyle(isPicked ? c.gold : c.line)
+                Ico(name: isPicked ? "checkmark.square.fill" : "square", size: 26.4).foregroundStyle(isPicked ? c.gold : c.line)
             } else {
                 Button {
                     if busy || waiting { return }
@@ -406,12 +406,12 @@ private struct ReciterQuranView: View {
                 } label: {
                     Group {
                         if busy { ProgressView().tint(c.gold) }
-                        else if waiting { Image(systemName: "clock").foregroundStyle(c.faint) }
-                        else { Image(systemName: sv ? "checkmark.circle" : "arrow.down.circle").foregroundStyle(c.gold) }
+                        else if waiting { Ico(name: "clock", size: 20).foregroundStyle(c.faint) }
+                        else { Ico(name: sv ? "checkmark.circle" : "arrow.down.circle", size: 20).foregroundStyle(c.gold) }
                     }.frame(width: 30, height: 30)
                 }.buttonStyle(.plain).accessibilityLabel(sv ? "محفوظة على الجهاز" : "احفظ للاستماع دون إنترنت")
-                Button { more = t } label: { Image(systemName: "ellipsis").rotationEffect(.degrees(90)).foregroundStyle(c.faint).frame(width: 28, height: 30) }.buttonStyle(.plain).accessibilityLabel("خيارات \(t.title)")
-                Image(systemName: playing ? "pause.fill" : "play.fill").foregroundStyle(playing ? c.onGold : c.gold).frame(width: 38, height: 38).background(Circle().fill(playing ? c.gold : .clear))
+                Button { more = t } label: { Ico(name: "ellipsis", size: 20).rotationEffect(.degrees(90)).foregroundStyle(c.faint).frame(width: 28, height: 30) }.buttonStyle(.plain).accessibilityLabel("خيارات \(t.title)")
+                Ico(name: playing ? "pause.fill" : "play.fill", size: 20).foregroundStyle(playing ? c.onGold : c.gold).frame(width: 38, height: 38).background(Circle().fill(playing ? c.gold : .clear))
             }
         }
         .padding(.horizontal, 8).padding(.vertical, 8)
@@ -447,9 +447,9 @@ private struct ReciterQuranView: View {
         func picker(_ label: String, _ v: Binding<Int>) -> some View {
             HStack {
                 Text(label).font(F.plex(14)).foregroundStyle(c.muted).frame(width: 36, alignment: .leading)
-                Button { if let i = nums.firstIndex(of: v.wrappedValue), i > 0 { v.wrappedValue = nums[i - 1] } } label: { Image(systemName: "chevron.right").foregroundStyle(c.gold) }.accessibilityLabel("السابقة")
+                Button { if let i = nums.firstIndex(of: v.wrappedValue), i > 0 { v.wrappedValue = nums[i - 1] } } label: { Ico(name: "chevron.right", size: 20).foregroundStyle(c.gold) }.accessibilityLabel("السابقة")
                 Text("\(v.wrappedValue.ar). \(Quran.surahs[v.wrappedValue - 1])").font(F.amiri(19)).foregroundStyle(c.text).frame(maxWidth: .infinity)
-                Button { if let i = nums.firstIndex(of: v.wrappedValue), i + 1 < nums.count { v.wrappedValue = nums[i + 1] } } label: { Image(systemName: "chevron.left").foregroundStyle(c.gold) }.accessibilityLabel("التالية")
+                Button { if let i = nums.firstIndex(of: v.wrappedValue), i + 1 < nums.count { v.wrappedValue = nums[i + 1] } } label: { Ico(name: "chevron.left", size: 20).foregroundStyle(c.gold) }.accessibilityLabel("التالية")
             }.padding(.horizontal, 20)
         }
         return MenuSheet(title: "تكرار نطاق من السور") {
@@ -501,7 +501,7 @@ struct QuranFullBanner: View {
                         Text(n > 1 ? "\(cnt) · \(short(recs[0])) و\(short(recs[1]))\(n > 2 ? " وغيرهما" : "")" : "بصوت \(Repo.withSheikh(short(r))) · ١١٤ سورة متتابعة").font(F.plex(12)).foregroundStyle(c.muted).lineLimit(2).multilineTextAlignment(.leading)
                     }
                     Spacer(minLength: 0)
-                    Image(systemName: "play.fill").foregroundStyle(c.onGold).frame(width: 42, height: 42).background(Circle().fill(c.gold))
+                    Ico(name: "play.fill", size: 20).foregroundStyle(c.onGold).frame(width: 42, height: 42).background(Circle().fill(c.gold))
                 }.padding(14)
                 .background(LinearGradient(colors: [c.gold.opacity(0.22), c.surface], startPoint: .topLeading, endPoint: .bottomTrailing)).clipShape(RoundedRectangle(cornerRadius: 20))
                 .overlay(RoundedRectangle(cornerRadius: 20).stroke(c.gold.opacity(0.4)))

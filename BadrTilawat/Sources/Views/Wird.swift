@@ -237,7 +237,7 @@ struct AmbientSheet: View {
                     let on = amb.current == k.key
                     Button { amb.toggle(k.key) } label: {
                         VStack(alignment: .leading, spacing: 4) {
-                            Image(systemName: k.icon).font(.system(size: 26)).foregroundStyle(on ? c.onGold : c.gold)
+                            Ico(name: k.icon, size: 30, color: on ? c.onGold : c.gold)
                             Text(k.name).font(F.plex(15, .bold)).foregroundStyle(on ? c.onGold : c.text).padding(.top, 6)
                             Text(k.sub).font(F.plex(12)).foregroundStyle(on ? c.onGold.opacity(0.8) : c.muted)
                         }.frame(maxWidth: .infinity, alignment: .leading).padding(16)
@@ -246,7 +246,7 @@ struct AmbientSheet: View {
                     }.buttonStyle(Press())
                 }
             }
-            HStack { Image(systemName: "speaker.wave.2").foregroundStyle(c.gold); Text("مستوى الصوت").font(F.plex(14, .medium)); Slider(value: $amb.volume, in: 5...100).tint(c.gold) }
+            HStack { Ico(name: "speaker.wave.2", size: 20).foregroundStyle(c.gold); Text("مستوى الصوت").font(F.plex(14, .medium)); Slider(value: $amb.volume, in: 5...100).tint(c.gold) }
             if !amb.current.isEmpty { GhostButton(title: "إيقاف الأصوات", icon: "stop.fill") { amb.stop(); dismiss() } }
             Spacer()
         }.padding(22).background(c.bg2.ignoresSafeArea()).environment(\.layoutDirection, .rightToLeft)
@@ -345,14 +345,14 @@ struct AdhanScreen: View {
     var body: some View {
         ZStack(alignment: .topLeading) {
             RadialGradient(colors: [c.gold.opacity(0.14), c.bg], center: .center, startRadius: 10, endRadius: 600).ignoresSafeArea()
-            Button { ap.stop(); dismiss() } label: { Image(systemName: "xmark").font(.system(size: 18, weight: .semibold)).foregroundStyle(c.text).frame(width: 44, height: 44) }.padding(12).accessibilityLabel("إغلاق")
+            Button { ap.stop(); dismiss() } label: { Ico(name: "xmark", size: 21.6).foregroundStyle(c.text).frame(width: 44, height: 44) }.padding(12).accessibilityLabel("إغلاق")
             ScrollView {
                 VStack(spacing: 6) {
                     Text(test ? "تجربة" : "حان الآن موعد صلاة").font(F.plex(18)).foregroundStyle(c.muted)
                     Text(name).font(F.amiri(56)).foregroundStyle(c.gold)
                     Text(prayers.place).font(F.plex(15)).foregroundStyle(c.muted).padding(.bottom, 30)
                     Button { if ap.playing { ap.stop() } else { ap.play(fajr: key == "fajr") } } label: {
-                        Image(systemName: ap.playing ? "pause.fill" : "play.fill").font(.system(size: 44)).foregroundStyle(c.onGold).frame(width: 120, height: 120).background(Circle().fill(c.goldGradient))
+                        Ico(name: ap.playing ? "pause.fill" : "play.fill", size: 52.8).foregroundStyle(c.onGold).frame(width: 120, height: 120).background(Circle().fill(c.goldGradient))
                             .scaleEffect(ap.playing && pulse ? 1.08 : 1)
                     }.buttonStyle(.plain).accessibilityLabel(ap.playing ? "إيقاف الأذان" : "تشغيل الأذان")
                     Text(ap.playing ? "إيقاف الأذان" : "تشغيل الأذان").font(F.plex(18, .semibold)).foregroundStyle(c.text).padding(.top, 20)

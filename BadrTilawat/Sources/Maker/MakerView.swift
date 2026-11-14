@@ -313,7 +313,7 @@ struct MakerView: View {
             group("الآيات والقارئ") {
                 Button { pickSurah = true } label: {
                     HStack { Text(o.surah.ar).font(F.amiri(15)).foregroundStyle(c.gold).frame(width: 34, height: 34).background(Circle().stroke(c.gold.opacity(0.5)))
-                        Text("سورة \(Quran.surahs[o.surah - 1])").font(F.amiri(19)).foregroundStyle(c.text); Spacer(); Image(systemName: "chevron.down").foregroundStyle(c.gold) }
+                        Text("سورة \(Quran.surahs[o.surah - 1])").font(F.amiri(19)).foregroundStyle(c.text); Spacer(); Ico(name: "chevron.down", size: 20).foregroundStyle(c.gold) }
                     .padding(12).background(RoundedRectangle(cornerRadius: 16).fill(c.surface.opacity(0.6))).overlay(RoundedRectangle(cornerRadius: 16).stroke(c.line))
                 }.buttonStyle(Press())
                 HStack(spacing: 8) {
@@ -442,7 +442,7 @@ struct MakerView: View {
         Menu { ForEach(opts, id: \.0) { k in Button(k.1) { pick(k.0) } } } label: {
             VStack(alignment: .leading, spacing: 2) {
                 Text(label).font(F.plex(11)).foregroundStyle(c.muted)
-                HStack { Text(value).font(F.plex(14, .medium)).foregroundStyle(c.text).lineLimit(1); Spacer(); Image(systemName: "chevron.down").font(.system(size: 12)).foregroundStyle(c.gold) }
+                HStack { Text(value).font(F.plex(14, .medium)).foregroundStyle(c.text).lineLimit(1); Spacer(); Ico(name: "chevron.down", size: 14.4).foregroundStyle(c.gold) }
             }.padding(.horizontal, 12).padding(.vertical, 8).frame(maxWidth: .infinity).background(RoundedRectangle(cornerRadius: 14).fill(c.surface.opacity(0.6))).overlay(RoundedRectangle(cornerRadius: 14).stroke(c.line))
         }
     }

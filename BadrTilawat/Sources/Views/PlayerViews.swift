@@ -45,7 +45,7 @@ struct MiniPlayer: View {
                         Text(p.nowLabel?.0 == t.id ? p.nowLabel!.1 : (Repo.shared.reciter(t.reciterId)?.name ?? "")).font(F.plex(12.5)).foregroundStyle(c.muted).lineLimit(1)
                     }.padding(.leading, 12).frame(maxWidth: .infinity, alignment: .leading)
                     Button { store.toggleFav(t.id) } label: { SiteIcon(name: store.favs.contains(t.id) ? "heart-f" : "heart", size: 22, color: store.favs.contains(t.id) ? c.danger : c.muted).frame(width: 40, height: 40) }.accessibilityLabel("المفضلة")
-                    Button { ui.playerOpen = true } label: { Image(systemName: "chevron.up").font(.system(size: 16, weight: .semibold)).foregroundStyle(c.muted).frame(width: 38, height: 38) }.accessibilityLabel("فتح المشغّل")
+                    Button { ui.playerOpen = true } label: { Ico(name: "chevron.up", size: 19.2).foregroundStyle(c.muted).frame(width: 38, height: 38) }.accessibilityLabel("فتح المشغّل")
                     Button { p.close() } label: { SiteIcon(name: "close", size: 20, color: c.muted).frame(width: 38, height: 38) }.accessibilityLabel("إغلاق المشغّل")
                 }
                 HStack(spacing: 0) {
@@ -60,13 +60,13 @@ struct MiniPlayer: View {
                     Spacer(minLength: 0)
                     Button { p.prev() } label: { SiteIcon(name: "prev", size: 24, color: c.text).frame(width: 40, height: 40) }.accessibilityLabel("السابق")
                     Spacer(minLength: 0)
-                    Button { p.skip(10) } label: { Image(systemName: "gobackward.10").font(.system(size: 20)).foregroundStyle(c.text).frame(width: 40, height: 40) }.accessibilityLabel("تقديم ١٠ ثوانٍ")
+                    Button { p.skip(10) } label: { Ico(name: "gobackward.10", size: 24.0).foregroundStyle(c.text).frame(width: 40, height: 40) }.accessibilityLabel("تقديم ١٠ ثوانٍ")
                     Spacer(minLength: 0)
                     Button { p.toggle() } label: {
                         ZStack { Circle().fill(c.gold).shadow(color: c.gold.opacity(0.6), radius: 8); if p.buffering && p.playing { ProgressView().tint(c.onGold) } else { SiteIcon(name: p.playing ? "pause" : "play", size: 24, color: c.onGold) } }.frame(width: 54, height: 54)
                     }.accessibilityLabel(p.playing ? "إيقاف مؤقت" : "تشغيل")
                     Spacer(minLength: 0)
-                    Button { p.skip(-10) } label: { Image(systemName: "goforward.10").font(.system(size: 20)).foregroundStyle(c.text).frame(width: 40, height: 40) }.accessibilityLabel("رجوع ١٠ ثوانٍ")
+                    Button { p.skip(-10) } label: { Ico(name: "goforward.10", size: 24.0).foregroundStyle(c.text).frame(width: 40, height: 40) }.accessibilityLabel("رجوع ١٠ ثوانٍ")
                     Spacer(minLength: 0)
                     Button { p.next() } label: { SiteIcon(name: "next", size: 24, color: c.text).frame(width: 40, height: 40) }.accessibilityLabel("التالي")
                     Spacer(minLength: 0)
@@ -114,7 +114,7 @@ struct PlayerView: View {
                 StarPattern(tile: 110, alpha: 0.6, fade: true).ignoresSafeArea()
                 VStack(spacing: 0) {
                     HStack(spacing: 0) {
-                        Button { dismiss() } label: { Image(systemName: "chevron.down").font(.system(size: 24, weight: .medium)).foregroundStyle(c.text).frame(width: 48, height: 48) }.accessibilityLabel("إغلاق")
+                        Button { dismiss() } label: { Ico(name: "chevron.down", size: 28.8).foregroundStyle(c.text).frame(width: 48, height: 48) }.accessibilityLabel("إغلاق")
                         VStack(spacing: 0) {
                             Text("يُشغَّل الآن").font(F.plex(12.5, .medium)).foregroundStyle(c.muted)
                             if !t.surah.isEmpty { Text("سورة " + t.surah.replacingOccurrences(of: "سورة ", with: "")).font(F.plex(14, .semibold)).foregroundStyle(c.gold) }
@@ -151,13 +151,13 @@ struct PlayerView: View {
                         Button { p.cycleRepeat() } label: { ZStack { SiteIcon(name: "repeat", size: 24, color: p.repeatMode > 0 ? c.gold : c.muted); if p.repeatMode == 2 { Text("١").font(F.plex(9, .bold)).foregroundStyle(c.gold) } }.frame(width: 48, height: 48) }.accessibilityLabel("تكرار")
                     }.padding(.vertical, 10)
                     HStack {
-                        Button { p.skip(-10) } label: { Image(systemName: "goforward.10").font(.system(size: 21)).foregroundStyle(c.muted).frame(width: 44, height: 44) }.accessibilityLabel("رجوع ١٠ ثوانٍ")
+                        Button { p.skip(-10) } label: { Ico(name: "goforward.10", size: 25.2).foregroundStyle(c.muted).frame(width: 44, height: 44) }.accessibilityLabel("رجوع ١٠ ثوانٍ")
                         Spacer(); action("gauge.with.needle", "\(speedText(store.speed))×", store.speed != 1) { showSpeed = true }
                         Spacer(); action("timer", p.sleepAt.map { "\(max(0, Int($0.timeIntervalSinceNow / 60) + 1).ar) د" } ?? "مؤقت", p.sleepOn) { showSleep = true }
                         Spacer(); action("wave", "أصوات", !amb.current.isEmpty) { showAmb = true }
                         Spacer(); action("queue", "القائمة", false) { showQueue = true }
                         Spacer()
-                        Button { p.skip(10) } label: { Image(systemName: "gobackward.10").font(.system(size: 21)).foregroundStyle(c.muted).frame(width: 44, height: 44) }.accessibilityLabel("تقديم ١٠ ثوانٍ")
+                        Button { p.skip(10) } label: { Ico(name: "gobackward.10", size: 25.2).foregroundStyle(c.muted).frame(width: 44, height: 44) }.accessibilityLabel("تقديم ١٠ ثوانٍ")
                     }
                     Spacer(minLength: 12)
                 }.padding(.horizontal, 24)

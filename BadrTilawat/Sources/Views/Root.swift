@@ -220,7 +220,7 @@ struct TopBar: View {
         let unseen = !(repo.data?.notices ?? []).isEmpty && Set((repo.data?.notices ?? []).map(\.id)) != Set(store.str("seenNotices").split(separator: ",").map(String.init))
         HStack(spacing: 0) {
             if !tab {
-                Button { if !ui.path.isEmpty { ui.path.removeLast() } else { dismiss() } } label: { Image(systemName: "arrow.right").font(.system(size: 20, weight: .medium)).foregroundStyle(c.text).frame(width: 48, height: 48) }.accessibilityLabel("رجوع")
+                Button { if !ui.path.isEmpty { ui.path.removeLast() } else { dismiss() } } label: { Ico(name: "arrow.right", size: 24.0).foregroundStyle(c.text).frame(width: 48, height: 48) }.accessibilityLabel("رجوع")
             } else {
                 Image("Logo").resizable().scaledToFit().frame(width: 38, height: 38).padding(.leading, 6).padding(.trailing, 8)
             }
@@ -300,7 +300,7 @@ struct DrawerView: View {
                                             SiteIcon(name: it.icon, size: 22, color: c.gold)
                                             Text(it.label).font(F.plex(15.5, .medium)).foregroundStyle(sel(it.id) ? c.gold : c.text).lineLimit(1)
                                             Spacer()
-                                            Image(systemName: "chevron.left").font(.system(size: 13, weight: .semibold)).foregroundStyle(c.faint)
+                                            Ico(name: "chevron.left", size: 15.6).foregroundStyle(c.faint)
                                         }.padding(.horizontal, 14).padding(.vertical, 13).background(sel(it.id) ? c.gold.opacity(0.1) : .clear).contentShape(Rectangle())
                                     }.buttonStyle(.plain)
                                 }

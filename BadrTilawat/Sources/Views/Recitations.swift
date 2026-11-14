@@ -98,7 +98,7 @@ struct KindTabs: View {
                 let on = k == kind
                 Button { pick(k) } label: {
                     HStack(spacing: 5) {
-                        if k == "audio" { Image(systemName: "headphones").font(.system(size: 16)).foregroundStyle(on ? c.onGold : c.muted) }
+                        if k == "audio" { Ico(name: "headphones", size: 19.2).foregroundStyle(on ? c.onGold : c.muted) }
                         if k == "video" { SiteIcon(name: "film", size: 19, color: on ? c.onGold : c.muted) }
                         Text(l).font(F.plex(15, .semibold)).foregroundStyle(on ? c.onGold : c.muted)
                         Text(n.ar).font(F.plex(12)).foregroundStyle((on ? c.onGold : c.muted).opacity(0.75))
@@ -224,8 +224,8 @@ struct LibraryView: View {
             ForEach(up, id: \.self) { i in
                 HStack(spacing: 4) {
                     TrackRow(t: player.queue[i], list: [player.queue[i]])
-                    Button { player.move(i, max(player.index + 1, i - 1)) } label: { Image(systemName: "arrow.up").foregroundStyle(c.muted).frame(width: 34, height: 40) }.accessibilityLabel("تحريك لأعلى")
-                    Button { player.remove(at: i) } label: { Image(systemName: "xmark").foregroundStyle(c.muted).frame(width: 34, height: 40) }.accessibilityLabel("إزالة").padding(.trailing, 8)
+                    Button { player.move(i, max(player.index + 1, i - 1)) } label: { Ico(name: "arrow.up", size: 20).foregroundStyle(c.muted).frame(width: 34, height: 40) }.accessibilityLabel("تحريك لأعلى")
+                    Button { player.remove(at: i) } label: { Ico(name: "xmark", size: 20).foregroundStyle(c.muted).frame(width: 34, height: 40) }.accessibilityLabel("إزالة").padding(.trailing, 8)
                 }
             }
         }
@@ -243,7 +243,7 @@ struct LibraryView: View {
             ForEach(items) { t in
                 HStack(spacing: 4) {
                     TrackRow(t: t, list: items)
-                    Button { if let i = store.playlists.firstIndex(where: { $0.name == n }) { store.playlists[i].ids.removeAll { $0 == t.id } } } label: { Image(systemName: "xmark").foregroundStyle(c.muted).frame(width: 34, height: 40) }.accessibilityLabel("إزالة من القائمة").padding(.trailing, 8)
+                    Button { if let i = store.playlists.firstIndex(where: { $0.name == n }) { store.playlists[i].ids.removeAll { $0 == t.id } } } label: { Ico(name: "xmark", size: 20).foregroundStyle(c.muted).frame(width: 34, height: 40) }.accessibilityLabel("إزالة من القائمة").padding(.trailing, 8)
                 }
             }
         } else {
@@ -258,9 +258,9 @@ struct LibraryView: View {
             ForEach(store.playlists) { p in
                 Button { openList = p.name } label: {
                     HStack(spacing: 12) {
-                        Image(systemName: "music.note.list").foregroundStyle(c.gold)
+                        Ico(name: "music.note.list", size: 20).foregroundStyle(c.gold)
                         VStack(alignment: .leading, spacing: 2) { Text(p.name).font(F.plex(15, .semibold)).foregroundStyle(c.text); Text("\(p.ids.count.ar) تلاوة").font(F.plex(12)).foregroundStyle(c.muted) }
-                        Spacer(); Image(systemName: "chevron.left").foregroundStyle(c.faint)
+                        Spacer(); Ico(name: "chevron.left", size: 20).foregroundStyle(c.faint)
                     }.padding(14).background(RoundedRectangle(cornerRadius: 16).fill(c.surface)).overlay(RoundedRectangle(cornerRadius: 16).stroke(c.lineSoft))
                 }.buttonStyle(Press()).padding(.horizontal, 16).padding(.vertical, 4)
             }

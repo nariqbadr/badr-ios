@@ -24,9 +24,9 @@ struct PeopleView: View {
             LazyVStack(alignment: .leading, spacing: 0, pinnedViews: [.sectionHeaders]) {
                 Section {
                     HStack(spacing: 8) {
-                        Image(systemName: "magnifyingglass").foregroundStyle(c.muted)
+                        Ico(name: "magnifyingglass", size: 20).foregroundStyle(c.muted)
                         TextField("ابحث بالاسم أو المعرّف", text: $q).font(F.plex(15)).textInputAutocapitalization(.never).autocorrectionDisabled()
-                        if !q.isEmpty { Button { q = "" } label: { Image(systemName: "xmark.circle.fill").foregroundStyle(c.muted) } }
+                        if !q.isEmpty { Button { q = "" } label: { Ico(name: "xmark.circle.fill", size: 20).foregroundStyle(c.muted) } }
                     }.padding(.horizontal, 14).frame(height: 42).background(Capsule().fill(c.surface)).padding(.horizontal, 16).padding(.vertical, 10)
                     ForEach(rows) { m in row(m); Divider().overlay(c.lineSoft) }
                     if loading { ProgressView().frame(maxWidth: .infinity).padding(24) }
@@ -126,7 +126,7 @@ struct ComposeView: View {
                     GoldButton(title: "تسجيل الدخول") { auth = true }.frame(maxWidth: .infinity)
                 } else if let me = cm.me, me.limitedNow {
                     HStack(alignment: .top, spacing: 10) {
-                        Image(systemName: "shield").foregroundStyle(c.gold)
+                        Ico(name: "shield", size: 20).foregroundStyle(c.gold)
                         Text(Community.limitMsg(me.limitedUntil, me.limitNote)).font(F.plex(14)).foregroundStyle(c.text).fixedSize(horizontal: false, vertical: true)
                     }.padding(14).frame(maxWidth: .infinity, alignment: .leading)
                     .background(RoundedRectangle(cornerRadius: 18).fill(c.gold.opacity(0.08))).overlay(RoundedRectangle(cornerRadius: 18).stroke(c.gold.opacity(0.35)))
@@ -139,7 +139,7 @@ struct ComposeView: View {
                     ScrollView(.horizontal) { HStack { ForEach(media, id: \.self) { m in RemoteImage(raw: m.url).frame(width: 110, height: 110).clipShape(RoundedRectangle(cornerRadius: 14)) } } }
                     if let err { Text(err).font(F.plex(13)).foregroundStyle(c.danger) }
                     HStack {
-                        PhotosPicker(selection: $pick, maxSelectionCount: 4, matching: .images) { Image(systemName: "photo").font(.system(size: 20)).foregroundStyle(c.gold) }
+                        PhotosPicker(selection: $pick, maxSelectionCount: 4, matching: .images) { Ico(name: "photo", size: 24.0).foregroundStyle(c.gold) }
                         Spacer()
                         Text("\((280 - text.count).ar)").font(F.plex(12)).foregroundStyle(text.count > 280 ? c.danger : c.muted)
                         GoldButton(title: busy ? "لحظات…" : (reply > 0 ? "ردّ" : "نشر")) {

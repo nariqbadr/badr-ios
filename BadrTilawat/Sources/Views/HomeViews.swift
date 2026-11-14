@@ -57,7 +57,7 @@ struct HomeView: View {
         let link = appBanner ? n!.link : (s?.announcementLink ?? "")
         if !text.isEmpty && annClosed != String(text.prefix(80)) {
             HStack(spacing: 8) {
-                Image(systemName: "megaphone.fill").foregroundStyle(c.onGold)
+                Ico(name: "megaphone.fill", size: 20).foregroundStyle(c.onGold)
                 Text(text).font(F.plex(14, .medium)).foregroundStyle(c.onGold).frame(maxWidth: .infinity, alignment: .leading)
                 if !link.isEmpty, let u = URL(string: link) { Link(appBanner && !(n?.linkLabel.isEmpty ?? true) ? n!.linkLabel : "التفاصيل", destination: u).font(F.plex(14, .bold)).foregroundStyle(c.onGold) }
                 Button { annClosed = String(text.prefix(80)); UserDefaults.standard.set(annClosed, forKey: "annClosed") } label: { SiteIcon(name: "close", size: 22, color: c.onGold).frame(width: 40, height: 40) }.accessibilityLabel("إغلاق")
@@ -124,7 +124,7 @@ struct QuickTiles: View {
         VStack(spacing: 10) {
             grid(tiles) { t in tile(t, 38, 20, 11.5) { open(t.go) } }.padding(.horizontal, 16).padding(.top, 14)
             Button { pick = tiles.map(\.go); edit = true } label: {
-                HStack(spacing: 6) { Image(systemName: "slider.horizontal.3").font(.system(size: 13)).foregroundStyle(c.gold); Text("تخصيص الاختصارات").font(F.plex(12.5)).foregroundStyle(c.muted) }
+                HStack(spacing: 6) { Ico(name: "slider.horizontal.3", size: 15.6).foregroundStyle(c.gold); Text("تخصيص الاختصارات").font(F.plex(12.5)).foregroundStyle(c.muted) }
                     .padding(.horizontal, 12).padding(.vertical, 6).overlay(Capsule().stroke(c.lineSoft))
             }.buttonStyle(Press())
         }

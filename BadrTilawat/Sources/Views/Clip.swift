@@ -565,13 +565,13 @@ struct ClipView: View {
                     .overlay { if loading { ProgressView().tint(c.gold) } }
                     .onTapGesture { togglePlay() }
                 HStack(spacing: 10) {
-                    Button { togglePlay() } label: { Image(systemName: playing ? "pause.fill" : "play.fill").foregroundStyle(c.onGold).frame(width: 44, height: 44).background(Circle().fill(c.gold)) }
+                    Button { togglePlay() } label: { Ico(name: playing ? "pause.fill" : "play.fill", size: 20).foregroundStyle(c.onGold).frame(width: 44, height: 44).background(Circle().fill(c.gold)) }
                         .accessibilityLabel(playing ? "إيقاف مؤقت" : "تشغيل")
                     Text("\(fmt(t0)) – \(fmt(t1)) · \(Int(t1 - t0).ar) ث").font(F.plex(13).monospacedDigit()).foregroundStyle(c.muted)
                     Spacer()
                     if let p = exporting {
                         HStack(spacing: 8) { ProgressView(value: p).tint(c.gold).frame(width: 90); Text("\(Int(p * 100).ar)٪").font(F.plex(13)).foregroundStyle(c.text)
-                            Button { exporter?.cancel() } label: { Image(systemName: "xmark.circle.fill").foregroundStyle(c.muted) }.accessibilityLabel("إلغاء") }
+                            Button { exporter?.cancel() } label: { Ico(name: "xmark.circle.fill", size: 20).foregroundStyle(c.muted) }.accessibilityLabel("إلغاء") }
                     } else { GoldButton(title: "حفظ المقطع", icon: "square.and.arrow.down") { export(src) } }
                 }
                 if let done {

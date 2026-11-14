@@ -43,9 +43,20 @@ struct RemoteImage: View {
 /// An icon from the site's own set when it has one, else an SF Symbol.
 struct Ico: View {
     let name: String; var size: CGFloat = 20; var color: Color? = nil
+    /// Apple's names for the icons the site's set has too
+    static let alias: [String: String] = ["play.fill": "play", "pause.fill": "pause", "checkmark": "check", "xmark": "close", "square.and.arrow.up": "share",
+        "arrow.down.circle": "download", "square.and.arrow.down": "download", "magnifyingglass": "search", "speaker.slash": "mute", "speaker.wave.2": "volume",
+        "speaker.wave.2.fill": "volume", "mappin": "pin", "paperplane": "send", "music.note.list": "playlist", "text.append": "queue", "text.line.first.and.arrowtriangle.forward": "next",
+        "person.crop.circle": "user", "person": "user", "photo": "image", "repeat.1": "repeat", "ellipsis": "dots", "chevron.left": "chev-l", "chevron.right": "chev-r",
+        "chevron.down": "chev-d", "arrow.up": "up", "arrow.counterclockwise": "refresh", "arrow.clockwise": "refresh", "doc.on.doc": "copy", "bell.fill": "bell",
+        "heart.fill": "heart-f", "gearshape": "gear", "bubble.left": "chat", "backward.end.fill": "prev", "forward.end.fill": "next", "film.fill": "film",
+        "book.fill": "book", "mic.fill": "mic", "link.circle": "link", "envelope": "mail", "calendar.badge.clock": "calendar", "moon.fill": "moon", "sun.max": "sun",
+        "cloud.rain": "rain", "water.waves": "wave", "arrow.up.forward.app": "external", "plus.circle": "plus", "trash.fill": "trash", "flag.fill": "flag", "bookmark.fill": "bookmark"]
     var body: some View {
-        if SiteIcons.data[name] != nil { SiteIcon(name: name, size: size, color: color) }
-        else { Image(systemName: name).font(.system(size: size * 0.82)).foregroundStyle(color ?? .primary).frame(width: size, height: size) }
+        let n = SiteIcons.data[name] != nil ? name : (Ico.alias[name] ?? name)
+        if SiteIcons.data[n] != nil { SiteIcon(name: n, size: size, color: color) }
+        else if let color { Image(systemName: name).font(.system(size: size * 0.82)).foregroundStyle(color).frame(width: size, height: size) }
+        else { Image(systemName: name).font(.system(size: size * 0.82)).frame(width: size, height: size) }
     }
 }
 

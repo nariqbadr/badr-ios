@@ -186,7 +186,7 @@ struct QiblaCard: View {
                     Circle().stroke(c.line, lineWidth: 2)
                     ForEach(0..<36) { i in Rectangle().fill(i % 9 == 0 ? c.gold : c.faint).frame(width: 2, height: i % 9 == 0 ? 12 : 6).offset(y: -95).rotationEffect(.degrees(Double(i) * 10 - prayers.heading)) }
                     Text("ش").font(F.plex(13, .bold)).foregroundStyle(c.danger).offset(y: -76).rotationEffect(.degrees(-prayers.heading))
-                    Image(systemName: "location.north.fill").font(.system(size: 54)).foregroundStyle(c.goldBrush).rotationEffect(.degrees(rel))
+                    Ico(name: "location.north.fill", size: 64.8).foregroundStyle(c.goldBrush).rotationEffect(.degrees(rel))
                     Text("🕋").font(.system(size: 24)).offset(y: -118).rotationEffect(.degrees(rel))
                 }.frame(width: 200, height: 200).padding(24).animation(.easeOut(duration: 0.25), value: prayers.heading)
                 Text(ok ? "أنت متجه إلى القبلة ✓" : "أدر الهاتف حتى يشير السهم للأعلى").font(F.plex(14, .semibold)).foregroundStyle(c.gold)
@@ -195,7 +195,7 @@ struct QiblaCard: View {
         .onAppear { prayers.startHeading() }.onDisappear { prayers.stopHeading() }
     }
 }
-func icon(_ m: String) -> String { m == "adhan" ? "speaker.wave.2.fill" : m == "notify" ? "bell.fill" : "bell.slash" }
+func icon(_ m: String) -> String { m == "adhan" ? "volume" : m == "notify" ? "bell" : "mute" }
 
 /// Location + adhan settings (like adhan apps).
 struct PrayerSettings: View {
@@ -228,7 +228,7 @@ struct PrayerSettings: View {
                         Spacer()
                         ForEach(["adhan", "notify", "off"].filter { p.key != "sunrise" || $0 != "adhan" }, id: \.self) { k in
                             Button { prayers.setMode(p.key, k); modes[p.key] = k } label: {
-                                VStack(spacing: 2) { Image(systemName: icon(k)); Text(k == "adhan" ? "أذان" : k == "notify" ? "إشعار" : "بدون").font(F.plex(10)) }
+                                VStack(spacing: 2) { Ico(name: icon(k), size: 20); Text(k == "adhan" ? "أذان" : k == "notify" ? "إشعار" : "بدون").font(F.plex(10)) }
                                     .foregroundStyle(m == k ? c.gold : c.muted).padding(.horizontal, 9).padding(.vertical, 6).background(RoundedRectangle(cornerRadius: 12).fill(m == k ? c.gold.opacity(0.18) : .clear))
                             }.buttonStyle(.plain).disabled(!on)
                         }
@@ -283,7 +283,7 @@ struct QiblaView: View {
                 Circle().stroke(c.line, lineWidth: 2)
                 ForEach(0..<36) { i in Rectangle().fill(i % 9 == 0 ? c.gold : c.faint).frame(width: 2, height: i % 9 == 0 ? 14 : 7).offset(y: -125).rotationEffect(.degrees(Double(i) * 10 - prayers.heading)) }
                 Text("N").font(.system(size: 14, weight: .bold)).foregroundStyle(c.danger).offset(y: -100).rotationEffect(.degrees(-prayers.heading))
-                Image(systemName: "location.north.fill").font(.system(size: 70)).foregroundStyle(c.goldGradient).rotationEffect(.degrees(rel))
+                Ico(name: "location.north.fill", size: 84.0).foregroundStyle(c.goldGradient).rotationEffect(.degrees(rel))
                 Text("🕋").font(.system(size: 28)).offset(y: -150).rotationEffect(.degrees(rel))
             }.frame(width: 260, height: 260).padding(30).animation(.easeOut(duration: 0.25), value: prayers.heading)
             Text(abs(((rel.truncatingRemainder(dividingBy: 360)) + 540).truncatingRemainder(dividingBy: 360) - 180) < 5 ? "أنت متجه إلى القبلة ✓" : "أدر الهاتف حتى يشير السهم للأعلى").font(F.plex(15, .semibold)).foregroundStyle(c.gold)

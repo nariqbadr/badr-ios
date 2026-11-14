@@ -65,7 +65,7 @@ struct Onboarding: View {
     private func finish() { UserDefaults.standard.set(true, forKey: "onboarded"); done() }
     private func need(_ icon: String, _ t: String, _ s: String) -> some View {
         HStack(spacing: 12) {
-            Image(systemName: icon).foregroundStyle(c.gold).frame(width: 40, height: 40).background(Circle().fill(c.gold.opacity(0.14)))
+            Ico(name: icon, size: 22, color: c.gold).frame(width: 40, height: 40).background(Circle().fill(c.gold.opacity(0.14)))
             VStack(alignment: .leading) { Text(t).font(F.plex(15, .semibold)).foregroundStyle(c.text); Text(s).font(F.plex(12.5)).foregroundStyle(c.muted) }
             Spacer()
         }.padding(14).background(RoundedRectangle(cornerRadius: 18).fill(c.surface.opacity(0.7)))

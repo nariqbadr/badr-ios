@@ -333,8 +333,8 @@ struct WatchView: View {
                     Text("\(fmtT(v.position)) / \(fmtT(v.duration))").font(.system(size: 12, weight: .medium).monospacedDigit()).foregroundStyle(.white)
                     Spacer()
                     Button { sheet = "q" } label: { Text(qLabel(v.h)).font(.system(size: 12, weight: .bold)).foregroundStyle(.white).padding(.horizontal, 8).padding(.vertical, 3).background(Capsule().stroke(.white.opacity(0.7))) }
-                    if v.pip != nil { Button { v.startPip() } label: { Image(systemName: "pip.enter").foregroundStyle(.white) } }
-                    Button { withAnimation { full.toggle() }; rotate(full) } label: { Image(systemName: full ? "arrow.down.right.and.arrow.up.left" : "arrow.up.left.and.arrow.down.right").foregroundStyle(.white) }
+                    if v.pip != nil { Button { v.startPip() } label: { Ico(name: "pip.enter", size: 20).foregroundStyle(.white) } }
+                    Button { withAnimation { full.toggle() }; rotate(full) } label: { Ico(name: full ? "arrow.down.right.and.arrow.up.left" : "arrow.up.left.and.arrow.down.right", size: 20).foregroundStyle(.white) }
                         .accessibilityLabel(full ? "الخروج من ملء الشاشة" : "ملء الشاشة")
                 }.padding(.horizontal, 14).padding(.bottom, 10)
             }
@@ -343,7 +343,7 @@ struct WatchView: View {
     private func round(_ icon: String, _ s: CGFloat, big: Bool = false, _ a: @escaping () -> Void) -> some View {
         Button(action: a) {
             // the 10-second arrows are mirrored: in right-to-left order «back» turns to the right
-            Image(systemName: icon).font(.system(size: s, weight: .semibold)).foregroundStyle(big ? c.onGold : .white)
+            Ico(name: icon, size: s * 1.2, color: big ? c.onGold : .white)
                 .scaleEffect(x: big ? 1 : -1, y: 1)
                 .frame(width: big ? 72 : 54, height: big ? 72 : 54).background(Circle().fill(big ? c.gold : .black.opacity(0.35)))
         }.buttonStyle(Press())
@@ -368,14 +368,14 @@ struct WatchView: View {
                     if let p = dl.progress[t.id] { chip("arrow.down.circle", "جارٍ الحفظ \(Int(p * 100).ar)٪") {} }
                     else { chip(saved != nil ? "checkmark.circle" : "arrow.down.circle", saved != nil ? "✓ محفوظة" : "تحميل") { sheet = "d" } }
                     if repo.data?.site.sec("clip") != false { chip("scissors", "اصنع مقطعًا للمشاركة") { ui.path.append(.clip(t.id)) } }
-                    ShareLink(item: URL(string: Repo.site + "watch/" + t.id) ?? URL(string: Repo.site)!) { HStack(spacing: 6) { Image(systemName: "square.and.arrow.up"); Text("مشاركة") }.font(F.plex(13, .medium)).foregroundStyle(c.text).padding(.horizontal, 12).padding(.vertical, 8).background(Capsule().fill(c.surface2)) }
+                    ShareLink(item: URL(string: Repo.site + "watch/" + t.id) ?? URL(string: Repo.site)!) { HStack(spacing: 6) { Ico(name: "square.and.arrow.up", size: 20); Text("مشاركة") }.font(F.plex(13, .medium)).foregroundStyle(c.text).padding(.horizontal, 12).padding(.vertical, 8).background(Capsule().fill(c.surface2)) }
                 }
             }
             if !t.description.isEmpty { Text(t.description).font(F.plex(14)).foregroundStyle(c.muted) }
         }
     }
     private func chip(_ icon: String, _ s: String, _ a: @escaping () -> Void) -> some View {
-        Button(action: a) { HStack(spacing: 6) { Image(systemName: icon); Text(s) }.font(F.plex(13, .medium)).foregroundStyle(c.text).padding(.horizontal, 12).padding(.vertical, 8).background(Capsule().fill(c.surface2)) }.buttonStyle(Press())
+        Button(action: a) { HStack(spacing: 6) { Ico(name: icon, size: 18, color: c.gold); Text(s) }.font(F.plex(13, .medium)).foregroundStyle(c.text).padding(.horizontal, 12).padding(.vertical, 8).background(Capsule().fill(c.surface2)) }.buttonStyle(Press())
     }
 
     private func qualitySheet(_ t: Track) -> some View {
@@ -416,7 +416,7 @@ struct WatchView: View {
         }.presentationDetents([.medium, .large]).environment(\.layoutDirection, .rightToLeft)
     }
     private func row(_ a: String, _ b: String, on: Bool) -> some View {
-        HStack { VStack(alignment: .leading, spacing: 2) { Text(a).font(F.plex(15, .medium)).foregroundStyle(c.text); if !b.isEmpty { Text(b).font(F.plex(12)).foregroundStyle(c.muted) } }; Spacer(); if on { Image(systemName: "checkmark").foregroundStyle(c.gold) } }
+        HStack { VStack(alignment: .leading, spacing: 2) { Text(a).font(F.plex(15, .medium)).foregroundStyle(c.text); if !b.isEmpty { Text(b).font(F.plex(12)).foregroundStyle(c.muted) } }; Spacer(); if on { Ico(name: "checkmark", size: 20).foregroundStyle(c.gold) } }
     }
 }
 

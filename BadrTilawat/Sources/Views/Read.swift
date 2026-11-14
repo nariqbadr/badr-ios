@@ -35,7 +35,7 @@ struct OptMenu<V: Hashable>: View {
             HStack(spacing: 6) {
                 if !label.isEmpty { Text(label).font(F.plex(11.5)).foregroundStyle(c.muted) }
                 Text(opts.first { $0.0 == value }?.1 ?? "").font(F.plex(13, .medium)).foregroundStyle(c.text).lineLimit(1)
-                Image(systemName: "chevron.down").font(.system(size: 10, weight: .bold)).foregroundStyle(c.gold)
+                Ico(name: "chevron.down", size: 12.0).foregroundStyle(c.gold)
             }.padding(.horizontal, 11).padding(.vertical, 7).background(Capsule().fill(c.surface.opacity(0.7))).overlay(Capsule().stroke(c.line))
         }
     }
@@ -65,11 +65,11 @@ struct ReadIndexView: View {
                     let p = (last.components(separatedBy: "|") + ["", "", ""])
                     Button { if let r = Route.readPath(p[0]) { ui.path.append(r) } } label: {
                         HStack(spacing: 12) {
-                            Image(systemName: "play.circle.fill").font(.system(size: 32)).foregroundStyle(c.onGold)
+                            Ico(name: "play.circle.fill", size: 38.4).foregroundStyle(c.onGold)
                             VStack(alignment: .leading, spacing: 2) {
                                 Text("تابع من حيث توقفت").font(F.plex(12, .medium)); Text(p[1]).font(F.plex(15, .bold)); Text(p[2]).font(F.plex(12)).opacity(0.8).lineLimit(1)
                             }.foregroundStyle(c.onGold)
-                            Spacer(); Image(systemName: "chevron.left").foregroundStyle(c.onGold)
+                            Spacer(); Ico(name: "chevron.left", size: 20).foregroundStyle(c.onGold)
                         }.padding(16).background(RoundedRectangle(cornerRadius: 20).fill(c.goldGradient))
                     }.buttonStyle(Press()).padding(.horizontal, 16)
                 }
@@ -134,7 +134,7 @@ struct ReadIndexView: View {
     private func avatarChip(_ img: String?, _ name: String, _ on: Bool, _ a: @escaping () -> Void) -> some View {
         Button(action: a) {
             VStack(spacing: 5) {
-                ZStack { if let img { RemoteImage(raw: img) } else { c.surface3; Image(systemName: "person.3.fill").foregroundStyle(c.text) } }
+                ZStack { if let img { RemoteImage(raw: img) } else { c.surface3; Ico(name: "person.3.fill", size: 20).foregroundStyle(c.text) } }
                     .frame(width: 56, height: 56).clipShape(Circle()).overlay(Circle().stroke(on ? c.gold : c.lineSoft, lineWidth: on ? 2 : 1))
                 Text(name).font(F.plex(12, on ? .bold : .regular)).foregroundStyle(on ? c.text : c.muted).lineLimit(2).multilineTextAlignment(.center).frame(width: 70)
             }
@@ -149,7 +149,7 @@ struct ReadIndexView: View {
                     HStack(alignment: .bottom) {
                         VStack(alignment: .leading, spacing: 1) { Text(rangeText(a, b)).font(F.plex(11.5, .semibold)).foregroundStyle(.white.opacity(0.8)); Text("سورة \(Quran.surahs[sn - 1])").font(F.amiri(18)).foregroundStyle(.white).lineLimit(2) }
                         Spacer(minLength: 4)
-                        Image(systemName: "play.fill").font(.system(size: 13)).foregroundStyle(c.onGold).frame(width: 34, height: 34).background(Circle().fill(c.gold))
+                        Ico(name: "play.fill", size: 15.6).foregroundStyle(c.onGold).frame(width: 34, height: 34).background(Circle().fill(c.gold))
                     }.padding(10)
                 }.frame(width: 150, height: 180).clipShape(RoundedRectangle(cornerRadius: 18)).overlay(RoundedRectangle(cornerRadius: 18).stroke(cur ? c.gold : .clear, lineWidth: 2))
                 Text(repo.reciter(t.reciterId)?.name ?? "").font(F.plex(13, .semibold)).foregroundStyle(c.text).lineLimit(1).frame(width: 150, alignment: .leading)
@@ -307,7 +307,7 @@ struct ReadView: View {
                                 Text(noSheikh(src.name)).font(F.plex(13, .semibold)).foregroundStyle(c.text).lineLimit(1)
                                 Text(src.kind == "track" ? rangeText(src.from, src.to) : "المصحف المرتّل").font(F.plex(11)).foregroundStyle(c.muted).lineLimit(1)
                             }
-                            Image(systemName: "chevron.down").font(.system(size: 11)).foregroundStyle(c.muted)
+                            Ico(name: "chevron.down", size: 13.2).foregroundStyle(c.muted)
                         }.padding(.leading, 5).padding(.trailing, 10).padding(.vertical, 4).background(Capsule().fill(c.surface.opacity(0.6))).overlay(Capsule().stroke(c.line))
                     }.buttonStyle(.plain)
                     OptMenu(label: "", value: sn, opts: repo.readSurahs().map { ($0, "\($0.ar) \(Quran.surahs[$0 - 1])") }) { s in if s != sn { ui.path.removeLast(); ui.path.append(.read("\(s)", "")) } }
@@ -394,7 +394,7 @@ struct ReadView: View {
                                 Text(x.name).font(F.plex(14.5, .bold)).foregroundStyle(c.text).lineLimit(1)
                                 Text(x.kind == "track" ? "\(x.title) · \(rangeText(x.from, x.to))" : "المصحف المرتّل — السورة كاملة").font(F.plex(12)).foregroundStyle(c.muted).lineLimit(2)
                             }
-                            Spacer(); if on { Image(systemName: "checkmark").foregroundStyle(c.gold) }
+                            Spacer(); if on { Ico(name: "checkmark", size: 20).foregroundStyle(c.gold) }
                         }.padding(10).background(RoundedRectangle(cornerRadius: 14).fill(c.surface)).overlay(RoundedRectangle(cornerRadius: 14).stroke(on ? c.gold : c.lineSoft))
                     }.buttonStyle(.plain).padding(.horizontal, 14)
                 }

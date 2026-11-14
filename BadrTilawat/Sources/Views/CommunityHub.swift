@@ -243,7 +243,7 @@ struct PostCard: View {
                     if !p.embed.isEmpty { PostEmbed(e: p.embed) }
                     if let q = p.quote { quoteBox(q) }
                     if p.replyRule != "all" && (big || !p.canReply) { HStack(spacing: 6) { SiteIcon(name: "reply", size: 14, color: c.gold); Text(RULE_NOTE[p.replyRule] ?? "").font(F.plex(12.5)).foregroundStyle(c.muted) }.padding(.top, 8) }
-                    if p.restricted { HStack(spacing: 6) { Image(systemName: "shield").font(.system(size: 12)).foregroundStyle(c.gold); Text("ردّ من حساب مقيّد — يراه هو وصاحب المنشور فقط").font(F.plex(12.5)).foregroundStyle(c.muted) }.padding(.top, 8) }
+                    if p.restricted { HStack(spacing: 6) { Ico(name: "shield", size: 14.4).foregroundStyle(c.gold); Text("ردّ من حساب مقيّد — يراه هو وصاحب المنشور فقط").font(F.plex(12.5)).foregroundStyle(c.muted) }.padding(.top, 8) }
                     if big { Text(fullDate(p.created) + (p.views > 0 ? " · \(Community.num(p.views)) مشاهدة" : "")).font(F.plex(12.5)).foregroundStyle(c.muted).padding(.top, 10) }
                     HStack {
                         act("reply", p.replies, false, c.gold) { reply() }.opacity(p.canReply ? 1 : 0.45)
@@ -356,7 +356,7 @@ struct CommunityView: View {
                 }
                 if view == "feed" || view == "user" {
                     Button { if cm.me == nil { auth = true } else { ui.path.append(.compose("new")) } } label: {
-                        HStack(spacing: 8) { Image(systemName: "pencil").font(.system(size: 18, weight: .semibold)); Text("منشور جديد").font(F.plex(15, .bold)) }
+                        HStack(spacing: 8) { Ico(name: "pencil", size: 21.6); Text("منشور جديد").font(F.plex(15, .bold)) }
                             .foregroundStyle(c.onGold).padding(.horizontal, 18).frame(height: 56).background(RoundedRectangle(cornerRadius: 20).fill(c.gold)).shadow(color: .black.opacity(0.25), radius: 8, y: 3)
                     }.buttonStyle(Press()).padding(18)
                 }
@@ -474,10 +474,10 @@ struct UserView: View {
                 Avatar(m: u, size: 84).padding(4).background(Circle().fill(c.bg))
                 Spacer()
                 if mine {
-                    Button { ui.path.append(.blocked) } label: { Image(systemName: "shield").font(.system(size: 20)).foregroundStyle(c.gold).frame(width: 44, height: 44) }.accessibilityLabel("الحظر والكتم")
+                    Button { ui.path.append(.blocked) } label: { Ico(name: "shield", size: 24.0).foregroundStyle(c.gold).frame(width: 44, height: 44) }.accessibilityLabel("الحظر والكتم")
                     GhostButton(title: "تعديل الملف", icon: "pencil") { edit() }
                 } else {
-                    if cm.me != nil { Button { relMenu = true } label: { Image(systemName: "ellipsis").font(.system(size: 20)).foregroundStyle(c.text).frame(width: 44, height: 44) }.accessibilityLabel("المزيد") }
+                    if cm.me != nil { Button { relMenu = true } label: { Ico(name: "ellipsis", size: 24.0).foregroundStyle(c.text).frame(width: 44, height: 44) }.accessibilityLabel("المزيد") }
                     if pg.blocked { if u.blocked { GhostButton(title: "إلغاء الحظر", icon: "nosign") { Task { await setRel(u.handle, "block", false) } } } }
                     else {
                         let f = follow ?? u.iFollow
