@@ -23,8 +23,8 @@ targets:
         CODE_SIGN_ENTITLEMENTS: BadrTilawat/BadrTilawat.entitlements
         PRODUCT_BUNDLE_IDENTIFIER: com.bawazirquran.app
         PRODUCT_NAME: BadrTilawat
-        MARKETING_VERSION: "1.6"
-        CURRENT_PROJECT_VERSION: "7"
+        MARKETING_VERSION: "2.10.55"
+        CURRENT_PROJECT_VERSION: "70"
         TARGETED_DEVICE_FAMILY: "1"
         SWIFT_VERSION: "5.0"
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
@@ -66,8 +66,8 @@ targets:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.bawazirquran.app.widgets
         PRODUCT_NAME: BadrWidgets
-        MARKETING_VERSION: "1.6"
-        CURRENT_PROJECT_VERSION: "7"
+        MARKETING_VERSION: "2.10.55"
+        CURRENT_PROJECT_VERSION: "70"
         TARGETED_DEVICE_FAMILY: "1"
         SWIFT_VERSION: "5.0"
         GENERATE_INFOPLIST_FILE: NO

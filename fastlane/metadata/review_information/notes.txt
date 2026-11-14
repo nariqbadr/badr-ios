@@ -1,0 +1,3 @@
+The app is in Arabic. Everything works without signing in: recitations, the Mushaf (bundled, works offline), adhkar, prayer times, the design maker and widgets.
+Community (المجتمع): anyone can create an account from the app (tab «المجتمع» → «دخول» → «حساب جديد»). Users can report any post (⋯ → إبلاغ عن المنشور), mute or block any account (⋯ → حظر), and the moderators review reports within 24 hours. Delete the account in the app: open your profile → «تعديل الملف» → «حذف الحساب نهائيًا».
+Audio plays in the background (recitations and the adhan). Location is used only to compute prayer times and the qibla.

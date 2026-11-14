@@ -1,0 +1,102 @@
+name: Release to TestFlight (signed, uploaded to App Store Connect)
+on:
+  workflow_dispatch:
+    inputs:
+      metadata:
+        description: "Also upload the store text and screenshots (fastlane deliver)"
+        type: boolean
+        default: true
+permissions:
+  contents: read
+jobs:
+  release:
+    runs-on: macos-15-intel
+    timeout-minutes: 90
+    env:
+      ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+      ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+      ASC_KEY_P8: ${{ secrets.ASC_KEY_P8 }}
+      TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check the secrets
+        run: |
+          for v in ASC_KEY_ID ASC_ISSUER_ID ASC_KEY_P8 TEAM_ID; do [ -n "${!v}" ] || { echo "::error::secret missing: $v"; exit 1; }; done
+      - name: Xcode
+        run: |
+          X=$(ls -d /Applications/Xcode_26*.app 2>/dev/null | grep -v beta | sort -V | tail -1)
+          sudo xcode-select -s "$X"; xcodebuild -version
+      - name: Generate project
+        run: brew install xcodegen && xcodegen generate
+      - name: App Store Connect (bundle IDs, app record)
+        run: |
+          pip3 install --break-system-packages -q pyjwt cryptography || pip3 install -q pyjwt cryptography
+          python3 scripts/asc.py bundles
+          python3 scripts/asc.py app
+      - name: Archive (automatic signing with the API key)
+        run: |
+          mkdir -p ~/private_keys && printf '%s' "$ASC_KEY_P8" > ~/private_keys/AuthKey_$ASC_KEY_ID.p8
+          BUILD=$((100 + GITHUB_RUN_NUMBER))
+          xcodebuild -project BadrTilawat.xcodeproj -scheme BadrTilawat -configuration Release -destination 'generic/platform=iOS' \
+            -archivePath build/Badr.xcarchive archive -allowProvisioningUpdates \
+            -authenticationKeyPath ~/private_keys/AuthKey_$ASC_KEY_ID.p8 -authenticationKeyID "$ASC_KEY_ID" -authenticationKeyIssuerID "$ASC_ISSUER_ID" \
+            DEVELOPMENT_TEAM="$TEAM_ID" CODE_SIGN_STYLE=Automatic CODE_SIGNING_ALLOWED=YES CODE_SIGNING_REQUIRED=YES CODE_SIGN_IDENTITY="Apple Development" \
+            CURRENT_PROJECT_VERSION=$BUILD > archive.log 2>&1 || { grep -E "error|warning: .*sign" archive.log | head -60; exit 1; }
+          tail -3 archive.log
+      - name: Upload to App Store Connect (TestFlight)
+        run: |
+          cat > ExportOptions.plist <<PL
+          <?xml version="1.0" encoding="UTF-8"?>
+          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+          <plist version="1.0"><dict>
+            <key>method</key><string>app-store-connect</string>
+            <key>destination</key><string>upload</string>
+            <key>teamID</key><string>$TEAM_ID</string>
+            <key>signingStyle</key><string>automatic</string>
+            <key>uploadSymbols</key><true/>
+            <key>manageAppVersionAndBuildNumber</key><false/>
+          </dict></plist>
+          PL
+          xcodebuild -exportArchive -archivePath build/Badr.xcarchive -exportOptionsPlist ExportOptions.plist -exportPath build/export -allowProvisioningUpdates \
+            -authenticationKeyPath ~/private_keys/AuthKey_$ASC_KEY_ID.p8 -authenticationKeyID "$ASC_KEY_ID" -authenticationKeyIssuerID "$ASC_ISSUER_ID" > export.log 2>&1 || { tail -60 export.log; exit 1; }
+          tail -5 export.log
+      - name: Store screenshots (6.9-inch iPhone simulator)
+        if: inputs.metadata
+        run: |
+          xcodebuild -project BadrTilawat.xcodeproj -scheme BadrTilawat -configuration Release -sdk iphonesimulator -destination 'generic/platform=iOS Simulator' \
+            -derivedDataPath simbuild ONLY_ACTIVE_ARCH=YES ARCHS=x86_64 CODE_SIGNING_ALLOWED=NO build > sim.log 2>&1 || { grep error: sim.log | head; exit 1; }
+          UDID=$(xcrun simctl list devices available -j | python3 -c "
+          import json,sys,re
+          d=json.load(sys.stdin)['devices']; best=None
+          for rt,devs in d.items():
+            if 'iOS' not in rt: continue
+            v=tuple(int(x) for x in re.findall(r'\d+',rt.split('iOS')[-1]))
+            for x in devs:
+              if re.match(r'iPhone \d+ Pro Max$',x['name']) and (best is None or v>best[0]): best=(v,x['udid'])
+          print(best[1])")
+          xcrun simctl boot "$UDID"; xcrun simctl bootstatus "$UDID" -b
+          xcrun simctl status_bar "$UDID" override --time "9:41" --batteryState charged --batteryLevel 100 --cellularBars 4 --wifiBars 3
+          xcrun simctl install "$UDID" simbuild/Build/Products/Release-iphonesimulator/BadrTilawat.app
+          xcrun simctl privacy "$UDID" grant all com.bawazirquran.app || true
+          mkdir -p fastlane/screenshots/ar-SA; i=1
+          for r in home mushaf recitations read prayer adhkar maker community; do
+            SIMCTL_CHILD_BZ_ROUTE=$r xcrun simctl launch --terminate-running-process "$UDID" com.bawazirquran.app >/dev/null; sleep 16
+            xcrun simctl io "$UDID" screenshot "fastlane/screenshots/ar-SA/0${i}_$r.png"; i=$((i+1))
+          done
+          python3 -c "import struct,glob;[print(f, struct.unpack('>II', open(f,'rb').read()[16:24])) for f in sorted(glob.glob('fastlane/screenshots/ar-SA/*.png'))]"
+      - name: Store text and screenshots (fastlane deliver)
+        if: inputs.metadata
+        run: |
+          python3 -c "import json,os;json.dump({'key_id':os.environ['ASC_KEY_ID'],'issuer_id':os.environ['ASC_ISSUER_ID'],'key':os.environ['ASC_KEY_P8'],'in_house':False},open('asc.json','w'))"
+          gem list fastlane -i >/dev/null || sudo gem install fastlane -N
+          fastlane deliver --api_key_path asc.json --app_identifier com.bawazirquran.app --app_version "$(grep -m1 MARKETING_VERSION project.yml | sed 's/.*\"\(.*\)\"/\1/')" \
+            --metadata_path fastlane/metadata --screenshots_path fastlane/screenshots --skip_binary_upload true --overwrite_screenshots true \
+            --submit_for_review false --force true --precheck_include_in_app_purchases false --run_precheck_before_submit false
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: release-logs
+          path: |
+            archive.log
+            export.log
+            fastlane/screenshots
