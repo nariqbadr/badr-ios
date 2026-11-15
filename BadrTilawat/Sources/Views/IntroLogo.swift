@@ -116,6 +116,8 @@ struct IntroView: View {
     @State private var t0 = Date()
     @State private var out = false
     @State private var finished = false
+    /// screenshot runs (CI): the opening held at this second, to compare its frames with the site's and Android's
+    static let frozen: Double? = ProcessInfo.processInfo.environment["BZ_INTRO_T"].flatMap(Double.init)
 
     private func finish() {
         guard !finished else { return }; finished = true
@@ -125,7 +127,7 @@ struct IntroView: View {
 
     var body: some View {
         TimelineView(.animation(paused: finished && out)) { tl in
-            let t = min(3.6, tl.date.timeIntervalSince(t0))
+            let t = IntroView.frozen ?? min(3.6, tl.date.timeIntervalSince(t0))
             let seg = { (a: Double, b: Double, e: Ease) -> Double in e(min(1, max(0, (t - a) / (b - a)))) }
             let fs = Ease.standard
             GeometryReader { g in
@@ -158,8 +160,8 @@ struct IntroView: View {
         }
         .opacity(out ? 0 : 1).scaleEffect(out ? 1.06 : 1)
         .environment(\.colorScheme, .dark)
-        .contentShape(Rectangle()).onTapGesture(perform: finish)
-        .onAppear { t0 = Date(); DispatchQueue.main.asyncAfter(deadline: .now() + 3.85) { finish() } }
+        .contentShape(Rectangle()).onTapGesture { if IntroView.frozen == nil { finish() } }
+        .onAppear { t0 = Date(); if IntroView.frozen == nil { DispatchQueue.main.asyncAfter(deadline: .now() + 3.85) { finish() } } }
     }
 
     @ViewBuilder private func mark(t: Double, seg: @escaping (Double, Double, Ease) -> Double) -> some View {

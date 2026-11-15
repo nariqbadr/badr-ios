@@ -9,16 +9,16 @@ struct SeekBar: View {
     var body: some View {
         GeometryReader { g in
             let w: CGFloat = max(g.size.width, 1), v: CGFloat = CGFloat(min(max(value, 0), 1))
-            ZStack(alignment: .trailing) {
+            ZStack(alignment: .leading) {
                 Capsule().fill(c.lineSoft).frame(height: 4)
                 Capsule().fill(c.gold).frame(width: w * v, height: 4)
                 Circle().fill(c.gold).frame(width: 14, height: 14).shadow(color: c.gold.opacity(0.4), radius: 6)
-                    .offset(x: 7 - w * v)
+                    .offset(x: w * v - 7)
             }
             .frame(height: 26).contentShape(Rectangle())
             .gesture(DragGesture(minimumDistance: 0)
-                .onChanged { e in onDrag(Double(min(max(1 - e.location.x / w, 0), 1))) }
-                .onEnded { e in onDone(Double(min(max(1 - e.location.x / w, 0), 1))) })
+                .onChanged { e in onDrag(Double(min(max(e.location.x / w, 0), 1))) }
+                .onEnded { e in onDone(Double(min(max(e.location.x / w, 0), 1))) })
         }.frame(height: 26).environment(\.layoutDirection, .leftToRight)
     }
 }
@@ -53,7 +53,7 @@ struct MiniPlayer: View {
                     Text(Fmt.dur(Int(v * p.duration)).isEmpty ? "0:00" : Fmt.dur(Int(v * p.duration))).font(F.plex(11)).foregroundStyle(c.muted).frame(width: 40)
                     SeekBar(value: v, onDrag: { drag = $0 }, onDone: { drag = nil; p.seek($0 * p.duration) })
                     Text(Fmt.dur(Int(p.duration)).isEmpty ? "--:--" : Fmt.dur(Int(p.duration))).font(F.plex(11)).foregroundStyle(c.muted).frame(width: 40)
-                }.padding(.top, 4)
+                }.padding(.top, 4).environment(\.layoutDirection, .leftToRight)
                 HStack(spacing: 0) {
                     Button { p.setSpeed(nextSpeed(store.speed)) } label: { Text("×" + speedText(store.speed)).font(F.plex(13, .bold)).foregroundStyle(store.speed != 1 ? c.gold : c.muted).frame(width: 40, height: 40) }
                     Spacer(minLength: 0)
@@ -61,13 +61,13 @@ struct MiniPlayer: View {
                     Spacer(minLength: 0)
                     Button { p.prev() } label: { SiteIcon(name: "prev", size: 24, color: c.text).frame(width: 40, height: 40) }.accessibilityLabel(tr("السابق"))
                     Spacer(minLength: 0)
-                    Button { p.skip(10) } label: { Ico(name: "gobackward.10", size: 24.0).foregroundStyle(c.text).frame(width: 40, height: 40) }.accessibilityLabel(tr("تقديم ١٠ ثوانٍ"))
+                    Button { p.skip(-10) } label: { Ico(name: "gobackward.10", size: 24.0).foregroundStyle(c.text).frame(width: 40, height: 40) }.accessibilityLabel(tr("رجوع ١٠ ثوانٍ"))
                     Spacer(minLength: 0)
                     Button { p.toggle() } label: {
                         ZStack { Circle().fill(c.gold).shadow(color: c.gold.opacity(0.6), radius: 8); if p.buffering && p.playing { ProgressView().tint(c.onGold) } else { SiteIcon(name: p.playing ? "pause" : "play", size: 24, color: c.onGold) } }.frame(width: 54, height: 54)
                     }.accessibilityLabel(p.playing ? tr("إيقاف مؤقت") : tr("تشغيل"))
                     Spacer(minLength: 0)
-                    Button { p.skip(-10) } label: { Ico(name: "goforward.10", size: 24.0).foregroundStyle(c.text).frame(width: 40, height: 40) }.accessibilityLabel(tr("رجوع ١٠ ثوانٍ"))
+                    Button { p.skip(10) } label: { Ico(name: "goforward.10", size: 24.0).foregroundStyle(c.text).frame(width: 40, height: 40) }.accessibilityLabel(tr("تقديم ١٠ ثوانٍ"))
                     Spacer(minLength: 0)
                     Button { p.next() } label: { SiteIcon(name: "next", size: 24, color: c.text).frame(width: 40, height: 40) }.accessibilityLabel(tr("التالي"))
                     Spacer(minLength: 0)
@@ -140,7 +140,7 @@ struct PlayerView: View {
                         Button { store.toggleFav(t.id) } label: { SiteIcon(name: store.favs.contains(t.id) ? "heart-f" : "heart", size: 26, color: store.favs.contains(t.id) ? c.danger : c.muted).frame(width: 48, height: 48) }.accessibilityLabel(tr("المفضلة"))
                     }
                     SeekBar(value: v, onDrag: { drag = $0 }, onDone: { drag = nil; p.seek($0 * p.duration) }).padding(.top, 8)
-                    HStack { Text(Fmt.dur(Int(v * p.duration)).isEmpty ? "0:00" : Fmt.dur(Int(v * p.duration))); Spacer(); Text(Fmt.dur(Int(p.duration)).isEmpty ? "0:00" : Fmt.dur(Int(p.duration))) }.font(F.plex(12.5)).foregroundStyle(c.muted)
+                    HStack { Text(Fmt.dur(Int(v * p.duration)).isEmpty ? "0:00" : Fmt.dur(Int(v * p.duration))); Spacer(); Text(Fmt.dur(Int(p.duration)).isEmpty ? "0:00" : Fmt.dur(Int(p.duration))) }.font(F.plex(12.5)).foregroundStyle(c.muted).environment(\.layoutDirection, .leftToRight)
                     HStack {
                         Button { p.shuffle.toggle() } label: { SiteIcon(name: "shuffle", size: 24, color: p.shuffle ? c.gold : c.muted).frame(width: 48, height: 48) }.accessibilityLabel(tr("عشوائي"))
                         Spacer()
@@ -151,16 +151,16 @@ struct PlayerView: View {
                         Button { p.next() } label: { SiteIcon(name: "next", size: 36, color: c.text).frame(width: 52, height: 52) }.accessibilityLabel(tr("التالي"))
                         Spacer()
                         Button { p.cycleRepeat() } label: { ZStack { SiteIcon(name: "repeat", size: 24, color: p.repeatMode > 0 ? c.gold : c.muted); if p.repeatMode == 2 { Text(tr("١")).font(F.plex(9, .bold)).foregroundStyle(c.gold) } }.frame(width: 48, height: 48) }.accessibilityLabel(tr("تكرار"))
-                    }.padding(.vertical, 10)
+                    }.padding(.vertical, 10).environment(\.layoutDirection, .leftToRight)
                     HStack {
-                        Button { p.skip(-10) } label: { Ico(name: "goforward.10", size: 25.2).foregroundStyle(c.muted).frame(width: 44, height: 44) }.accessibilityLabel(tr("رجوع ١٠ ثوانٍ"))
+                        Button { p.skip(-10) } label: { Ico(name: "gobackward.10", size: 25.2).foregroundStyle(c.muted).frame(width: 44, height: 44) }.accessibilityLabel(tr("رجوع ١٠ ثوانٍ"))
                         Spacer(); action("gauge.with.needle", "\(speedText(store.speed))×", store.speed != 1) { showSpeed = true }
                         Spacer(); action("timer", p.sleepAt.map { tr("{0} د", max(0, Int($0.timeIntervalSinceNow / 60) + 1).ar) } ?? tr("مؤقت"), p.sleepOn) { showSleep = true }
                         Spacer(); action("wave", tr("أصوات"), !amb.current.isEmpty) { showAmb = true }
                         Spacer(); action("queue", tr("القائمة"), false) { showQueue = true }
                         Spacer()
-                        Button { p.skip(10) } label: { Ico(name: "gobackward.10", size: 25.2).foregroundStyle(c.muted).frame(width: 44, height: 44) }.accessibilityLabel(tr("تقديم ١٠ ثوانٍ"))
-                    }
+                        Button { p.skip(10) } label: { Ico(name: "goforward.10", size: 25.2).foregroundStyle(c.muted).frame(width: 44, height: 44) }.accessibilityLabel(tr("تقديم ١٠ ثوانٍ"))
+                    }.environment(\.layoutDirection, .leftToRight)
                     Spacer(minLength: 12)
                 }.padding(.horizontal, 24)
             }

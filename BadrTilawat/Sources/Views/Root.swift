@@ -24,7 +24,7 @@ struct RootView: View {
     @Environment(\.pal) private var c
     /// screenshot runs in the simulator (CI): open this screen straight away, no intro or onboarding
     private static let shot = ProcessInfo.processInfo.environment["BZ_ROUTE"]
-    @State private var intro = RootView.shot == nil
+    @State private var intro = RootView.shot == nil || RootView.shot == "intro"
     @State private var onboard = RootView.shot == nil && !UserDefaults.standard.bool(forKey: "onboarded")
     @State private var barH: CGFloat = 70
     @State private var opened: [String] = []

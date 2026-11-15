@@ -74,6 +74,12 @@ jobs:
             if xcrun simctl spawn "$UDID" launchctl list | grep -q UIKitApplication:com.bawazirquran.app; then echo "$L-$r ok" >> shots/runs.txt; else echo "$L-$r CRASHED" >> shots/runs.txt; fi
             xcrun simctl io "$UDID" screenshot "shots/$L-$r.png" >/dev/null 2>&1 || true
           done
+          # the opening, held at a few moments (to compare with the site's and Android's frames)
+          for t in 0.6 1.2 1.8 2.4 3.0 3.6; do
+            SIMCTL_CHILD_BZ_LANG=ar SIMCTL_CHILD_BZ_ROUTE=intro SIMCTL_CHILD_BZ_INTRO_T=$t xcrun simctl launch --terminate-running-process "$UDID" com.bawazirquran.app >/dev/null 2>&1
+            sleep 9
+            xcrun simctl io "$UDID" screenshot "shots/intro-$t.png" >/dev/null 2>&1 || true
+          done
           xcrun simctl terminate "$UDID" com.bawazirquran.app || true
           find ~/Library/Logs/DiagnosticReports -name "BadrTilawat*" -exec cp {} shots/ \; 2>/dev/null || true
           cat shots/runs.txt

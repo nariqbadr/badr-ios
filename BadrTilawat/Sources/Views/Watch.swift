@@ -328,10 +328,10 @@ struct WatchView: View {
             Color.black
             VideoSurface(layer: v.layer)
             if v.position < 0.2 && !v.playing, let u = t.video?.poster, !u.isEmpty { RemoteImage(raw: u, mode: .fit).allowsHitTesting(false) }
-            // double tap: right side goes back, left side goes forward (the bar runs right to left)
+            // double tap: left side goes back 10 seconds, right side forward (like every video player)
             HStack(spacing: 0) {
-                Color.clear.contentShape(Rectangle()).onTapGesture(count: 2) { v.skip(10); flash = (true, Date()); bump() }.onTapGesture { withAnimation { controls.toggle() }; if controls { bump() } }
                 Color.clear.contentShape(Rectangle()).onTapGesture(count: 2) { v.skip(-10); flash = (false, Date()); bump() }.onTapGesture { withAnimation { controls.toggle() }; if controls { bump() } }
+                Color.clear.contentShape(Rectangle()).onTapGesture(count: 2) { v.skip(10); flash = (true, Date()); bump() }.onTapGesture { withAnimation { controls.toggle() }; if controls { bump() } }
             }.environment(\.layoutDirection, .leftToRight)
             if v.buffering { ProgressView().tint(.white).scaleEffect(1.3) }
             if v.failed { Text(tr("تعذّر تشغيل الفيديو. جرّب جودة أقل.")).font(F.plex(14)).foregroundStyle(.white).padding(10).background(Capsule().fill(.black.opacity(0.6))) }
@@ -342,11 +342,11 @@ struct WatchView: View {
     private func overlay(_ t: Track) -> some View {
         ZStack {
             LinearGradient(colors: [.black.opacity(0.5), .clear, .black.opacity(0.65)], startPoint: .top, endPoint: .bottom).allowsHitTesting(false)
-            // left: forward 10 (arrow turning left) · play · right: back 10 (arrow turning right) — as on the site
+            // left: back 10 · play · right: forward 10 (left to right, like the time bar)
             HStack(spacing: 34) {
-                round("gobackward.10", 26) { v.skip(10); bump() }.accessibilityLabel(tr("تقديم ١٠ ثوانٍ"))
+                round("gobackward.10", 26) { v.skip(-10); bump() }.accessibilityLabel(tr("رجوع ١٠ ثوانٍ"))
                 round(v.playing ? "pause.fill" : "play.fill", 34, big: true) { v.toggle(); bump() }.accessibilityLabel(v.playing ? tr("إيقاف مؤقت") : tr("تشغيل"))
-                round("goforward.10", 26) { v.skip(-10); bump() }.accessibilityLabel(tr("رجوع ١٠ ثوانٍ"))
+                round("goforward.10", 26) { v.skip(10); bump() }.accessibilityLabel(tr("تقديم ١٠ ثوانٍ"))
             }.environment(\.layoutDirection, .leftToRight)
             VStack(spacing: 6) {
                 Spacer()
@@ -358,15 +358,13 @@ struct WatchView: View {
                     if v.pip != nil { Button { v.startPip() } label: { Ico(name: "pip.enter", size: 20).foregroundStyle(.white) } }
                     Button { withAnimation { full.toggle() }; rotate(full) } label: { Ico(name: full ? "arrow.down.right.and.arrow.up.left" : "arrow.up.left.and.arrow.down.right", size: 20).foregroundStyle(.white) }
                         .accessibilityLabel(full ? tr("الخروج من ملء الشاشة") : tr("ملء الشاشة"))
-                }.padding(.horizontal, 14).padding(.bottom, 10)
+                }.padding(.horizontal, 14).padding(.bottom, 10).environment(\.layoutDirection, .leftToRight)
             }
         }
     }
     private func round(_ icon: String, _ s: CGFloat, big: Bool = false, _ a: @escaping () -> Void) -> some View {
         Button(action: a) {
-            // the 10-second arrows are mirrored: in right-to-left order «back» turns to the right
             Ico(name: icon, size: s * 1.2, color: big ? c.onGold : .white)
-                .scaleEffect(x: big ? 1 : -1, y: 1)
                 .frame(width: big ? 72 : 54, height: big ? 72 : 54).background(Circle().fill(big ? c.gold : .black.opacity(0.35)))
         }.buttonStyle(Press())
     }
@@ -443,7 +441,7 @@ struct WatchView: View {
     }
 }
 
-/// The seek line of the video: it runs from the right (start) to the left (end).
+/// The seek line of the video: from the left (start) to the right (end).
 private struct SeekLine: View {
     let pos: Double, dur: Double; let seek: (Double) -> Void
     @State private var drag: Double?
@@ -451,13 +449,13 @@ private struct SeekLine: View {
     var body: some View {
         GeometryReader { g in
             let f = dur > 0 ? min(1, max(0, (drag ?? pos) / dur)) : 0
-            ZStack(alignment: .trailing) {
+            ZStack(alignment: .leading) {
                 Capsule().fill(.white.opacity(0.3)).frame(height: 4)
                 Capsule().fill(c.gold).frame(width: g.size.width * f, height: 4)
-                Circle().fill(c.gold).frame(width: 14, height: 14).offset(x: -(g.size.width * f) + 7)
+                Circle().fill(c.gold).frame(width: 14, height: 14).offset(x: g.size.width * f - 7)
             }.frame(maxHeight: .infinity)
             .contentShape(Rectangle())
-            .gesture(DragGesture(minimumDistance: 0).onChanged { e in drag = dur * min(1, max(0, (g.size.width - e.location.x) / g.size.width)) }
+            .gesture(DragGesture(minimumDistance: 0).onChanged { e in drag = dur * min(1, max(0, e.location.x / g.size.width)) }
                 .onEnded { _ in if let d = drag { seek(d) }; drag = nil })
         }.frame(height: 24).padding(.horizontal, 14).environment(\.layoutDirection, .leftToRight)
     }
