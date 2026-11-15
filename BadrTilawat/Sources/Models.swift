@@ -57,6 +57,7 @@ struct Site {
     let j: J
     var title: String { j["title"].str.isEmpty ? "تلاوات الشيخ خالد بن سالم باوزير" : j["title"].str }
     var subtitle: String { j["subtitle"].str }
+    var tagline: String { j["tagline"].str }
     var heroTitle: String { j["heroTitle"].str.isEmpty ? title : j["heroTitle"].str }
     var heroText: String { j["heroText"].str }
     var heroImage: String { j["heroImage"].str }

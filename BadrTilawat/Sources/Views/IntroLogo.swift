@@ -107,12 +107,12 @@ private struct LogoPaths {
 
 private func hexC(_ v: UInt32, _ a: Double = 1) -> Color { Color(red: Double((v >> 16) & 255) / 255, green: Double((v >> 8) & 255) / 255, blue: Double(v & 255) / 255, opacity: a) }
 private let STROKE = hexC(0xE3C88D), FRAME = hexC(0xC9A45C)
-private let BG = [hexC(0x173029), hexC(0x0E1D19), hexC(0x070F0D)]
 
-/// Opening: the same timeline as the Android app (seconds from the start).
+/// Opening: the site's intro, frame for frame (front-page.php .intro + site.css): the same elements, delays, durations and easing.
 struct IntroView: View {
     let done: () -> Void
     @EnvironmentObject var store: Store
+    @EnvironmentObject var repo: Repo
     @State private var t0 = Date()
     @State private var out = false
     @State private var finished = false
@@ -121,36 +121,50 @@ struct IntroView: View {
 
     private func finish() {
         guard !finished else { return }; finished = true
-        withAnimation(.easeOut(duration: 0.6)) { out = true }
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) { done() }
+        withAnimation(.easeOut(duration: 0.7)) { out = true }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.7) { done() }
     }
 
+    // CSS timing functions used by the site
+    static let ease = Ease(x1: 0.25, y1: 0.1, x2: 0.25, y2: 1)
+    static let easeInOut = Ease(x1: 0.42, y1: 0, x2: 0.58, y2: 1)
+    static let draw = Ease(x1: 0.6, y1: 0.05, x2: 0.3, y2: 1)
+    static let pen = Ease(x1: 0.45, y1: 0.05, x2: 0.25, y2: 1)
+    static let wave = Ease(x1: 0.3, y1: 1.4, x2: 0.5, y2: 1)
+    static let write = Ease(x1: 0.4, y1: 0, x2: 0.2, y2: 1)
+
     var body: some View {
+        let site = repo.data?.site
+        let title = (site?.title).flatMap { $0.isEmpty ? nil : $0 } ?? tr("بدر التلاوات")
+        let tagline = (site?.tagline).flatMap { $0.isEmpty ? nil : $0 } ?? "Badr Al Tilawat"
+        let sub = site?.subtitle ?? ""
         TimelineView(.animation(paused: finished && out)) { tl in
-            let t = IntroView.frozen ?? min(3.6, tl.date.timeIntervalSince(t0))
-            let seg = { (a: Double, b: Double, e: Ease) -> Double in e(min(1, max(0, (t - a) / (b - a)))) }
-            let fs = Ease.standard
+            let t = IntroView.frozen ?? min(4, tl.date.timeIntervalSince(t0))
+            // a CSS animation: [delay, duration], eased progress 0…1 («forwards»)
+            let k = { (d: Double, du: Double, e: Ease) -> Double in e(min(1, max(0, (t - d) / du))) }
             GeometryReader { g in
+                let side = min(340, g.size.width * 0.72)
                 ZStack {
-                    RadialGradient(colors: BG, center: .center, startRadius: 0, endRadius: max(g.size.width, g.size.height) * 0.9).ignoresSafeArea()
-                    StarPattern(tile: 110, alpha: 1, fade: true).opacity(seg(0.2, 2.2, fs) * 0.22).ignoresSafeArea()
-                    VStack(spacing: 0) {
-                        mark(t: t, seg: seg).frame(width: 300, height: 300)
-                        Spacer().frame(height: 18)
-                        let w = seg(2.0, 2.9, Ease(x1: 0.4, y1: 0, x2: 0.2, y2: 1))
-                        Text(tr("بدر التلاوات")).font(F.amiri(40))
-                            .foregroundStyle(LinearGradient(colors: [hexC(0xF6E2AD), hexC(0xD9B56D), hexC(0xB48A42)], startPoint: .top, endPoint: .bottom))
+                    EllipticalGradient(colors: [hexC(0x13241F), hexC(0x070D0C)], center: .center, startRadiusFraction: 0, endRadiusFraction: 0.99).ignoresSafeArea()   // CSS: ellipse, #13241f → #070d0c at 70%
+                    StarPattern(tile: 110, alpha: 1, fade: true).opacity(k(0.3, 2.4, IntroView.ease) * 0.2).ignoresSafeArea()
+                    VStack(spacing: 6) {
+                        mark(k: k).frame(width: side, height: side)
+                        let w = k(1.9, 1.2, IntroView.write)
+                        Text(title).font(F.amiri(26)).foregroundStyle(hexC(0xECE4D2)).multilineTextAlignment(.center)
                             .mask(GeometryReader { m in Rectangle().frame(width: m.size.width * w).frame(maxWidth: .infinity, alignment: .trailing) }.environment(\.layoutDirection, .leftToRight))
-                            .opacity(w > 0 ? 1 : 0)
-                        let s = seg(2.6, 3.2, fs)
-                        Text("BADR AL TILAWAT").font(.system(size: 13, weight: .medium)).tracking(4).foregroundStyle(FRAME)
-                            .padding(.top, 2).opacity(s).offset(y: (1 - s) * 7)
-                        if !store.name.isEmpty {
-                            let gr = seg(2.9, 3.4, fs)
-                            Text(tr("أهلًا بك يا {0}", store.name)).font(F.plex(15, .medium)).foregroundStyle(hexC(0xECE4D2, 0.8))
-                                .padding(.top, 12).opacity(gr).offset(y: (1 - gr) * 6)
+                            .opacity(w).padding(.top, 18)
+                        let en = k(2.5, 0.8, IntroView.ease)
+                        Text(tagline.uppercased()).font(.system(size: 13, weight: .medium)).tracking(13 * 0.32).foregroundStyle(FRAME)
+                            .opacity(en).offset(y: (1 - en) * 6).padding(.top, -2)
+                        if !sub.isEmpty {
+                            let sb = k(2.7, 0.8, IntroView.ease)
+                            Text(sub).font(F.plex(15)).foregroundStyle(FRAME).opacity(sb).offset(y: (1 - sb) * 6)
                         }
-                    }
+                        if !store.name.isEmpty {
+                            let gr = k(2.9, 0.8, IntroView.ease)
+                            Text(tr("أهلًا بك يا {0}", store.name)).font(F.plex(15, .medium)).foregroundStyle(hexC(0xECE4D2, 0.8)).opacity(gr).offset(y: (1 - gr) * 6).padding(.top, 6)
+                        }
+                    }.padding(20)
                     VStack { Spacer()
                         Button(action: finish) { Text(tr("تخطَّ")).font(F.plex(14)).foregroundStyle(hexC(0xECE4D2, 0.6)).padding(.horizontal, 18).padding(.vertical, 8)
                             .overlay(Capsule().stroke(hexC(0xECE4D2, 0.15))) }.padding(.bottom, 26)
@@ -158,116 +172,116 @@ struct IntroView: View {
                 }.frame(width: g.size.width, height: g.size.height)
             }
         }
-        .opacity(out ? 0 : 1).scaleEffect(out ? 1.06 : 1)
+        .opacity(out ? 0 : 1)
         .environment(\.colorScheme, .dark)
-        .contentShape(Rectangle()).onTapGesture { if IntroView.frozen == nil { finish() } }
-        .onAppear { t0 = Date(); if IntroView.frozen == nil { DispatchQueue.main.asyncAfter(deadline: .now() + 3.85) { finish() } } }
+        .onAppear { t0 = Date(); if IntroView.frozen == nil { DispatchQueue.main.asyncAfter(deadline: .now() + 3.9) { finish() } } }
     }
 
-    @ViewBuilder private func mark(t: Double, seg: @escaping (Double, Double, Ease) -> Double) -> some View {
-        let fs = Ease.standard
-        ZStack {
-            // star frame (a square and a diamond) and a faint ring, drawn first
-            Canvas { ctx, size in
-                let ctr = CGPoint(x: size.width / 2, y: size.height / 2), r = min(size.width, size.height) * 0.49
-                let glow = seg(1.7, 2.6, fs)
-                if glow > 0 {
-                    let gr = r * 1.15
-                    ctx.opacity = glow
-                    ctx.fill(Path(ellipseIn: CGRect(x: ctr.x - gr, y: ctr.y - gr, width: gr * 2, height: gr * 2)),
-                             with: .radialGradient(Gradient(colors: [FRAME.opacity(0.33), .clear]), center: ctr, startRadius: 0, endRadius: gr))
-                    ctx.opacity = 1
+    @ViewBuilder private func mark(k: @escaping (Double, Double, Ease) -> Double) -> some View {
+        GeometryReader { g in
+            let side = g.size.width
+            ZStack(alignment: .topLeading) {
+                // the star: four squares drawn with a 600-long dash (viewBox 200), then a soft gold glow
+                Canvas { ctx, size in
+                    let u = size.width / 200
+                    let glow = k(1.6, 1.4, IntroView.ease)
+                    if glow > 0 { ctx.addFilter(.shadow(color: Color(red: 201 / 255, green: 164 / 255, blue: 92 / 255, opacity: 0.45 * glow), radius: 9)) }
+                    func sq(_ x: CGFloat, _ w: CGFloat, rot: Bool) -> Path {
+                        var p = Path()
+                        p.move(to: CGPoint(x: x, y: x)); p.addLine(to: CGPoint(x: x + w, y: x)); p.addLine(to: CGPoint(x: x + w, y: x + w)); p.addLine(to: CGPoint(x: x, y: x + w)); p.closeSubpath()
+                        var tr = CGAffineTransform(scaleX: u, y: u)
+                        if rot { tr = CGAffineTransform(translationX: 100, y: 100).rotated(by: .pi / 4).translatedBy(x: -100, y: -100).concatenating(tr) }
+                        return p.applying(tr)
+                    }
+                    let rects: [(CGFloat, CGFloat, Bool, Double, CGFloat, Double)] = [(44, 112, false, 0.15, 1.4, 1), (44, 112, true, 0.45, 1.4, 1), (32, 136, true, 0.8, 0.8, 0.55), (32, 136, false, 1.0, 0.8, 0.55)]
+                    for r in rects {
+                        let e = k(r.3, 1.5, IntroView.draw)
+                        let shown = min(1, 600 * e / (4 * r.1))
+                        if shown > 0 { ctx.stroke(sq(r.0, r.1, rot: r.2).trimmedPath(from: 0, to: shown), with: .color(FRAME.opacity(r.5)), lineWidth: r.4 * u) }
+                    }
                 }
-                let a = r * 0.72
-                var sq1 = Path(); sq1.addRect(CGRect(x: ctr.x - a, y: ctr.y - a, width: a * 2, height: a * 2))
-                let d = r * 1.018
-                var sq2 = Path(); sq2.move(to: CGPoint(x: ctr.x, y: ctr.y - d)); sq2.addLine(to: CGPoint(x: ctr.x + d, y: ctr.y)); sq2.addLine(to: CGPoint(x: ctr.x, y: ctr.y + d)); sq2.addLine(to: CGPoint(x: ctr.x - d, y: ctr.y)); sq2.closeSubpath()
-                let fe = Ease(x1: 0.6, y1: 0.05, x2: 0.3, y2: 1)
-                let st = StrokeStyle(lineWidth: 2.2, lineCap: .round, lineJoin: .round)
-                ctx.stroke(sq1.trimmedPath(from: 0, to: seg(0.05, 1.3, fe)), with: .color(FRAME), style: st)
-                ctx.stroke(sq2.trimmedPath(from: 0, to: seg(0.3, 1.55, fe)), with: .color(FRAME), style: st)
-                let sm = r * 0.86
-                ctx.stroke(LogoPaths.circle(ctr.x, ctr.y, sm, from: -.pi / 2).trimmedPath(from: 0, to: seg(0.7, 1.8, fs)), with: .color(FRAME.opacity(0.53)), lineWidth: 1)
+                logo(k: k).frame(width: side * 0.65, height: side * 0.65).offset(x: side * 0.175, y: side * 0.175)
             }
-            // the logo, inside the star
-            Canvas { ctx, size in
-                let k = size.width / 1024
-                let full = Path(ellipseIn: CGRect(origin: .zero, size: size))
-                ctx.clip(to: full)
-                ctx.opacity = seg(0.4, 1.2, fs)
-                ctx.fill(full, with: .radialGradient(Gradient(colors: BG), center: CGPoint(x: size.width / 2, y: size.height / 2), startRadius: 0, endRadius: size.width * 0.7))
-                ctx.opacity = 1
-                var c = ctx
-                c.scaleBy(x: k, y: k)
-                let fill = seg(1.45, 2.25, fs), line = 1 - seg(2.0, 2.6, fs)
-                let tw = seg(1.9, 2.7, fs)
-                let stroke = { (w: CGFloat) in StrokeStyle(lineWidth: w, lineCap: .round, lineJoin: .round) }
-                // stars and the small moon
-                for (i, p) in LogoPaths.dots.enumerated() {
-                    let r = 2.4 + CGFloat(i % 3)
-                    c.fill(Path(ellipseIn: CGRect(x: p.0 - r, y: p.1 - r, width: r * 2, height: r * 2)), with: .color(hexC(0xE9DCC0, 0.55 * seg(1.9 + Double(i) * 0.05, 2.3 + Double(i) * 0.05, fs))))
-                }
-                if tw > 0 {
-                    var m = c
-                    m.clip(to: Path(ellipseIn: CGRect(x: 780, y: 176, width: 56, height: 56)))
-                    var mp = Path(ellipseIn: CGRect(x: 780, y: 176, width: 56, height: 56)); mp.addPath(Path(ellipseIn: CGRect(x: 796, y: 166, width: 52, height: 52)))
-                    m.fill(mp, with: .color(hexC(0xEFE3C6, 0.75 * tw)), style: FillStyle(eoFill: true))
-                }
-                // crescent: the outer circle's line outside the inner one, the inner one's line inside the outer one
-                let cp = seg(0.35, 1.5, fs)
-                if line > 0 && cp > 0 {
-                    var o = c
-                    var notInner = Path(CGRect(x: -100, y: -100, width: 1224, height: 1224)); notInner.addPath(LogoPaths.inner)
-                    o.clip(to: notInner, style: FillStyle(eoFill: true))
-                    o.stroke(LogoPaths.outer.trimmedPath(from: 0, to: cp), with: .color(STROKE.opacity(line)), style: stroke(5))
-                    var n = c
-                    n.clip(to: LogoPaths.outer)
-                    n.stroke(LogoPaths.inner.trimmedPath(from: 0, to: cp), with: .color(STROKE.opacity(line)), style: stroke(5))
-                }
-                if fill > 0 {
-                    var f = c
-                    f.clip(to: LogoPaths.outer)
-                    var cres = LogoPaths.outer; cres.addPath(LogoPaths.inner)
-                    f.opacity = fill
-                    f.fill(cres, with: .linearGradient(Gradient(stops: [.init(color: hexC(0xE9CF91), location: 0), .init(color: hexC(0xB78F48, 0.9), location: 0.5), .init(color: hexC(0xB78F48, 0), location: 1)]),
-                                                     startPoint: CGPoint(x: 170, y: 0), endPoint: CGPoint(x: 840, y: 0)), style: FillStyle(eoFill: true))
-                }
-                // minaret and dome
-                let gold2 = GraphicsContext.Shading.linearGradient(Gradient(colors: [hexC(0xF3DCA2), hexC(0xB48A42)]), startPoint: CGPoint(x: 0, y: 260), endPoint: CGPoint(x: 0, y: 580))
-                for (i, p) in LogoPaths.minaret.enumerated() {
-                    let d = Double(i) * 0.06
-                    if line > 0 { c.stroke(p.trimmedPath(from: 0, to: seg(0.6 + d, 1.4 + d, fs)), with: .color(STROKE.opacity(line)), style: stroke(3)) }
-                    if fill > 0 { var f = c; f.opacity = fill; f.fill(p, with: gold2) }
-                }
-                for (i, p) in LogoPaths.dome.enumerated() {
-                    let d = Double(i) * 0.06
-                    if line > 0 { c.stroke(p.trimmedPath(from: 0, to: seg(0.75 + d, 1.55 + d, fs)), with: .color(STROKE.opacity(line)), style: stroke(3)) }
-                    if fill > 0 { var f = c; f.opacity = fill; f.fill(p, with: gold2) }
-                }
-                // the B ribbons, written like a pen stroke
-                let gold = GraphicsContext.Shading.linearGradient(Gradient(colors: [hexC(0xF6E2AD), hexC(0xD9B56D), hexC(0x9A7434)]), startPoint: .zero, endPoint: CGPoint(x: 1024, y: 1024))
-                let pen = Ease(x1: 0.45, y1: 0.05, x2: 0.25, y2: 1)
-                for (i, p) in LogoPaths.b.enumerated() {
-                    let d = Double(i) * 0.3
-                    if line > 0 { c.stroke(p.trimmedPath(from: 0, to: seg(0.55 + d, 1.6 + d, pen)), with: .color(STROKE.opacity(line)), style: stroke(4)) }
-                    let bf = seg(1.5 + Double(i) * 0.12, 2.3 + Double(i) * 0.12, fs)
-                    if bf > 0 { var f = c; f.opacity = bf; f.fill(p, with: gold) }
-                }
-                // the sound wave rising
-                let wv = GraphicsContext.Shading.linearGradient(Gradient(colors: [hexC(0xD9B56D, 0.15), hexC(0xE9CF91)]), startPoint: CGPoint(x: 240, y: 0), endPoint: CGPoint(x: 324, y: 0))
-                for (i, w) in LogoPaths.wave.enumerated() {
-                    let gw = seg(1.75 + Double(i) * 0.08, 2.35 + Double(i) * 0.08, Ease(x1: 0.3, y1: 1.4, x2: 0.5, y2: 1))
-                    let hh = w.2 * gw; let cy = w.1 + w.2 / 2
-                    if hh > 0.5 { c.fill(Path(roundedRect: CGRect(x: w.0, y: cy - hh / 2, width: 8, height: hh), cornerRadius: min(4, hh / 2)), with: wv) }
-                }
-                // a sheen sweeping across once the gold is in
-                let sh = seg(2.3, 3.1, fs)
-                if sh > 0.01 && sh < 0.99 {
-                    ctx.fill(full, with: .linearGradient(Gradient(colors: [.clear, hexC(0xFFF3D0, 0.4), .clear]),
-                                                         startPoint: CGPoint(x: size.width * (sh * 2 - 1), y: 0), endPoint: CGPoint(x: size.width * (sh * 2 - 0.4), y: size.height)))
-                }
+        }
+    }
+
+    /// The logo (viewBox 1024), every piece with its own delay and duration as in the site's markup.
+    private func logo(k: @escaping (Double, Double, Ease) -> Double) -> some View {
+        Canvas { ctx, size in
+            let s = size.width / 1024
+            ctx.scaleBy(x: s, y: s)
+            ctx.clip(to: Path(ellipseIn: CGRect(x: 0, y: 0, width: 1024, height: 1024)))
+            let ease = IntroView.ease
+            // .lg-bg
+            let bg = k(0.4, 0.8, ease)
+            if bg > 0 {
+                var c = ctx; c.opacity = bg
+                c.fill(Path(ellipseIn: CGRect(x: 0, y: 0, width: 1024, height: 1024)),
+                       with: .radialGradient(Gradient(stops: [.init(color: hexC(0x173029), location: 0), .init(color: hexC(0x0E1D19), location: 0.5), .init(color: hexC(0x070F0D), location: 1)]),
+                                             center: CGPoint(x: 512, y: 512), startRadius: 0, endRadius: 720))
             }
-            .frame(width: 196, height: 196)
+            // .lg-dot
+            for (i, p) in LogoPaths.dots.enumerated() {
+                let a = k(1.9 + Double(i) * 0.05, 0.4, ease) * 0.55
+                if a > 0 { let r = 2.4 + CGFloat(i % 3); ctx.fill(Path(ellipseIn: CGRect(x: p.0 - r, y: p.1 - r, width: r * 2, height: r * 2)), with: .color(hexC(0xE9DCC0, a))) }
+            }
+            // .lg-moon
+            let moon = k(1.9, 0.8, ease) * 0.75
+            if moon > 0 {
+                var m = ctx
+                var hole = Path(CGRect(x: 0, y: 0, width: 1024, height: 1024)); hole.addPath(Path(ellipseIn: CGRect(x: 796, y: 166, width: 52, height: 52)))
+                m.clip(to: hole, style: FillStyle(eoFill: true))
+                m.fill(Path(ellipseIn: CGRect(x: 780, y: 176, width: 56, height: 56)), with: .color(hexC(0xEFE3C6, moon)))
+            }
+            // the lines: drawn (stroke-dashoffset 1 → 0), then fading out at 2 s over 0.6 s
+            let lineOut = 1 - k(2.0, 0.6, ease)
+            let st = { (w: CGFloat) in StrokeStyle(lineWidth: w, lineCap: .round, lineJoin: .round) }
+            func trace(_ c: GraphicsContext, _ p: Path, _ d: Double, _ du: Double, _ w: CGFloat) {
+                let e = k(d, du, IntroView.pen)
+                if e > 0 && lineOut > 0 { c.stroke(p.trimmedPath(from: 0, to: e), with: .color(STROKE.opacity(lineOut)), style: st(w)) }
+            }
+            var notInner = Path(CGRect(x: -200, y: -200, width: 1424, height: 1424)); notInner.addPath(LogoPaths.inner)
+            var o = ctx; o.clip(to: notInner, style: FillStyle(eoFill: true)); trace(o, LogoPaths.outer, 0.35, 1.15, 5)
+            var n = ctx; n.clip(to: LogoPaths.outer); trace(n, LogoPaths.inner, 0.45, 1.15, 5)
+            // .lg-f crescent
+            let cf = k(1.45, 0.8, ease)
+            if cf > 0 {
+                var f = ctx; f.clip(to: notInner, style: FillStyle(eoFill: true)); f.opacity = cf
+                f.fill(LogoPaths.outer, with: .linearGradient(Gradient(stops: [.init(color: hexC(0xE9CF91), location: 0), .init(color: hexC(0xB78F48, 0.9), location: 0.5), .init(color: hexC(0xB78F48, 0), location: 1)]),
+                                                              startPoint: CGPoint(x: 170, y: 0), endPoint: CGPoint(x: 840, y: 0)))
+            }
+            let gold2 = GraphicsContext.Shading.linearGradient(Gradient(colors: [hexC(0xF3DCA2), hexC(0xB48A42)]), startPoint: CGPoint(x: 0, y: 260), endPoint: CGPoint(x: 0, y: 580))
+            let pf = k(1.45, 0.8, ease)
+            for (i, p) in LogoPaths.minaret.enumerated() {
+                trace(ctx, p, 0.6 + Double(i) * 0.06, 0.8, 3)
+                if pf > 0 { var f = ctx; f.opacity = pf; f.fill(p, with: gold2) }
+            }
+            for (i, p) in LogoPaths.dome.enumerated() {
+                trace(ctx, p, 0.75 + Double(i) * 0.06, 0.8, 3)
+                if pf > 0 { var f = ctx; f.opacity = pf; f.fill(p, with: gold2) }
+            }
+            let gold = GraphicsContext.Shading.linearGradient(Gradient(stops: [.init(color: hexC(0xF6E2AD), location: 0), .init(color: hexC(0xD9B56D), location: 0.5), .init(color: hexC(0x9A7434), location: 1)]),
+                                                              startPoint: .zero, endPoint: CGPoint(x: 1024, y: 1024))
+            for (i, p) in LogoPaths.b.enumerated() {
+                trace(ctx, p, 0.55 + Double(i) * 0.3, 1.05, 4)
+                let bf = k([1.50, 1.62, 1.74][i], 0.8, ease)
+                if bf > 0 { var f = ctx; f.opacity = bf; f.fill(p, with: gold) }
+            }
+            // .lg-wave: scaleY 0 → 1 from its centre
+            let wv = GraphicsContext.Shading.linearGradient(Gradient(colors: [hexC(0xD9B56D, 0.15), hexC(0xE9CF91)]), startPoint: CGPoint(x: 240, y: 0), endPoint: CGPoint(x: 324, y: 0))
+            for (i, w) in LogoPaths.wave.enumerated() {
+                let gw = k(1.75 + Double(i) * 0.08, 0.6, IntroView.wave)
+                let hh = w.2 * gw, cy = w.1 + w.2 / 2
+                if hh > 0.3 { ctx.fill(Path(roundedRect: CGRect(x: w.0, y: cy - hh / 2, width: 8, height: hh), cornerRadius: min(4, hh / 2)), with: wv) }
+            }
+            // .lg-sheen: a 1024-wide band moving from x −1024 to +1024
+            let sh = k(2.3, 0.8, IntroView.easeInOut)
+            if sh > 0 && sh < 1 {
+                let x = -1024 + 2048 * sh
+                ctx.fill(Path(CGRect(x: x, y: 0, width: 1024, height: 1024)),
+                         with: .linearGradient(Gradient(stops: [.init(color: hexC(0xFFF3D0, 0), location: 0), .init(color: hexC(0xFFF3D0, 0.18), location: 0.5), .init(color: hexC(0xFFF3D0, 0), location: 1)]),
+                                               startPoint: CGPoint(x: x, y: 0), endPoint: CGPoint(x: x + 1024, y: 1024)))
+            }
         }
     }
 }
