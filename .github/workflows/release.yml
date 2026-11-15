@@ -35,6 +35,7 @@ jobs:
           pip3 install --break-system-packages -q pyjwt cryptography || pip3 install -q pyjwt cryptography
           python3 scripts/asc.py bundles
           python3 scripts/asc.py app
+          python3 scripts/asc.py devcerts
       - name: Archive (automatic signing with the API key)
         run: |
           ASC_KEY_ID=$(printf '%s' "$ASC_KEY_ID" | tr -d '[:space:]'); ASC_ISSUER_ID=$(printf '%s' "$ASC_ISSUER_ID" | tr -d '[:space:]'); TEAM_ID=$(printf '%s' "$TEAM_ID" | tr -d '[:space:]')
@@ -102,6 +103,10 @@ jobs:
           fastlane deliver --api_key_path asc.json --app_identifier com.bawazirquran.app --app_version "$(grep -m1 MARKETING_VERSION project.yml | sed 's/.*\"\(.*\)\"/\1/')" \
             --metadata_path fastlane/metadata --screenshots_path fastlane/screenshots --skip_binary_upload true --overwrite_screenshots true \
             --submit_for_review false --force true --precheck_include_in_app_purchases false --run_precheck_before_submit false
+      - name: Clean up this run's development certificate
+        if: always()
+        continue-on-error: true
+        run: python3 scripts/asc.py devcerts
       - uses: actions/upload-artifact@v4
         if: always()
         with:
