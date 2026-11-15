@@ -27,6 +27,7 @@ struct SeekBar: View {
 /// artwork · title · reciter · heart / time — seek bar — time / speed · repeat · prev · ⟲10 · PLAY · 10⟳ · next · shuffle · queue.
 struct MiniPlayer: View {
     @EnvironmentObject var p: AudioPlayer
+    @ObservedObject private var clock = AudioPlayer.shared.clock
     @EnvironmentObject var store: Store
     @EnvironmentObject var ui: UIState
     @Environment(\.pal) private var c
@@ -91,6 +92,7 @@ func speedText(_ s: Float) -> String { s.truncatingRemainder(dividingBy: 1) == 0
 /// Full-screen player: blurred artwork, the arch artwork with a slow rosette, all the site's controls.
 struct PlayerView: View {
     @EnvironmentObject var p: AudioPlayer
+    @ObservedObject private var clock = AudioPlayer.shared.clock
     @EnvironmentObject var store: Store
     @EnvironmentObject var ui: UIState
     @EnvironmentObject var repo: Repo

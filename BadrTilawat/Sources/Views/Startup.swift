@@ -1,39 +1,5 @@
 import SwiftUI
 
-/// Opening: the logo appears inside a turning star, then the name.
-struct IntroView: View {
-    let done: () -> Void
-    @EnvironmentObject var store: Store
-    @Environment(\.pal) private var c
-    @State private var k: CGFloat = 0
-    @State private var spin = false
-    var body: some View {
-        ZStack {
-            Backdrop()
-            VStack(spacing: 18) {
-                ZStack {
-                    ForEach(0..<2) { i in
-                        RoundedRectangle(cornerRadius: 6).stroke(c.gold.opacity(0.55), lineWidth: 1.2).frame(width: 150, height: 150)
-                            .rotationEffect(.degrees(Double(i) * 45 + (spin ? 90 : 0)))
-                    }
-                    Image("Logo").resizable().scaledToFit().frame(width: 96).scaleEffect(0.6 + 0.4 * k).opacity(k)
-                }
-                .trim(k)
-                Text(tr("بدر التلاوات")).font(F.amiri(38)).foregroundStyle(c.goldGradient).opacity(k)
-                Text("BADR AL TILAWAT").font(F.plex(12, .medium)).tracking(4).foregroundStyle(c.muted).opacity(k)
-                if !store.name.isEmpty { Text(tr("أهلًا بك يا {0}", store.name)).font(F.plex(16, .medium)).foregroundStyle(c.text).opacity(k) }
-            }
-        }
-        .onAppear {
-            withAnimation(.easeOut(duration: 1.1)) { k = 1 }
-            withAnimation(.linear(duration: 3)) { spin = true }
-            DispatchQueue.main.asyncAfter(deadline: .now() + 2.4) { done() }
-        }
-        .onTapGesture { done() }
-    }
-}
-private extension View { func trim(_ k: CGFloat) -> some View { self.scaleEffect(0.85 + 0.15 * k) } }
-
 /// First launch: location (prayer times for the user's city) and notifications (adhan).
 struct Onboarding: View {
     let done: () -> Void

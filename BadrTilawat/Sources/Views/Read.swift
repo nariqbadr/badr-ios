@@ -246,7 +246,8 @@ struct ReadView: View {
         hcur = i; pos = Int(at * 1000)
     }
     /// the ayah heard now: marked when its voice starts (its first word), not in the pause before it
-    private var idx: Int {
+    private var idx: Int { idxAt(pos) }
+    private func idxAt(_ pos: Int) -> Int {
         guard let l = items, pos >= 0 else { return -1 }
         var k = -1
         for j in l.indices {
@@ -256,6 +257,9 @@ struct ReadView: View {
         return k < 0 && !l.isEmpty ? 0 : k
     }
     private func wcur(_ i: Int) -> Int {
+        wcurAt(i, pos)
+    }
+    private func wcurAt(_ i: Int, _ pos: Int) -> Int {
         guard words, let w = items?[safe: i]?.wt else { return -1 }
         var k = -1; for j in w.indices where pos >= w[j] { k = j }; return k
     }
@@ -355,8 +359,12 @@ struct ReadView: View {
             while !Task.isCancelled {
                 let m = player.current?.id == tid
                 let pl = m && player.playing
-                pos = m ? Int(player.currentTime * 1000) : -1
+                let np = m ? Int(player.currentTime * 1000) : -1
+                // the screen redraws only when the lit ayah or word changes (not 25 times a second)
+                let ni = idxAt(np), oi = idxAt(pos)
+                if ni != oi || wcurAt(ni, np) != wcurAt(oi, pos) || (np < 0) != (pos < 0) { pos = np }
                 if pl && hifz, let l = items, hcur >= 0 {
+                    let pos = np
                     let (x, y) = rangeIdx()
                     if (x...y).contains(hcur) {
                         let it = l[hcur]; let nextSt = hcur + 1 < l.count ? l[hcur + 1].st : Int.max

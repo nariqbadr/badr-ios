@@ -80,6 +80,7 @@ final class VideoEngine: NSObject, ObservableObject, AVPictureInPictureControlle
     private var obs: [NSObjectProtocol] = []
     private var kvo: [NSKeyValueObservation] = []
     private var lastSave = Date.distantPast
+    private var wasPlaying = false
 
     private override init() {
         super.init()
@@ -98,8 +99,20 @@ final class VideoEngine: NSObject, ObservableObject, AVPictureInPictureControlle
             MainActor.assumeIsolated { guard let self, (n.object as? AVPlayerItem) === self.player.currentItem else { return }; if let t = self.track { Store.shared.savePosition(t.id, 0, 0) }; self.onEnd?() }
         })
         // background: the sound goes on, the picture comes off (unless it is in the floating window)
+        obs.append(nc.addObserver(forName: UIApplication.willResignActiveNotification, object: nil, queue: .main) { [weak self] _ in
+            MainActor.assumeIsolated { self?.wasPlaying = self?.player.timeControlStatus != .paused }
+        })
         obs.append(nc.addObserver(forName: UIApplication.didEnterBackgroundNotification, object: nil, queue: .main) { [weak self] _ in
-            MainActor.assumeIsolated { guard let self, !self.pipOn else { return }; self.layer.player = nil }
+            // the floating window may still be opening at this moment: take the picture off only once it is clear
+            // that there is none (taking it off too early is what made the window vanish and the sound stop)
+            DispatchQueue.main.asyncAfter(deadline: .now() + 1.2) {
+                MainActor.assumeIsolated {
+                    guard let self, UIApplication.shared.applicationState == .background else { return }
+                    if self.pipOn || self.pip?.isPictureInPictureActive == true { return }
+                    self.layer.player = nil
+                    if self.wasPlaying && self.track != nil { self.player.play() }      // the sound goes on in the background
+                }
+            }
         })
         obs.append(nc.addObserver(forName: UIApplication.willEnterForegroundNotification, object: nil, queue: .main) { [weak self] _ in
             MainActor.assumeIsolated { self?.layer.player = self?.player }
@@ -180,7 +193,11 @@ final class VideoEngine: NSObject, ObservableObject, AVPictureInPictureControlle
     }
 
     // MARK: picture-in-picture
-    nonisolated func pictureInPictureControllerDidStartPictureInPicture(_ c: AVPictureInPictureController) { Task { @MainActor in self.pipOn = true } }
+    nonisolated func pictureInPictureControllerWillStartPictureInPicture(_ c: AVPictureInPictureController) { DispatchQueue.main.async { MainActor.assumeIsolated { self.pipOn = true } } }
+    nonisolated func pictureInPictureControllerDidStartPictureInPicture(_ c: AVPictureInPictureController) { DispatchQueue.main.async { MainActor.assumeIsolated { self.pipOn = true; if self.layer.player == nil { self.layer.player = self.player } } } }
+    nonisolated func pictureInPictureController(_ c: AVPictureInPictureController, failedToStartPictureInPictureWithError error: Error) {
+        DispatchQueue.main.async { MainActor.assumeIsolated { self.pipOn = false } }
+    }
     nonisolated func pictureInPictureControllerDidStopPictureInPicture(_ c: AVPictureInPictureController) {
         Task { @MainActor in
             self.pipOn = false
@@ -226,7 +243,7 @@ final class VideoEngine: NSObject, ObservableObject, AVPictureInPictureControlle
     private func artwork(_ t: Track) {
         art = nil
         guard let u = Repo.media(t.cover) else { return }
-        Task { if let (d, _) = try? await URLSession.shared.data(from: u), let img = UIImage(data: d) { self.art = MPMediaItemArtwork(boundsSize: img.size) { _ in img }; self.nowPlaying() } }
+        Task { if let (d, _) = try? await URLSession.shared.data(from: u), let img = UIImage(data: d) { self.art = makeArtwork(img); self.nowPlaying() } }
     }
 }
 
@@ -269,7 +286,11 @@ struct WatchView: View {
     var body: some View {
         Group {
             if let t {
-                if full { stage(t).ignoresSafeArea().statusBarHidden() }
+                if full {
+                    // full screen fills the screen edge to edge (no black bars); pinch in to see the whole picture, pinch out to fill again
+                    stage(t).ignoresSafeArea().statusBarHidden().persistentSystemOverlays(.hidden)
+                        .simultaneousGesture(MagnificationGesture().onEnded { m in v.layer.videoGravity = m < 1 ? .resizeAspect : .resizeAspectFill })
+                }
                 else {
                     ScrollView {
                         VStack(alignment: .leading, spacing: 14) {
@@ -288,7 +309,8 @@ struct WatchView: View {
             } else { Empty(text: tr("هذه التلاوة غير متاحة الآن"), icon: "film") }
         }
         .navigationTitle(full ? "" : tr("تلاوة مرئية"))
-        .onChange(of: full) { ui.videoFull = $0 }.onDisappear { ui.videoFull = false }
+        .onChange(of: full) { f in ui.videoFull = f; v.layer.videoGravity = f ? .resizeAspectFill : .resizeAspect }
+        .onDisappear { ui.videoFull = false; v.layer.videoGravity = .resizeAspect; if full { full = false; rotate(false) } }
         .onAppear { if let t { v.open(t); v.onEnd = { if auto, let n = next.first { ui.path.append(.watch(n.id)) } } }; bump() }
         .onChange(of: id) { _ in if let t { v.open(t) } }
         .onDisappear { if !v.pipOn && UIApplication.shared.applicationState == .active && !(ui.path.last.map { if case .watch = $0 { return true } else { return false } } ?? false) { v.close() } }
@@ -350,9 +372,10 @@ struct WatchView: View {
     }
     private func rotate(_ land: Bool) {
         guard let s = UIApplication.shared.connectedScenes.first as? UIWindowScene else { return }
+        // the allowed orientations change first, then the turn is asked for (the other order can be refused)
         AppDelegate.orientation = land ? .landscape : .portrait
-        if #available(iOS 16.0, *) { s.requestGeometryUpdate(.iOS(interfaceOrientations: land ? .landscapeRight : .portrait)) { _ in } }
-        s.windows.first?.rootViewController?.setNeedsUpdateOfSupportedInterfaceOrientations()
+        for w in s.windows { w.rootViewController?.setNeedsUpdateOfSupportedInterfaceOrientations(); w.rootViewController?.presentedViewController?.setNeedsUpdateOfSupportedInterfaceOrientations() }
+        s.requestGeometryUpdate(.iOS(interfaceOrientations: land ? .landscapeRight : .portrait)) { _ in }
     }
 
     private func info(_ t: Track) -> some View {

@@ -1,39 +1,65 @@
 import SwiftUI
+import ImageIO
 
 // MARK: images (memory + disk cache)
-final class ImageCache {
+final class ImageCache: @unchecked Sendable {
     static let shared = ImageCache()
     private let mem = NSCache<NSURL, UIImage>()
-    private var dir: URL { let d = FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask)[0].appendingPathComponent("img"); try? FileManager.default.createDirectory(at: d, withIntermediateDirectories: true); return d }
-    private func file(_ u: URL) -> URL { dir.appendingPathComponent(String(u.absoluteString.hashValue, radix: 36)) }
-    func cached(_ u: URL) -> UIImage? {
-        if let i = mem.object(forKey: u as NSURL) { return i }
-        if let d = try? Data(contentsOf: file(u)), let i = UIImage(data: d) { mem.setObject(i, forKey: u as NSURL); return i }
-        return nil
+    private let dir: URL = { let d = FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask)[0].appendingPathComponent("img"); try? FileManager.default.createDirectory(at: d, withIntermediateDirectories: true); return d }()
+    init() { mem.totalCostLimit = 120 * 1024 * 1024 }
+    /// A name that stays the same from one launch to the next (Swift's hashValue changes every launch).
+    private func file(_ u: URL) -> URL {
+        var h: UInt64 = 1469598103934665603
+        for b in u.absoluteString.utf8 { h = (h ^ UInt64(b)) &* 1099511628211 }
+        return dir.appendingPathComponent(String(h, radix: 36))
     }
+    /// Only what is already decoded in memory: instant, safe to call while drawing.
+    func cached(_ u: URL) -> UIImage? { mem.object(forKey: u as NSURL) }
+    /// From memory, the disk or the network; the file is read and decoded off the main thread, at most 1200 px wide.
     func load(_ u: URL) async -> UIImage? {
         if let i = cached(u) { return i }
-        guard let (d, _) = try? await Repo.shared.session.data(from: u), let i = UIImage(data: d) else { return nil }
-        mem.setObject(i, forKey: u as NSURL); try? d.write(to: file(u)); return i
+        let f = file(u)
+        if let i = await Task.detached(priority: .userInitiated, operation: { ImageCache.decode(try? Data(contentsOf: f)) }).value {
+            mem.setObject(i, forKey: u as NSURL, cost: i.cost); return i
+        }
+        let session = await Repo.shared.session
+        guard let (d, _) = try? await session.data(from: u) else { return nil }
+        let i = await Task.detached(priority: .userInitiated, operation: { () -> UIImage? in try? d.write(to: f); return ImageCache.decode(d) }).value
+        if let i { mem.setObject(i, forKey: u as NSURL, cost: i.cost) }
+        return i
+    }
+    private static func decode(_ d: Data?) -> UIImage? {
+        guard let d, let src = CGImageSourceCreateWithData(d as CFData, nil) else { return nil }
+        let opts: [CFString: Any] = [kCGImageSourceCreateThumbnailFromImageAlways: true, kCGImageSourceCreateThumbnailWithTransform: true,
+                                     kCGImageSourceThumbnailMaxPixelSize: 1200, kCGImageSourceShouldCacheImmediately: true]
+        guard let cg = CGImageSourceCreateThumbnailAtIndex(src, 0, opts as CFDictionary) else { return UIImage(data: d)?.preparingForDisplay() }
+        return UIImage(cgImage: cg)
     }
 }
+private extension UIImage { var cost: Int { Int(size.width * size.height * scale * scale * 4) } }
 
 struct RemoteImage: View {
     let raw: String?
     var mode: ContentMode = .fill
     @State private var img: UIImage?
+    init(raw: String?, mode: ContentMode = .fill) {
+        self.raw = raw; self.mode = mode
+        // already in memory: shown in the very first frame (no grey flash while scrolling)
+        _img = State(initialValue: Repo.media(raw).flatMap { ImageCache.shared.cached($0) })
+    }
     @Environment(\.pal) private var c
     var body: some View {
-        ZStack {
+        // takes exactly the space it is given (a «fill» picture never pushes its container wider)
+        Color.clear.overlay {
             if let img { Image(uiImage: img).resizable().aspectRatio(contentMode: mode).transition(.opacity) }
-            else { Rectangle().fill(c.surface2); Image("Logo").resizable().scaledToFit().padding(12).opacity(0.25) }
+            else { ZStack { Rectangle().fill(c.surface2); Image("Logo").resizable().scaledToFit().padding(12).opacity(0.25) } }
         }
         .clipped()
         .task(id: raw) {
             guard let u = Repo.media(raw) else { img = nil; return }
             if let i = ImageCache.shared.cached(u) { img = i; return }
             let i = await ImageCache.shared.load(u)
-            withAnimation(.easeOut(duration: 0.35)) { img = i }
+            if img == nil { withAnimation(.easeOut(duration: 0.25)) { img = i } } else { img = i }
         }
     }
 }
@@ -350,6 +376,16 @@ struct ArchImg: View {
 }
 
 // MARK: recitation row and card (like the site)
+/// The current recitation's mark on its cover: a spinner while it loads, else the moving bars.
+struct NowMark: View {
+    let playing: Bool
+    @ObservedObject private var clock = AudioPlayer.shared.clock
+    @Environment(\.pal) private var c
+    var body: some View {
+        if clock.buffering { ProgressView().tint(c.gold) } else { Equalizer(playing: playing, color: c.gold).frame(width: 20, height: 18) }
+    }
+}
+
 struct TrackRow: View {
     let t: Track; let list: [Track]
     var rank: Int = 0; var count: Int = 0; var showReciter = true
@@ -368,7 +404,7 @@ struct TrackRow: View {
                 RemoteImage(raw: t.cover.isEmpty ? r?.image : t.cover).frame(width: t.isVideo ? 84 : 56, height: 56).clipShape(RoundedRectangle(cornerRadius: 14))
                 if t.isVideo { SiteIcon(name: "film", size: 13, color: .white).frame(width: 20, height: 20).background(RoundedRectangle(cornerRadius: 6).fill(.black.opacity(0.65))).padding(4) }
                 if cur {
-                    ZStack { RoundedRectangle(cornerRadius: 14).fill(c.bg.opacity(0.55)); if player.buffering { ProgressView().tint(c.gold) } else { Equalizer(playing: player.playing, color: c.gold).frame(width: 20, height: 18) } }
+                    ZStack { RoundedRectangle(cornerRadius: 14).fill(c.bg.opacity(0.55)); NowMark(playing: player.playing) }
                         .frame(width: t.isVideo ? 84 : 56, height: 56).transition(.opacity)
                 }
             }

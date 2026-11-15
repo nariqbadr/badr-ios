@@ -5,6 +5,13 @@ import UIKit
 
 /// The recitations player: background audio, lock-screen controls, queue, speed, sleep timer, resume position.
 @MainActor
+final class PlayerClock: ObservableObject {
+    @Published var position: Double = 0
+    @Published var duration: Double = 0
+    @Published var buffering = false
+}
+
+@MainActor
 final class AudioPlayer: ObservableObject {
     static let shared = AudioPlayer()
     private let player = AVPlayer()
@@ -14,9 +21,12 @@ final class AudioPlayer: ObservableObject {
     @Published private(set) var queue: [Track] = []
     @Published private(set) var index = -1
     @Published private(set) var playing = false
-    @Published private(set) var buffering = false
-    @Published var position: Double = 0
-    @Published private(set) var duration: Double = 0
+    /// Position, length and buffering change several times a second: they live in [clock], so only the views that
+    /// show them (the seek bars) redraw, not every screen that knows about the player.
+    let clock = PlayerClock()
+    private(set) var buffering: Bool { get { clock.buffering } set { if clock.buffering != newValue { clock.buffering = newValue } } }
+    var position: Double { get { clock.position } set { if clock.position != newValue { clock.position = newValue } } }
+    private(set) var duration: Double { get { clock.duration } set { if clock.duration != newValue { clock.duration = newValue } } }
     @Published var repeatMode = 0      // 0 off, 1 all, 2 one
     @Published var shuffle = false
     @Published private(set) var sleepAt: Date?
@@ -74,7 +84,7 @@ final class AudioPlayer: ObservableObject {
         load()
     }
     func prev() { if position > 4 || index == 0 { seek(0) } else { index -= 1; load() } }
-    func seek(_ s: Double) { player.seek(to: CMTime(seconds: max(0, s), preferredTimescale: 600)); position = s; nowPlaying() }
+    func seek(_ s: Double) { player.seek(to: CMTime(seconds: max(0, s), preferredTimescale: 600), toleranceBefore: .zero, toleranceAfter: .zero); position = s; nowPlaying() }
     func skip(_ s: Double) { seek(min(max(0, position + s), duration)) }
     func setSpeed(_ r: Float) { Store.shared.speed = r; if playing { player.rate = r }; nowPlaying() }
     func cycleRepeat() { repeatMode = (repeatMode + 1) % 3 }
@@ -107,10 +117,12 @@ final class AudioPlayer: ObservableObject {
         if yieldRemote { yieldRemote = false; VideoEngine.shared.pause(); remote() }
         try? AVAudioSession.sharedInstance().setCategory(.playback, mode: .spokenAudio)
         try? AVAudioSession.sharedInstance().setActive(true)
-        let item = AVPlayerItem(url: OfflineFiles.local(t.id) ?? url)
+        // precise timing: with the usual estimate, an MP3's clock drifts after a seek or a resume, and the words
+        // lit in «اقرأ واستمع واحفظ» / the Mushaf fall behind or run ahead of the voice
+        let item = AVPlayerItem(asset: AVURLAsset(url: OfflineFiles.local(t.id) ?? url, options: [AVURLAssetPreferPreciseDurationAndTimingKey: true]))
         player.replaceCurrentItem(with: item)
         let resume = startAt ?? Store.shared.position(t.id); startAt = nil
-        if resume > 0 { player.seek(to: CMTime(seconds: resume, preferredTimescale: 600)) }
+        if resume > 0 { player.seek(to: CMTime(seconds: resume, preferredTimescale: 600), toleranceBefore: .zero, toleranceAfter: .zero) }
         position = resume; duration = Double(t.durationSec)
         if repN > 0 { repDone = 1 }
         player.play(); player.rate = Store.shared.speed
@@ -155,7 +167,7 @@ final class AudioPlayer: ObservableObject {
         guard let u = Repo.media(Repo.shared.image(for: t)) else { return }
         Task {
             guard let (d, _) = try? await Repo.shared.session.data(from: u), let img = UIImage(data: d) else { return }
-            await MainActor.run { self.art = MPMediaItemArtwork(boundsSize: img.size) { _ in img }; self.nowPlaying() }
+            await MainActor.run { self.art = makeArtwork(img); self.nowPlaying() }
         }
     }
     /// The video page took the lock-screen controls; the next recitation played takes them back.
@@ -260,4 +272,9 @@ enum OfflineFiles {
         return (try? FileManager.default.moveItem(at: tmp, to: file(t.id))) != nil
     }
     static func delete(_ id: String) { try? FileManager.default.removeItem(at: file(id)) }
+}
+
+/// Lock-screen artwork. Made outside the main actor: the system asks for the picture from a background thread.
+func makeArtwork(_ img: UIImage) -> MPMediaItemArtwork {
+    MPMediaItemArtwork(boundsSize: img.size) { @Sendable _ in img }
 }

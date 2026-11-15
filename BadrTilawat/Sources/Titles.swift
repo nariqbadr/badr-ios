@@ -53,7 +53,16 @@ private func surahMatch(_ title: String) -> SurahHit? {
 private let CUT = "\\s(?:ل|ب|لـ)?(?:فضيلة\\s+)?(?:الشيخ|للشيخ|بصوت|لفضيلة|القارئ)\\s|\\s[-–—|]\\s"
 
 /// The short title in the app's language.
-func shortTitleL(_ t: Track) -> String { surahMatch(t.title)?.local ?? shortTitle(t) }
+@MainActor func shortTitleL(_ t: Track) -> String { TitleMemo.get("s", t) { surahMatch(t.title)?.local ?? shortTitle(t) } }
+/// Titles are worked out once per recitation (and language), not on every redraw of a list.
+@MainActor enum TitleMemo {
+    private static var m: [String: String] = [:]
+    static func get(_ kind: String, _ t: Track, _ make: () -> String) -> String {
+        let k = kind + "|" + L.code + "|" + t.id + "|" + t.title
+        if let v = m[k] { return v }
+        let v = make(); if m.count > 4000 { m.removeAll() }; m[k] = v; return v
+    }
+}
 /// The short title for lists and cards (Arabic).
 func shortTitle(_ t: Track) -> String {
     if let h = surahMatch(t.title) { return h.text }
@@ -64,7 +73,8 @@ func shortTitle(_ t: Track) -> String {
 }
 
 /// The rest of the title, shown smaller under it (empty when there is nothing more).
-@MainActor func titleDetail(_ t: Track) -> String {
+@MainActor func titleDetail(_ t: Track) -> String { TitleMemo.get("d", t) { titleDetailRaw(t) } }
+@MainActor private func titleDetailRaw(_ t: Track) -> String {
     let raw = t.title.replacingOccurrences(of: "\\s+", with: " ", options: .regularExpression).trimmingCharacters(in: .whitespaces)
     if raw.isEmpty { return "" }
     let st = shortTitle(t)

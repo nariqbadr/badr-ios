@@ -10,6 +10,12 @@ private let TAB_DEFS: [TabDef] = [
     TabDef(key: "prayer", label: tr("الصلاة"), icon: "clock", sec: "prayer"),
 ]
 
+private struct TabActiveKey: EnvironmentKey { static let defaultValue = true }
+extension EnvironmentValues {
+    /// false while this tab is kept alive behind another one (or under a pushed screen): live video pauses
+    var tabActive: Bool { get { self[TabActiveKey.self] } set { self[TabActiveKey.self] = newValue } }
+}
+
 struct RootView: View {
     @EnvironmentObject var repo: Repo
     @EnvironmentObject var ui: UIState
@@ -20,6 +26,8 @@ struct RootView: View {
     private static let shot = ProcessInfo.processInfo.environment["BZ_ROUTE"]
     @State private var intro = RootView.shot == nil
     @State private var onboard = RootView.shot == nil && !UserDefaults.standard.bool(forKey: "onboarded")
+    @State private var barH: CGFloat = 70
+    @State private var opened: [String] = []
 
     private var tabs: [TabDef] {
         let s = repo.data?.site
@@ -34,22 +42,36 @@ struct RootView: View {
             NavigationStack(path: $ui.path) {
                 VStack(spacing: 0) {
                     TopBar(home: ui.tab == "home", tab: true, title: TAB_DEFS.first { $0.key == ui.tab }?.label ?? "")
-                    screen(ui.tab).frame(maxHeight: .infinity)
+                    // the tabs already opened stay alive (switching back is instant, the scroll position is kept)
+                    ZStack {
+                        ForEach(opened, id: \.self) { k in
+                            let on = k == ui.tab
+                            screen(k).opacity(on ? 1 : 0).allowsHitTesting(on).accessibilityHidden(!on).environment(\.tabActive, on && ui.path.isEmpty)
+                        }
+                    }.frame(maxHeight: .infinity)
                 }
+                .safeAreaInset(edge: .bottom, spacing: 0) { Color.clear.frame(height: barH) }
                 .background(Backdrop())
                 .toolbar(.hidden, for: .navigationBar)
                 .navigationDestination(for: Route.self) { r in
                     VStack(spacing: 0) {
                         if !ui.videoFull { TopBar(home: false, tab: false, title: title(r)) }
                         pushed(r).frame(maxHeight: .infinity)
-                    }.toolbar(.hidden, for: .navigationBar).background(Backdrop())
+                    }
+                    // every screen ends above the tab bar: its last row can be scrolled into view and stays there
+                    .safeAreaInset(edge: .bottom, spacing: 0) { Color.clear.frame(height: ui.videoFull ? 0 : barH) }
+                    .toolbar(.hidden, for: .navigationBar).background(Backdrop())
                 }
             }
-            .safeAreaInset(edge: .bottom, spacing: 0) {
-                VStack(spacing: 0) {
-                    if repo.offline { Text(tr("بدون اتصال — نعرض آخر بيانات محفوظة")).font(F.plex(11.5)).foregroundStyle(c.muted).frame(maxWidth: .infinity).padding(4).background(c.surface) }
-                    if player.current != nil { MiniPlayer() }
-                    bottomBar
+            .overlay(alignment: .bottom) {
+                // a video in full screen covers everything: no tab bar, no mini player on top of it
+                if !ui.videoFull {
+                    VStack(spacing: 0) {
+                        if repo.offline { Text(tr("بدون اتصال — نعرض آخر بيانات محفوظة")).font(F.plex(11.5)).foregroundStyle(c.muted).frame(maxWidth: .infinity).padding(4).background(c.surface) }
+                        if player.current != nil { MiniPlayer() }
+                        bottomBar
+                    }
+                    .background(GeometryReader { g in Color.clear.onAppear { barH = g.size.height }.onChange(of: g.size.height) { barH = $0 } })
                 }
             }
             if ui.drawer { DrawerView() }
@@ -81,6 +103,8 @@ struct RootView: View {
         .bzSheet(item: $ui.sheet) { k in sheetView(k).presentationDetents([.large]) }
         .animation(.easeInOut(duration: 0.3), value: ui.drawer)
         .task { await repo.refresh(); if let t = repo.data?.site.defaultTheme { store.applyDefaultTheme(t) }; if let r = RootView.shot { openShot(r) } }
+        .onAppear { if !opened.contains(ui.tab) { opened.append(ui.tab) } }
+        .onChange(of: ui.tab) { t in if !opened.contains(t) { opened.append(t) } }
         .onChange(of: ui.tab) { t in Repo.shared.page = TAB_DEFS.first { $0.key == t }?.label ?? tr("الرئيسية"); Repo.shared.event("page", ["pageLabel": Repo.shared.page]) }
     }
 

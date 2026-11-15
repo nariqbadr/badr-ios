@@ -548,6 +548,7 @@ struct PrayerBand: View {
 /// The live stream on the home page (like the site): plays by itself without sound; a button turns the sound on;
 /// the next prayer's countdown in the corner; a tap opens the live page.
 struct LiveStage: View {
+    @Environment(\.tabActive) private var active
     @EnvironmentObject var repo: Repo
     @EnvironmentObject var ui: UIState
     @Environment(\.pal) private var c
@@ -611,7 +612,8 @@ struct LiveStage: View {
         .clipShape(RoundedRectangle(cornerRadius: 24)).overlay(RoundedRectangle(cornerRadius: 24).stroke(c.line))
         .padding(.horizontal, 16).padding(.vertical, 8)
         .onAppear { mosque = Haram.chosen; withAnimation(.easeInOut(duration: 0.9).repeatForever()) { pulse = true }; DispatchQueue.main.asyncAfter(deadline: .now() + 2.5) { poster = false } }
-        .onChange(of: phase) { p in ctl.js(p == .active ? "cmd('playVideo')" : "cmd('pauseVideo')") }
+        .onChange(of: phase) { p in ctl.js(p == .active && active ? "cmd('playVideo')" : "cmd('pauseVideo')") }
+        .onChange(of: active) { a in ctl.js(a && phase == .active ? "cmd('playVideo')" : "cmd('pauseVideo')") }
         .onDisappear { ctl.js("cmd('pauseVideo')") }
     }
 }
