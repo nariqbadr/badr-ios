@@ -83,7 +83,7 @@ struct QuickHead: View {
         Button { if greet { ui.sheet = .name } } label: {
             VStack(alignment: .leading, spacing: 2) {
                 HStack(alignment: .center, spacing: 8) {
-                    Text(greet && !store.name.isEmpty ? tr("{0} يا {1}", g, store.name) : tr("{0}، أهلًا بك", g)).font(F.amiri(24)).foregroundStyle(c.text).lineLimit(1)
+                    Text(greet && !store.name.isEmpty ? tr("{0} يا {1}", g, store.name) : tr("{0}، أهلًا بك", g)).font(F.amiri(24)).foregroundStyle(c.text).lineLimit(1).minimumScaleFactor(0.7).layoutPriority(1)
                     // a hint that the name can be written (or changed), as on the site
                     if greet {
                         HStack(spacing: 4) {
