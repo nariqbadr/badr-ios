@@ -11,10 +11,10 @@ struct Th { let text: UIColor, accent: UIColor, soft: UIColor, shadow: UIColor? 
 func rgba(_ r: Int, _ g: Int, _ b: Int, _ a: Double) -> UIColor { UIColor(red: CGFloat(r) / 255, green: CGFloat(g) / 255, blue: CGFloat(b) / 255, alpha: CGFloat(min(1, max(0, a)))) }
 func hex(_ s: String) -> UIColor { ClipEngine.color(s) }
 
-var MAKER_TEMPLATES: [(String, String)] { [("emerald", tr("زمردي ذهبي")), ("night", tr("ليل كحلي")), ("parchment", tr("رقّ قديم")), ("black", tr("أسود بسيط")), ("dawn", tr("فجر")), ("kaaba", tr("الكعبة المشرفة")), }
+var MAKER_TEMPLATES: [(String, String)] { [("emerald", tr("زمردي ذهبي")), ("night", tr("ليل كحلي")), ("parchment", tr("رقّ قديم")), ("black", tr("أسود بسيط")), ("dawn", tr("فجر")), ("kaaba", tr("الكعبة المشرفة")),
     ("nabawi", tr("المسجد النبوي")), ("ramadan", tr("رمضان")), ("eid", tr("عيد مبارك")), ("sky", tr("سماء وغيوم (متحرك)")), ("sea", tr("بحر عند الغروب (متحرك)")),
     ("stars", tr("ليل ونجوم (متحرك)")), ("gray", tr("رمادي هادئ")), ("mist", tr("رمادي فاتح")), ("babyblue", tr("سماء زرقاء")), ("nightblue", tr("ليل أزرق")),
-    ("olive", tr("ورق زيتوني")), ("geo", tr("زخرفة هندسية")), ("video", tr("فيديو متحرك")), ("photo", tr("صورة خلفية"))]
+    ("olive", tr("ورق زيتوني")), ("geo", tr("زخرفة هندسية")), ("video", tr("فيديو متحرك")), ("photo", tr("صورة خلفية"))] }
 /** light designs: dark text, and dark dust / progress bar on them */
 let MAKER_LIGHT: Set<String> = ["parchment", "mist", "babyblue"]
 let MAKER_ANIMATED: Set<String> = ["sky", "sea", "stars", "video"]
