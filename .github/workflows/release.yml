@@ -44,10 +44,10 @@ jobs:
           xcodebuild -project BadrTilawat.xcodeproj -scheme BadrTilawat -configuration Release -destination 'generic/platform=iOS' \
             -archivePath build/Badr.xcarchive archive -allowProvisioningUpdates \
             -authenticationKeyPath ~/private_keys/AuthKey_$ASC_KEY_ID.p8 -authenticationKeyID "$ASC_KEY_ID" -authenticationKeyIssuerID "$ASC_ISSUER_ID" \
-            DEVELOPMENT_TEAM="$TEAM_ID" CODE_SIGN_STYLE=Automatic CODE_SIGN_IDENTITY="Apple Distribution" CODE_SIGNING_REQUIRED=YES CODE_SIGNING_ALLOWED=YES \
+            DEVELOPMENT_TEAM="$TEAM_ID" CODE_SIGN_STYLE=Automatic CODE_SIGN_IDENTITY="Apple Development" CODE_SIGNING_REQUIRED=YES CODE_SIGNING_ALLOWED=YES \
             CURRENT_PROJECT_VERSION=$BUILD > archive.log 2>&1 || { grep -E "error" archive.log | head -60; exit 1; }
           tail -3 archive.log
-          # signed for the App Store straight away (a development profile would need a registered iPhone).
+          # Xcode signs the archive for development (needs one iPhone registered in the account), then the export re-signs it for the App Store.
           # the app groups (the widgets' shared data) must be in it:
           for a in build/Badr.xcarchive/Products/Applications/BadrTilawat.app build/Badr.xcarchive/Products/Applications/BadrTilawat.app/PlugIns/BadrWidgets.appex; do
             codesign -d --entitlements - "$a" 2>/dev/null | grep -q group.com.bawazirquran.app || { echo "::error::app group missing in $a"; exit 1; }
