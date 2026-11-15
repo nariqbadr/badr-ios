@@ -259,17 +259,3 @@ struct ImamAlertsView: View {
     }
 }
 
-/// A mihrab arch: a round top over straight sides.
-struct ArchShape: Shape {
-    func path(in r: CGRect) -> Path {
-        var p = Path(); let rad = r.width / 2
-        p.move(to: CGPoint(x: r.minX, y: r.maxY - 8))
-        p.addLine(to: CGPoint(x: r.minX, y: r.minY + rad))
-        p.addArc(center: CGPoint(x: r.midX, y: r.minY + rad), radius: rad, startAngle: .degrees(180), endAngle: .degrees(0), clockwise: false)
-        p.addLine(to: CGPoint(x: r.maxX, y: r.maxY - 8))
-        p.addQuadCurve(to: CGPoint(x: r.maxX - 8, y: r.maxY), control: CGPoint(x: r.maxX, y: r.maxY))
-        p.addLine(to: CGPoint(x: r.minX + 8, y: r.maxY))
-        p.addQuadCurve(to: CGPoint(x: r.minX, y: r.maxY - 8), control: CGPoint(x: r.minX, y: r.maxY))
-        p.closeSubpath(); return p
-    }
-}
