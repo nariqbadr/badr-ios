@@ -117,7 +117,7 @@ struct PlayerView: View {
                         Button { dismiss() } label: { Ico(name: "chevron.down", size: 28.8).foregroundStyle(c.text).frame(width: 48, height: 48) }.accessibilityLabel(tr("إغلاق"))
                         VStack(spacing: 0) {
                             Text(tr("يُشغَّل الآن")).font(F.plex(12.5, .medium)).foregroundStyle(c.muted)
-                            if !t.surah.isEmpty { Text(tr("سورة ") + t.surah.replacingOccurrences(of: "سورة ", with: "")).font(F.plex(14, .semibold)).foregroundStyle(c.gold) }
+                            if !t.surah.isEmpty { Text(tr("سورة {0}", t.surah.replacingOccurrences(of: "سورة ", with: "").trimmingCharacters(in: .whitespaces))).font(F.plex(14, .semibold)).foregroundStyle(c.gold) }
                         }.frame(maxWidth: .infinity)
                         if repo.data?.site.sec("community") != false { Button { dismiss(); DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) { ui.path.append(.compose("track:" + t.id)) } } label: { SiteIcon(name: "quote", size: 24, color: c.gold).frame(width: 48, height: 48) }.accessibilityLabel(tr("اقتبسها في المجتمع")) }
                         Button { dismiss(); DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) { ui.menuFor = t } } label: { SiteIcon(name: "dots", size: 24, color: c.text).frame(width: 48, height: 48) }.accessibilityLabel(tr("خيارات أخرى"))
