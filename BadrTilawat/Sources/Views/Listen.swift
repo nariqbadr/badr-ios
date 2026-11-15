@@ -209,7 +209,7 @@ private struct QuranLibraryView: View {
                                     HStack(spacing: 10) {
                                         RecAvatar(r: r, size: 40)
                                         VStack(alignment: .leading, spacing: 2) {
-                                            Text(repo.quranName(r).replacingOccurrences(of: "الشيخ ", with: "")).font(F.amiri(17)).foregroundStyle(c.text).lineLimit(1)
+                                            Text(nm(repo.quranName(r).replacingOccurrences(of: "الشيخ ", with: ""))).font(F.amiri(17)).foregroundStyle(c.text).lineLimit(1)
                                             Text(juz ? tr("الجزء {0} (فيه السورة)", n.ar) : (t.map { Fmt.dur($0.durationSec) }.flatMap { $0.isEmpty ? nil : $0 } ?? countLabel(repo, r))).font(F.plex(12)).foregroundStyle(c.text.opacity(0.62))
                                         }.frame(minWidth: 92, alignment: .leading)
                                         QWave(seed: "\(r.id):\(n)", p: 0, bars: 22, height: 22).padding(.horizontal, 6)
@@ -233,7 +233,7 @@ private struct QuranLibraryView: View {
                                 HStack(spacing: 12) {
                                     RecAvatar(r: r, size: 46)
                                     VStack(alignment: .leading, spacing: 3) {
-                                        Text(repo.quranName(r)).font(F.amiri(20)).foregroundStyle(c.text).lineLimit(1)
+                                        Text(nm(repo.quranName(r))).font(F.amiri(20)).foregroundStyle(c.text).lineLimit(1)
                                         HStack(spacing: 6) {
                                             if r.featured { Text(tr("مميّز")).font(F.plex(11, .bold)).foregroundStyle(c.gold).padding(.horizontal, 8).padding(.vertical, 2).background(Capsule().fill(c.gold.opacity(0.16))) }
                                             Text(sub).font(F.plex(12)).foregroundStyle(c.text.opacity(0.64)).lineLimit(1)
@@ -298,7 +298,7 @@ private struct ReciterQuranView: View {
                         HStack(spacing: 14) {
                             RecAvatar(r: r, size: 72)
                             VStack(alignment: .leading, spacing: 4) {
-                                Text(repo.quranName(r)).font(F.amiri(23)).foregroundStyle(c.text)
+                                Text(nm(repo.quranName(r))).font(F.amiri(23)).foregroundStyle(c.text)
                                 Text(last != nil ? tr("وصلت إلى {0}{1}", last!.title, pr.pos > 10 ? "، \(msFmt(pr.pos))" : "") : r.builtin ? tr("المصحف المرتّل · ١١٤ سورة · رواية حفص عن عاصم") : countLabel(repo, r))
                                     .font(F.plex(12.5)).foregroundStyle(c.text.opacity(0.66))
                             }
