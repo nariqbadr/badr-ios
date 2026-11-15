@@ -36,6 +36,7 @@ jobs:
           python3 scripts/asc.py bundles
           python3 scripts/asc.py app
           python3 scripts/asc.py devcerts
+          python3 scripts/asc.py profiles
       - name: Archive (automatic signing with the API key)
         run: |
           ASC_KEY_ID=$(printf '%s' "$ASC_KEY_ID" | tr -d '[:space:]'); ASC_ISSUER_ID=$(printf '%s' "$ASC_ISSUER_ID" | tr -d '[:space:]'); TEAM_ID=$(printf '%s' "$TEAM_ID" | tr -d '[:space:]')

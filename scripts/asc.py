@@ -48,6 +48,14 @@ if __name__ == "__main__":
             print("dev cert:", a.get("displayName") or a.get("name"), "made", round(made_ago.total_seconds() / 3600, 1), "h ago")
             if datetime.timedelta(0) <= made_ago < datetime.timedelta(hours=6) and "Created via API" in (a.get("name", "") + a.get("displayName", "")):
                 call("DELETE", f"/v1/certificates/{c['id']}"); print("  revoked (made by an earlier run)")
+    elif sys.argv[1:] == ["profiles"]:
+        # Xcode's own development profiles for this app: deleted so Xcode makes them again with today's
+        # capabilities (an old one, made before the app group was assigned, would not carry it).
+        got = call("GET", "/v1/profiles?limit=200") or {}
+        for p in got.get("data", []):
+            n = p["attributes"].get("name", "")
+            if n.startswith("iOS Team Provisioning Profile: com.bawazirquran.app"):
+                call("DELETE", f"/v1/profiles/{p['id']}"); print("deleted:", n)
     elif sys.argv[1:] == ["app"]:
         got = call("GET", "/v1/apps?filter[bundleId]=com.bawazirquran.app") or {}
         print("app record:", "found" if got.get("data") else "MISSING — create it in App Store Connect (My Apps → + → New App, bundle ID com.bawazirquran.app)")
