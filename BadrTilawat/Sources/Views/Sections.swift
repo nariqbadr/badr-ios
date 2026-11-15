@@ -217,7 +217,7 @@ struct ThemeSheet: View {
                                 Canvas { ctx, s in let ctr = CGPoint(x: s.width / 2, y: s.height / 2); ctx.fill(star8(ctr, s.width / 2), with: .color(p.gold.opacity(0.25))); ctx.stroke(star8(ctr, s.width / 2), with: .color(p.gold), lineWidth: 1.5) }.frame(width: 34, height: 34)
                                 VStack(alignment: .leading, spacing: 6) {
                                     Spacer()
-                                    Text(tr(p.name)).font(F.plex(15, .bold)).foregroundStyle(p.text)
+                                    Text(tr(tr(p.name))).font(F.plex(15, .bold)).foregroundStyle(p.text)
                                     Capsule().fill(LinearGradient(colors: [p.gold2, p.gold], startPoint: .leading, endPoint: .trailing)).frame(width: 46, height: 5)
                                 }
                                 if on { HStack { Spacer(); SiteIcon(name: "check", size: 22, color: p.gold) } }

@@ -82,7 +82,19 @@ struct QuickHead: View {
         let greet = repo.data?.site.feat("greeting") != false
         Button { if greet { ui.sheet = .name } } label: {
             VStack(alignment: .leading, spacing: 2) {
-                Text(greet && !store.name.isEmpty ? tr("{0} يا {1}", g, store.name) : tr("{0}، أهلًا بك", g)).font(F.amiri(24)).foregroundStyle(c.text).lineLimit(1)
+                HStack(alignment: .center, spacing: 8) {
+                    Text(greet && !store.name.isEmpty ? tr("{0} يا {1}", g, store.name) : tr("{0}، أهلًا بك", g)).font(F.amiri(24)).foregroundStyle(c.text).lineLimit(1)
+                    // a hint that the name can be written (or changed), as on the site
+                    if greet {
+                        HStack(spacing: 4) {
+                            Ico(name: "pencil", size: 13, color: c.gold)
+                            Text(store.name.isEmpty ? tr("عرّفنا باسمك") : tr("تغيير")).font(F.plex(11.5, .medium)).foregroundStyle(c.gold)
+                        }
+                        .padding(.horizontal, 9).padding(.vertical, 4)
+                        .background(Capsule().fill(c.gold.opacity(0.12))).overlay(Capsule().stroke(c.gold.opacity(0.35), style: StrokeStyle(lineWidth: 1, dash: [3, 3])))
+                        .fixedSize()
+                    }
+                }
                 Text([Prayers.hijri(), String(prayers.place.split(separator: tr("،")).first ?? "")].filter { !$0.isEmpty }.joined(separator: " · ")).font(F.plex(12.5)).foregroundStyle(c.muted).lineLimit(1)
             }.frame(maxWidth: .infinity, alignment: .leading)
         }.buttonStyle(.plain).padding(.horizontal, 16).padding(.top, 14)

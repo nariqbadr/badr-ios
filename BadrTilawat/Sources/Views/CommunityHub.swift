@@ -305,7 +305,7 @@ struct PostCard: View {
         }
     }
 }
-let RULE_NOTE = ["follow": tr("يمكن الرد لمن يتابعهم صاحب المنشور"), "mention": tr("يمكن الرد لمن أشار إليهم صاحب المنشور")]
+var RULE_NOTE: [String: String] { ["follow": tr("يمكن الرد لمن يتابعهم صاحب المنشور"), "mention": tr("يمكن الرد لمن أشار إليهم صاحب المنشور")] }
 func fullDate(_ d: Date) -> String { let f = DateFormatter(); f.locale = L.locale; f.dateFormat = "h:mm a · d MMMM yyyy"; return f.string(from: d) }
 
 // MARK: - the community (feed, explore, notifications, profiles)

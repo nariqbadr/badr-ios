@@ -1,14 +1,14 @@
 import SwiftUI
 
 private struct TabDef { let key: String, label: String, icon: String, sec: String? }
-private let TAB_DEFS: [TabDef] = [
+private var TAB_DEFS: [TabDef] { [
     TabDef(key: "home", label: tr("الرئيسية"), icon: "home", sec: nil), TabDef(key: "recitations", label: tr("التلاوات"), icon: "mic", sec: "recitations"),
     TabDef(key: "quran", label: tr("المصحف"), icon: "book", sec: "mushaf"), TabDef(key: "adhkar", label: tr("الأذكار"), icon: "beads", sec: "adhkar"),
     TabDef(key: "community", label: tr("المجتمع"), icon: "chat", sec: "community"), TabDef(key: "library", label: tr("مكتبتي"), icon: "library", sec: nil),
     TabDef(key: "fiqh", label: tr("الفقه"), icon: "scroll", sec: "fiqh"), TabDef(key: "live", label: tr("البث"), icon: "live", sec: "live"),
     TabDef(key: "timeline", label: tr("الخط الزمني"), icon: "clock", sec: "timeline"), TabDef(key: "about", label: tr("عن الشيخ"), icon: "user", sec: "about"),
     TabDef(key: "prayer", label: tr("الصلاة"), icon: "clock", sec: "prayer"),
-]
+] }
 
 private struct TabActiveKey: EnvironmentKey { static let defaultValue = true }
 extension EnvironmentValues {

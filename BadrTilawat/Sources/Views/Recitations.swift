@@ -1,6 +1,6 @@
 import SwiftUI
 
-let SORTS: [(String, String)] = [("new", tr("الأحدث")), ("popular", tr("الأكثر استماعًا")), ("surah", tr("ترتيب المصحف")), ("order", tr("الترتيب")), ("az", tr("أبجدي"))]
+var SORTS: [(String, String)] { [("new", tr("الأحدث")), ("popular", tr("الأكثر استماعًا")), ("surah", tr("ترتيب المصحف")), ("order", tr("الترتيب")), ("az", tr("أبجدي"))] }
 func sortTracks(_ l: [Track], _ mode: String, _ plays: [String: Int]) -> [Track] {
     switch mode {
     case "popular": return l.sorted { (plays[$0.id] ?? 0, $0.stamp) > (plays[$1.id] ?? 0, $1.stamp) }
