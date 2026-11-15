@@ -11,7 +11,7 @@ struct MosqueChips: View {
                 ForEach(["mk", "md"], id: \.self) { k in
                     let on = mosque == k
                     Button { Haram.choose(k); withAnimation(.easeOut(duration: 0.25)) { mosque = k } } label: {
-                        Text(k == "md" ? tr("المسجد النبوي") : tr("الحرم المكي")).font(F.plex(12.5, .bold))
+                        Text(onDark && !L.rtl ? (k == "md" ? tr("المدينة") : tr("مكة")) : k == "md" ? tr("المسجد النبوي") : tr("الحرم المكي")).font(F.plex(12.5, .bold)).lineLimit(1).fixedSize()
                             .foregroundStyle(on ? c.onGold : (onDark ? .white : c.text))
                             .padding(.horizontal, 12).padding(.vertical, 7)
                             .background(Capsule().fill(on ? AnyShapeStyle(c.goldBrush) : AnyShapeStyle(Color.clear)))
@@ -45,7 +45,7 @@ struct HaramStateBox: View {
     var body: some View {
         let now = st.kind != "next"
         VStack(spacing: 2) {
-            Text(st.label).font(F.plex(11)).foregroundStyle(Color(hex: 0xFFE3C88D)).lineLimit(1)
+            Text(st.label).font(F.plex(11)).foregroundStyle(Color(hex: 0xFFE3C88D)).lineLimit(2).multilineTextAlignment(.center).minimumScaleFactor(0.85)
             Text(st.value).font(st.kind == "now" ? F.amiri(17, bold: true) : F.plex(15, .bold)).foregroundStyle(now ? Color(hex: 0xFFF3DFAE) : .white)
                 .monospacedDigit().environment(\.layoutDirection, st.kind == "now" ? L.dir : .leftToRight)
             if st.step > 0 { HaramSteps(step: st.step).padding(.top, 3) }

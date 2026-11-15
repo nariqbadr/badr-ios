@@ -576,7 +576,7 @@ struct LiveStage: View {
                     }
                     Spacer()
                     if l?["showPrayer"].bool(true) != false {
-                        TimelineView(.periodic(from: .now, by: 1)) { tl in HaramStateBox(st: Haram.state(mosque, tl.date)) }
+                        TimelineView(.periodic(from: .now, by: 1)) { tl in HaramStateBox(st: Haram.state(mosque, tl.date)).frame(maxWidth: 170) }
                     }
                 }.padding(12)
                 Spacer()

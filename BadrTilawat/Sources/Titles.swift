@@ -13,7 +13,7 @@ private func isLetter(_ c: Character?) -> Bool { guard let c, let u = c.unicodeS
 
 private func firstMatch(_ re: String, _ s: String) -> Range<String.Index>? { s.range(of: re, options: .regularExpression) }
 
-private struct SurahHit { let text: String; let start: Int; let end: Int }   // character offsets
+private struct SurahHit { let text: String; let start: Int; let end: Int; var local: String = "" }   // character offsets
 
 private func surahMatch(_ title: String) -> SurahHit? {
     let t = Array(normAr(title)); let ts = String(t)
@@ -43,12 +43,18 @@ private func surahMatch(_ title: String) -> SurahHit? {
     let text: String
     if let b { text = joinWord.hasPrefix("و") ? "تلاوة من سورتي \(s1) و\(Quran.surahs[b.0])" : "تلاوة من سورة \(s1) إلى \(Quran.surahs[b.0])" }
     else { text = "تلاوة من سورة \(s1)" }
-    return SurahHit(text: text, start: mStart - beforeLen, end: end)
+    // the same in the app's language (the surah names translated too)
+    let local: String
+    if let b { local = joinWord.hasPrefix("و") ? tr("تلاوة من سورتي {0} و{1}", s1, Quran.surahs[b.0]) : tr("تلاوة من سورة {0} إلى {1}", s1, Quran.surahs[b.0]) }
+    else { local = tr("تلاوة من سورة {0}", s1) }
+    return SurahHit(text: text, start: mStart - beforeLen, end: end, local: local)
 }
 
 private let CUT = "\\s(?:ل|ب|لـ)?(?:فضيلة\\s+)?(?:الشيخ|للشيخ|بصوت|لفضيلة|القارئ)\\s|\\s[-–—|]\\s"
 
-/// The short title for lists and cards.
+/// The short title in the app's language.
+func shortTitleL(_ t: Track) -> String { surahMatch(t.title)?.local ?? shortTitle(t) }
+/// The short title for lists and cards (Arabic).
 func shortTitle(_ t: Track) -> String {
     if let h = surahMatch(t.title) { return h.text }
     var s = (t.title.isEmpty ? (t.surah.isEmpty ? "تلاوة" : t.surah) : t.title).replacingOccurrences(of: "\\s+", with: " ", options: .regularExpression).trimmingCharacters(in: .whitespaces)
@@ -102,17 +108,17 @@ func relAgo(_ t: Track) -> String {
     guard let d = Fmt.parse(t.createdAt.isEmpty ? t.publishAt : t.createdAt) else { return "" }
     let days = Int(Date().timeIntervalSince(d) / 86400)
     switch days {
-    case ..<1: return "اليوم"
-    case ..<2: return "أمس"
-    case ..<3: return "منذ يومين"
-    case ..<7: return "منذ \(days.ar) أيام"
-    case ..<30: let w = days / 7; return w == 1 ? "منذ أسبوع" : w == 2 ? "منذ أسبوعين" : "منذ \(w.ar) أسابيع"
-    case ..<365: let m = days / 30; return m == 1 ? "منذ شهر" : m == 2 ? "منذ شهرين" : m <= 10 ? "منذ \(m.ar) أشهر" : "منذ \(m.ar) شهرًا"
-    default: let y = days / 365; return y == 1 ? "منذ سنة" : y == 2 ? "منذ سنتين" : "منذ \(y.ar) سنوات"
+    case ..<1: return tr("اليوم")
+    case ..<2: return tr("أمس")
+    case ..<3: return tr("منذ يومين")
+    case ..<7: return tr("منذ {0} أيام", days.ar)
+    case ..<30: let w = days / 7; return w == 1 ? tr("منذ أسبوع") : w == 2 ? tr("منذ أسبوعين") : tr("منذ {0} أسابيع", w.ar)
+    case ..<365: let m = days / 30; return m == 1 ? tr("منذ شهر") : m == 2 ? tr("منذ شهرين") : m <= 10 ? tr("منذ {0} أشهر", m.ar) : tr("منذ {0} شهرًا", m.ar)
+    default: let y = days / 365; return y == 1 ? tr("منذ سنة") : y == 2 ? tr("منذ سنتين") : tr("منذ {0} سنوات", y.ar)
     }
 }
 /// «هذا الأسبوع» / «هذا الشهر» / «قبل ذلك»
-func ageGroup(_ t: Track) -> String { let d = Date().timeIntervalSince(t.stamp) / 86400; return d < 7 ? "هذا الأسبوع" : d < 31 ? "هذا الشهر" : "قبل ذلك" }
+func ageGroup(_ t: Track) -> String { let d = Date().timeIntervalSince(t.stamp) / 86400; return d < 7 ? tr("هذا الأسبوع") : d < 31 ? tr("هذا الشهر") : tr("قبل ذلك") }
 /// «جديد» for the number of days the dashboard sets (14 by default).
 @MainActor func isNewTrack(_ t: Track) -> Bool {
     let days = Repo.shared.data?.site.j["newBadgeDays"].isNull == false ? Repo.shared.data!.site.j["newBadgeDays"].int : 14

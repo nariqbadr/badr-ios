@@ -72,9 +72,11 @@ enum L {
 /// The text in the app's language; {0}, {1}… are replaced by the arguments (Arabic words among them — a prayer, a surah — are translated too).
 func tr(_ s: String, _ a: Any...) -> String {
     var r = L.t(s)
+    // «سورة {0}»: a surah's own name (Al-Fajr, Al-Asr — not the prayers of the same names)
+    let sur = s.contains("سور")
     for (i, v) in a.enumerated() {
         let x: String
-        if let str = v as? String { x = L.t(str) } else { x = "\(v)" }
+        if let str = v as? String { x = (sur ? L.table["surah:" + str] : nil) ?? L.t(str) } else { x = "\(v)" }
         r = r.replacingOccurrences(of: "{\(i)}", with: x)
     }
     return r

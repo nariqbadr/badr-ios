@@ -373,7 +373,7 @@ struct TrackRow: View {
                 }
             }
             VStack(alignment: .leading, spacing: 1) {
-                Text(shortTitle(t)).font(F.plex(15, .bold)).foregroundStyle(cur ? c.gold : c.text).lineLimit(2).multilineTextAlignment(.leading)
+                Text(shortTitleL(t)).font(F.plex(15, .bold)).foregroundStyle(cur ? c.gold : c.text).lineLimit(2).multilineTextAlignment(.leading)
                 if !detail.isEmpty { Text(detail).font(F.plex(12)).foregroundStyle(c.gold.opacity(0.78)).lineLimit(2).multilineTextAlignment(.leading) }
                 if showReciter, let n = r?.name, !n.isEmpty { Text(n).font(F.plex(12.5)).foregroundStyle(c.muted).lineLimit(1) }
                 HStack(spacing: 0) {
@@ -424,7 +424,7 @@ struct TrackCard: View {
                     HStack(alignment: .bottom) {
                         VStack(alignment: .leading, spacing: 0) {
                             if k { Text(tr("تلاوة من")).font(F.plex(11.5, .semibold)).foregroundStyle(.white.opacity(0.8)) }
-                            Text(k ? String(title.dropFirst(9)) : title).font(F.amiri(19)).foregroundStyle(.white).lineLimit(2)
+                            Text(L.ar ? (k ? String(title.dropFirst(9)) : title) : { let loc = shortTitleL(t), pre = tr("تلاوة من") + " "; return k && loc.hasPrefix(pre) ? String(loc.dropFirst(pre.count)) : loc }()).font(F.amiri(19)).foregroundStyle(.white).lineLimit(2)
                         }
                         Spacer(minLength: 6)
                         SiteIcon(name: cur && player.playing ? "pause" : "play", size: 15, color: c.onGold).frame(width: 34, height: 34).background(Circle().fill(c.gold))
