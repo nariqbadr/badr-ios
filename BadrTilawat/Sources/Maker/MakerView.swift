@@ -87,7 +87,7 @@ struct MakerView: View {
         let own = d.reciters.filter { r in d.readableTracks.contains { repo.track($0.key)?.reciterId == r.id && $0.value.count >= 3 } }.map { ("tkr:\($0.id)", Repo.withSheikh($0.name)) }
         let ea = MAKER_FOLDERS.map(\.0).filter { !names[$0]["hideMaker"].bool() }.map { ($0, Repo.withSheikh(names[$0]["name"].str.isEmpty ? MAKER_NAMES[$0]! : names[$0]["name"].str)) }
         let sr = d.surahReciters.filter { !names["sr:\($0.id)"]["hideMaker"].bool() }.map { ("sr:\($0.id)", Repo.withSheikh(names["sr:\($0.id)"]["name"].str.isEmpty ? $0.name : names["sr:\($0.id)"]["name"].str)) }
-        return own + ea + sr + [("", "بدون صوت")]
+        return own + ea + sr + [("", tr("بدون صوت"))]
     }
     private func ownTracks(_ rid: String) -> [(Int, Int, Int)] {
         (repo.data?.readableTracks ?? [:]).compactMap { k, v in repo.track(k)?.reciterId == rid && v.count >= 3 ? (v[0], v[1], v[2]) : nil }.sorted { ($0.0, $0.1) < ($1.0, $1.1) }
@@ -98,7 +98,7 @@ struct MakerView: View {
             // preview
             ZStack(alignment: .bottom) {
                 Color.black
-                if let preview { Image(uiImage: preview).resizable().scaledToFit().accessibilityLabel("معاينة التصميم") } else { ProgressView().tint(c.gold) }
+                if let preview { Image(uiImage: preview).resizable().scaledToFit().accessibilityLabel(tr("معاينة التصميم")) } else { ProgressView().tint(c.gold) }
                 if let status {
                     VStack(spacing: 6) {
                         Text(status).font(F.plex(13, .medium)).foregroundStyle(.white).multilineTextAlignment(.center)
@@ -111,14 +111,14 @@ struct MakerView: View {
             .frame(maxHeight: 360).padding(12)
             // actions
             HStack(spacing: 8) {
-                if mode == "play" || (mode == "busy" && job != nil) { GoldButton(title: mode == "play" ? "إيقاف المعاينة" : "إلغاء", icon: "xmark") { stop() } }
-                else { GoldButton(title: "معاينة بالصوت", icon: "play.fill") { play() } }
-                if mode == "video" { GhostButton(title: "إيقاف", icon: "xmark") { stop() } } else { GhostButton(title: "فيديو", icon: "film") { if mode.isEmpty { video() } } }
-                GhostButton(title: "صورة", icon: "photo") { if mode.isEmpty { image() } }
+                if mode == "play" || (mode == "busy" && job != nil) { GoldButton(title: mode == "play" ? tr("إيقاف المعاينة") : tr("إلغاء"), icon: "xmark") { stop() } }
+                else { GoldButton(title: tr("معاينة بالصوت"), icon: "play.fill") { play() } }
+                if mode == "video" { GhostButton(title: tr("إيقاف"), icon: "xmark") { stop() } } else { GhostButton(title: tr("فيديو"), icon: "film") { if mode.isEmpty { video() } } }
+                GhostButton(title: tr("صورة"), icon: "photo") { if mode.isEmpty { image() } }
             }.padding(.horizontal, 12)
             ScrollView { controls.padding(14) }
         }
-        .navigationTitle("صانع التصاميم").navigationBarTitleDisplayMode(.inline)
+        .navigationTitle(tr("صانع التصاميم")).navigationBarTitleDisplayMode(.inline)
         .task { setup() }
         .onChange(of: o) { _ in refresh() }
         .onChange(of: photoItem) { it in
@@ -127,12 +127,12 @@ struct MakerView: View {
         }
         .onChange(of: videoItem) { it in
             guard let it else { return }
-            Task { if let m = try? await it.loadTransferable(type: PickedMovie.self) { let id = m.url.absoluteString; myVideos.append((id, "فيديو من جهازي")); vcat = "mine"; ctx.videoFrames.files[id] = m.url; o.videos.append(id) } }
+            Task { if let m = try? await it.loadTransferable(type: PickedMovie.self) { let id = m.url.absoluteString; myVideos.append((id, tr("فيديو من جهازي"))); vcat = "mine"; ctx.videoFrames.files[id] = m.url; o.videos.append(id) } }
         }
         .onDisappear { job?.cancel(); audio?.stop(); ctx.videoFrames.release() }
         .bzSheet(isPresented: $pickSurah) { SurahPickSheet(s: o.surah) { s in pickSurah = false; o.surah = s; o.from = 1; o.to = min(Quran.ayahs[s - 1], 2) } }
         .bzSheet(item: Binding(get: { result.map { R(url: $0.0, video: $0.1) } }, set: { if $0 == nil { result = nil } })) { r in resultSheet(r) }
-        .environment(\.layoutDirection, .rightToLeft)
+        .environment(\.layoutDirection, L.dir)
     }
     private struct R: Identifiable { let url: URL; let video: Bool; var id: String { url.absoluteString } }
 
@@ -162,7 +162,7 @@ struct MakerView: View {
         if key != lastKey {
             lastKey = key
             Task {
-                guard let txt = await repo.surahText(o.surah) else { ui.say("تعذّر تحميل نص السورة — تحقق من الاتصال"); return }
+                guard let txt = await repo.surahText(o.surah) else { ui.say(tr("تعذّر تحميل نص السورة — تحقق من الاتصال")); return }
                 let n = txt.count, f = min(max(1, o.from), n), t = min(max(f, o.to), min(n, f + MAKER_MAX_AYAHS - 1))
                 if f != o.from || t != o.to { o.from = f; o.to = t; return }
                 ayahs = (f...t).map { MAyah(n: $0, text: ayahClean(o.surah, $0, txt[$0 - 1])) }
@@ -186,7 +186,7 @@ struct MakerView: View {
         case "naskh": return "Amiri-Regular"
         default:
             if let f = mk["fonts"].array.first(where: { $0["family"].str == k }), let u = Repo.media(f["url"].str), let n = await registerFont(u, key: k) { return n }
-            ui.say("تعذّر تحميل الخط"); return "AmiriQuran-Regular"
+            ui.say(tr("تعذّر تحميل الخط")); return "AmiriQuran-Regular"
         }
     }
     /// the half-size still preview
@@ -203,7 +203,7 @@ struct MakerView: View {
     }
     private func prepareVideos() async {
         for u in o.videos where !u.hasPrefix("scene:") && ctx.videoFrames.files[u] == nil {
-            status = "جارٍ تحميل خلفية الفيديو…"
+            status = tr("جارٍ تحميل خلفية الفيديو…")
             if let url = Repo.media(u), let f = try? await MakerEngine.download(url, "v-\(abs(u.hashValue)).mp4") { ctx.videoFrames.files[u] = f }
         }
         if mode.isEmpty { status = nil }
@@ -212,8 +212,8 @@ struct MakerView: View {
 
     private func stop() { job?.cancel(); job = nil; audio?.stop(); mode = ""; status = nil; refreshNow() }
     private func play() {
-        if ayahs.isEmpty { ui.say("اختر السورة والآيات أولًا"); return }
-        mode = "busy"; status = "جارٍ التجهيز…"
+        if ayahs.isEmpty { ui.say(tr("اختر السورة والآيات أولًا")); return }
+        mode = "busy"; status = tr("جارٍ التجهيز…")
         let oo = o, a = ayahs, (W, H) = size
         job = Task {
             do {
@@ -235,16 +235,16 @@ struct MakerView: View {
                             MakerEngine.fadeBlack(r.cgContext, CGFloat(W), CGFloat(H), tl.total, t, oo)
                         }
                     }.value
-                    preview = img; status = "معاينة — \(Int(tl.total - t).ar) ث"
+                    preview = img; status = tr("معاينة — {0} ث", Int(tl.total - t).ar)
                     try? await Task.sleep(nanoseconds: 16_000_000)
                 }
-            } catch is CancellationError {} catch { ui.say((error as? MakerError)?.msg ?? "تعذّر تحميل صوت التلاوة لهذا القارئ — جرّب قارئًا آخر أو «بدون صوت»") }
+            } catch is CancellationError {} catch { ui.say((error as? MakerError)?.msg ?? tr("تعذّر تحميل صوت التلاوة لهذا القارئ — جرّب قارئًا آخر أو «بدون صوت»")) }
             audio?.stop(); mode = ""; status = nil; job = nil; ctx.clearLayout(); refreshNow()
         }
     }
     private func video() {
-        if ayahs.isEmpty { ui.say("اختر السورة والآيات أولًا"); return }
-        mode = "busy"; status = "جارٍ التجهيز…"; progress = 0
+        if ayahs.isEmpty { ui.say(tr("اختر السورة والآيات أولًا")); return }
+        mode = "busy"; status = tr("جارٍ التجهيز…"); progress = 0
         let oo = o, a = ayahs
         job = Task {
             do {
@@ -253,18 +253,18 @@ struct MakerView: View {
                 MakerEngine.applyAudioFades(tl, oo)
                 mode = "video"
                 let url = try await Task.detached(priority: .userInitiated) {
-                    try await MakerExport.video(MakerContext.shared, tl, oo) { p in Task { @MainActor in progress = p; status = "جارٍ إنشاء الفيديو \(Int(p * 100).ar)٪" } }
+                    try await MakerExport.video(MakerContext.shared, tl, oo) { p in Task { @MainActor in progress = p; status = tr("جارٍ إنشاء الفيديو {0}٪", Int(p * 100).ar) } }
                 }.value
-                if await saveToPhotos(url, video: true) { ui.say("حُفظ الفيديو في الصور") } else { ui.say("الفيديو جاهز — اضغط مشاركة لحفظه") }
+                if await saveToPhotos(url, video: true) { ui.say(tr("حُفظ الفيديو في الصور")) } else { ui.say(tr("الفيديو جاهز — اضغط مشاركة لحفظه")) }
                 result = (url, true)
                 Repo.shared.event("maker", ["kind": "video"])
-            } catch is CancellationError {} catch { ui.say((error as? MakerError)?.msg ?? "تعذّر إنشاء الفيديو") }
+            } catch is CancellationError {} catch { ui.say((error as? MakerError)?.msg ?? tr("تعذّر إنشاء الفيديو")) }
             mode = ""; status = nil; job = nil
         }
     }
     private func image() {
         if ayahs.isEmpty { return }
-        mode = "busy"; status = "جارٍ إنشاء الصورة…"
+        mode = "busy"; status = tr("جارٍ إنشاء الصورة…")
         let (W, H) = size, oo = o, a = ayahs, base = fileBase()
         Task {
             let data = await Task.detached(priority: .userInitiated) { () -> Data? in
@@ -272,10 +272,10 @@ struct MakerView: View {
                 return UIGraphicsImageRenderer(size: CGSize(width: W, height: H), format: f).pngData { r in MakerContext.shared.drawFrame(r.cgContext, CGFloat(W), CGFloat(H), MakerEngine.staticFrame(a), oo) }
             }.value
             mode = ""; status = nil
-            guard let data else { ui.say("تعذّر حفظ الصورة"); return }
+            guard let data else { ui.say(tr("تعذّر حفظ الصورة")); return }
             let url = FileManager.default.temporaryDirectory.appendingPathComponent(base + ".png")
             try? data.write(to: url)
-            if await saveToPhotos(url, video: false) { ui.say("حُفظت الصورة في الصور") }
+            if await saveToPhotos(url, video: false) { ui.say(tr("حُفظت الصورة في الصور")) }
             result = (url, false)
             Repo.shared.event("maker", ["kind": "image"])
         }
@@ -291,16 +291,16 @@ struct MakerView: View {
     }
 
     private func resultSheet(_ r: R) -> some View {
-        MenuSheet(title: r.video ? "الفيديو جاهز" : "الصورة جاهزة") {
-            Text(r.video ? "حُفظ الفيديو بصيغة MP4 في الصور — مناسب لتيك توك وإنستغرام وواتساب." : "حُفظت الصورة بجودة عالية في الصور.").font(F.plex(13)).foregroundStyle(c.muted).padding(.horizontal, 20)
-            MenuRow(icon: "square.and.arrow.up", title: "مشاركة") {
+        MenuSheet(title: r.video ? tr("الفيديو جاهز") : tr("الصورة جاهزة")) {
+            Text(r.video ? tr("حُفظ الفيديو بصيغة MP4 في الصور — مناسب لتيك توك وإنستغرام وواتساب.") : tr("حُفظت الصورة بجودة عالية في الصور.")).font(F.plex(13)).foregroundStyle(c.muted).padding(.horizontal, 20)
+            MenuRow(icon: "square.and.arrow.up", title: tr("مشاركة")) {
                 let av = UIActivityViewController(activityItems: [r.url], applicationActivities: nil)
                 UIApplication.shared.connectedScenes.compactMap { ($0 as? UIWindowScene)?.keyWindow }.first?.rootViewController?.topMost.present(av, animated: true)
             }
             if repo.data?.site.sec("community") != false {
-                MenuRow(icon: "paperplane", title: "انشر في المجتمع") {
+                MenuRow(icon: "paperplane", title: tr("انشر في المجتمع")) {
                     PendingAttach.url = r.url; PendingAttach.video = r.video
-                    PendingAttach.text = "سورة \(Quran.surahs[o.surah - 1]) — " + (o.from == o.to ? "الآية \(o.from.ar)" : "الآيات \(o.from.ar)–\(o.to.ar)")
+                    PendingAttach.text = tr("سورة {0} — ", Quran.surahs[o.surah - 1]) + (o.from == o.to ? tr("الآية {0}", o.from.ar) : tr("الآيات {0}–{1}", o.from.ar, o.to.ar))
                     result = nil; ui.path.append(.compose("new"))
                 }
             }
@@ -310,86 +310,86 @@ struct MakerView: View {
     // MARK: controls
     @ViewBuilder private var controls: some View {
         VStack(alignment: .leading, spacing: 16) {
-            group("الآيات والقارئ") {
+            group(tr("الآيات والقارئ")) {
                 Button { pickSurah = true } label: {
                     HStack { Text(o.surah.ar).font(F.amiri(15)).foregroundStyle(c.gold).frame(width: 34, height: 34).background(Circle().stroke(c.gold.opacity(0.5)))
-                        Text("سورة \(Quran.surahs[o.surah - 1])").font(F.amiri(19)).foregroundStyle(c.text); Spacer(); Ico(name: "chevron.down", size: 20).foregroundStyle(c.gold) }
+                        Text(tr("سورة {0}", Quran.surahs[o.surah - 1])).font(F.amiri(19)).foregroundStyle(c.text); Spacer(); Ico(name: "chevron.down", size: 20).foregroundStyle(c.gold) }
                     .padding(12).background(RoundedRectangle(cornerRadius: 16).fill(c.surface.opacity(0.6))).overlay(RoundedRectangle(cornerRadius: 16).stroke(c.line))
                 }.buttonStyle(Press())
                 HStack(spacing: 8) {
                     let n = Quran.ayahs[o.surah - 1]
-                    menu("من", "\(o.from.ar)", Array(1...n).map { ("\($0)", $0.ar) }) { v in let f = Int(v)!; o.from = f; o.to = max(f, min(o.to, f + MAKER_MAX_AYAHS - 1)) }
-                    menu("إلى", "\(o.to.ar)", Array(1...n).map { ("\($0)", $0.ar) }) { v in let t = Int(v)!; if t - o.from >= MAKER_MAX_AYAHS { ui.say("الحد الأقصى \(MAKER_MAX_AYAHS.ar) آية في التصميم الواحد") }; o.to = t; o.from = max(min(o.from, t), t - MAKER_MAX_AYAHS + 1) }
+                    menu(tr("من"), "\(o.from.ar)", Array(1...n).map { ("\($0)", $0.ar) }) { v in let f = Int(v)!; o.from = f; o.to = max(f, min(o.to, f + MAKER_MAX_AYAHS - 1)) }
+                    menu(tr("إلى"), "\(o.to.ar)", Array(1...n).map { ("\($0)", $0.ar) }) { v in let t = Int(v)!; if t - o.from >= MAKER_MAX_AYAHS { ui.say(tr("الحد الأقصى {0} آية في التصميم الواحد", MAKER_MAX_AYAHS.ar)) }; o.to = t; o.from = max(min(o.from, t), t - MAKER_MAX_AYAHS + 1) }
                 }
-                menu("صوت القارئ", recOpts.first { $0.0 == o.reciter }?.1 ?? "بدون صوت", recOpts) { v in
+                menu(tr("صوت القارئ"), recOpts.first { $0.0 == o.reciter }?.1 ?? tr("بدون صوت"), recOpts) { v in
                     o.reciter = v
                     if v.hasPrefix("tkr:") {
                         let list = ownTracks(String(v.dropFirst(4)))
                         if !list.isEmpty && !list.contains(where: { $0.0 == o.surah && o.from >= $0.1 && o.to <= $0.2 }) {
                             let x = list.first { $0.0 == o.surah } ?? list[0]
                             o.surah = x.0; o.from = x.1; o.to = min(x.2, x.1 + 2)
-                            ui.say("\(repo.reciter(String(v.dropFirst(4)))?.name ?? "") متاح في: " + String(list.map { "\(Quran.surahs[$0.0 - 1]) (\($0.1.ar)–\($0.2.ar))" }.joined(separator: "، ").prefix(160)))
+                            ui.say(tr("{0} متاح في: ", repo.reciter(String(v.dropFirst(4)))?.name ?? "") + String(list.map { "\(Quran.surahs[$0.0 - 1]) (\($0.1.ar)–\($0.2.ar))" }.joined(separator: tr("، ")).prefix(160)))
                         }
                     }
                 }
             }
-            group("التصميم") {
+            group(tr("التصميم")) {
                 ScrollView(.horizontal, showsIndicators: false) {
                     HStack(spacing: 8) { ForEach(MAKER_TEMPLATES, id: \.0) { t in thumb(t.0, t.1) } }
                 }
-                if o.tpl == "photo" { PhotosPicker(selection: $photoItem, matching: .images) { Label("اختر صورة من جهازك", systemImage: "photo").font(F.plex(14, .medium)).foregroundStyle(c.gold) } }
+                if o.tpl == "photo" { PhotosPicker(selection: $photoItem, matching: .images) { Label(tr("اختر صورة من جهازك"), systemImage: "photo").font(F.plex(14, .medium)).foregroundStyle(c.gold) } }
                 if o.tpl == "video" { videoPicker }
             }
-            group("المقاس") {
-                Picker("", selection: $o.size) { Text("ستوري ٩:١٦").tag("story"); Text("مربع ١:١").tag("square"); Text("منشور ٤:٥").tag("post"); Text("عريض ١٦:٩").tag("wide") }.pickerStyle(.segmented)
+            group(tr("المقاس")) {
+                Picker("", selection: $o.size) { Text(tr("ستوري ٩:١٦")).tag("story"); Text(tr("مربع ١:١")).tag("square"); Text(tr("منشور ٤:٥")).tag("post"); Text(tr("عريض ١٦:٩")).tag("wide") }.pickerStyle(.segmented)
             }
-            group("الحركة والتأثيرات") {
-                menu("ظهور النص", animName(o.anim), [("fade", "تلاشٍ ناعم"), ("rise", "صعود هادئ"), ("words", "كلمة كلمة مع التلاوة"), ("glow", "توهّج ذهبي"), ("shine", "لمعة ذهبية تمر على النص"),
-                                                    ("lines", "سطرًا سطرًا"), ("wipe", "كتابة من اليمين"), ("scale", "تكبير ناعم"), ("pop", "ظهور بارز"), ("drop", "نزول من الأعلى"), ("blur", "من الضباب إلى الوضوح"), ("none", "بدون حركة")]) { o.anim = $0 }
+            group(tr("الحركة والتأثيرات")) {
+                menu(tr("ظهور النص"), animName(o.anim), [("fade", tr("تلاشٍ ناعم")), ("rise", tr("صعود هادئ")), ("words", tr("كلمة كلمة مع التلاوة")), ("glow", tr("توهّج ذهبي")), ("shine", tr("لمعة ذهبية تمر على النص")),
+                                                    ("lines", tr("سطرًا سطرًا")), ("wipe", tr("كتابة من اليمين")), ("scale", tr("تكبير ناعم")), ("pop", tr("ظهور بارز")), ("drop", tr("نزول من الأعلى")), ("blur", tr("من الضباب إلى الوضوح")), ("none", tr("بدون حركة"))]) { o.anim = $0 }
                 FlowLayout(spacing: 6) {
-                    Pill(title: "غبار ذهبي", on: o.particles) { o.particles.toggle() }; Pill(title: "تقريب بطيء", on: o.zoom) { o.zoom.toggle() }
-                    Pill(title: "أشعة نور", on: o.rays) { o.rays.toggle() }; Pill(title: "هالات ضوء", on: o.bokeh) { o.bokeh.toggle() }
-                    Pill(title: "مطر", on: o.rain) { o.rain.toggle() }; Pill(title: "إطار سينمائي", on: o.vignette) { o.vignette.toggle() }
-                    Pill(title: "شريط التقدم", on: o.bar) { o.bar.toggle() }; Pill(title: "اسم السورة والآية", on: o.meta) { o.meta.toggle() }
-                    Pill(title: "اسم القارئ", on: o.rname) { o.rname.toggle() }; Pill(title: "اسم الموقع", on: o.mark) { o.mark.toggle() }
+                    Pill(title: tr("غبار ذهبي"), on: o.particles) { o.particles.toggle() }; Pill(title: tr("تقريب بطيء"), on: o.zoom) { o.zoom.toggle() }
+                    Pill(title: tr("أشعة نور"), on: o.rays) { o.rays.toggle() }; Pill(title: tr("هالات ضوء"), on: o.bokeh) { o.bokeh.toggle() }
+                    Pill(title: tr("مطر"), on: o.rain) { o.rain.toggle() }; Pill(title: tr("إطار سينمائي"), on: o.vignette) { o.vignette.toggle() }
+                    Pill(title: tr("شريط التقدم"), on: o.bar) { o.bar.toggle() }; Pill(title: tr("اسم السورة والآية"), on: o.meta) { o.meta.toggle() }
+                    Pill(title: tr("اسم القارئ"), on: o.rname) { o.rname.toggle() }; Pill(title: tr("اسم الموقع"), on: o.mark) { o.mark.toggle() }
                 }
-                menu("صوت الطبيعة", ["": "بدون", "rain": "مطر", "wind": "رياح", "waves": "أمواج البحر", "stream": "جدول ماء", "night": "ليل هادئ"][o.amb] ?? "بدون",
-                     [("", "بدون"), ("rain", "مطر"), ("wind", "رياح"), ("waves", "أمواج البحر"), ("stream", "جدول ماء"), ("night", "ليل هادئ")]) { o.amb = $0 }
-                if !o.amb.isEmpty { slider("مستوى صوت الطبيعة", Binding(get: { Double(o.ambVol) }, set: { o.ambVol = Int($0) }), 5...100) }
-                let fonts = [("amiri", "أميري قرآن"), ("scheherazade", "شهرزاد"), ("naskh", "نسخ")] + mk["fonts"].array.filter { $0["use"].str != "info" }.map { ($0["family"].str, $0["name"].str.isEmpty ? $0["family"].str : $0["name"].str) }
-                menu("خط الآية", fonts.first { $0.0 == o.font }?.1 ?? "أميري قرآن", fonts) { o.font = $0 }
-                menu("التفسير", ["": "بدون تفسير", "ar.muyassar": "التفسير الميسر", "ar.jalalayn": "تفسير الجلالين", "en.sahih": "English"][o.tafsir] ?? "بدون تفسير",
-                     [("", "بدون تفسير"), ("ar.muyassar", "التفسير الميسر"), ("ar.jalalayn", "تفسير الجلالين"), ("en.sahih", "English")]) { o.tafsir = $0 }
-                slider("حجم الخط", Binding(get: { Double(o.fontScale) }, set: { o.fontScale = Int($0) }), 70...140)
-                Text("البداية والنهاية (الأسود والصوت)").font(F.plex(14, .bold)).foregroundStyle(c.text).padding(.top, 6)
-                slider("دخول الصورة · \(sec(o.vfi))", Binding(get: { Double(o.vfi) }, set: { o.vfi = CGFloat(($0 * 10).rounded() / 10) }), 0...3)
-                slider("خروج الصورة · \(sec(o.vfo))", Binding(get: { Double(o.vfo) }, set: { o.vfo = CGFloat(($0 * 10).rounded() / 10) }), 0...3)
-                slider("دخول الصوت · \(sec(o.afi))", Binding(get: { Double(o.afi) }, set: { o.afi = CGFloat(($0 * 10).rounded() / 10) }), 0...4)
-                slider("خروج الصوت · \(sec(o.afo))", Binding(get: { Double(o.afo) }, set: { o.afo = CGFloat(($0 * 10).rounded() / 10) }), 0...4)
-                let nameFonts = [("plex", "عادي"), ("amiri", "أميري"), ("ruqaa", "رقعة"), ("kufi", "كوفي"), ("tajawal", "تجوال عريض"), ("lateef", "لطيف")]
+                menu(tr("صوت الطبيعة"), ["": tr("بدون"), "rain": tr("مطر"), "wind": tr("رياح"), "waves": tr("أمواج البحر"), "stream": tr("جدول ماء"), "night": tr("ليل هادئ")][o.amb] ?? tr("بدون"),
+                     [("", tr("بدون")), ("rain", tr("مطر")), ("wind", tr("رياح")), ("waves", tr("أمواج البحر")), ("stream", tr("جدول ماء")), ("night", tr("ليل هادئ"))]) { o.amb = $0 }
+                if !o.amb.isEmpty { slider(tr("مستوى صوت الطبيعة"), Binding(get: { Double(o.ambVol) }, set: { o.ambVol = Int($0) }), 5...100) }
+                let fonts = [("amiri", tr("أميري قرآن")), ("scheherazade", tr("شهرزاد")), ("naskh", tr("نسخ"))] + mk["fonts"].array.filter { $0["use"].str != "info" }.map { ($0["family"].str, $0["name"].str.isEmpty ? $0["family"].str : $0["name"].str) }
+                menu(tr("خط الآية"), fonts.first { $0.0 == o.font }?.1 ?? tr("أميري قرآن"), fonts) { o.font = $0 }
+                menu(tr("التفسير"), ["": tr("بدون تفسير"), "ar.muyassar": tr("التفسير الميسر"), "ar.jalalayn": tr("تفسير الجلالين"), "en.sahih": "English"][o.tafsir] ?? tr("بدون تفسير"),
+                     [("", tr("بدون تفسير")), ("ar.muyassar", tr("التفسير الميسر")), ("ar.jalalayn", tr("تفسير الجلالين")), ("en.sahih", "English")]) { o.tafsir = $0 }
+                slider(tr("حجم الخط"), Binding(get: { Double(o.fontScale) }, set: { o.fontScale = Int($0) }), 70...140)
+                Text(tr("البداية والنهاية (الأسود والصوت)")).font(F.plex(14, .bold)).foregroundStyle(c.text).padding(.top, 6)
+                slider(tr("دخول الصورة · {0}", sec(o.vfi)), Binding(get: { Double(o.vfi) }, set: { o.vfi = CGFloat(($0 * 10).rounded() / 10) }), 0...3)
+                slider(tr("خروج الصورة · {0}", sec(o.vfo)), Binding(get: { Double(o.vfo) }, set: { o.vfo = CGFloat(($0 * 10).rounded() / 10) }), 0...3)
+                slider(tr("دخول الصوت · {0}", sec(o.afi)), Binding(get: { Double(o.afi) }, set: { o.afi = CGFloat(($0 * 10).rounded() / 10) }), 0...4)
+                slider(tr("خروج الصوت · {0}", sec(o.afo)), Binding(get: { Double(o.afo) }, set: { o.afo = CGFloat(($0 * 10).rounded() / 10) }), 0...4)
+                let nameFonts = [("plex", tr("عادي")), ("amiri", tr("أميري")), ("ruqaa", tr("رقعة")), ("kufi", tr("كوفي")), ("tajawal", tr("تجوال عريض")), ("lateef", tr("لطيف"))]
                 if o.rname {
-                    field("نص اسم القارئ", "فارغ = «بصوت الشيخ …»", Binding(get: { o.rtext }, set: { o.rtext = String($0.prefix(70)) }))
-                    menu("خط اسم القارئ", nameFonts.first { $0.0 == o.rfont }?.1 ?? "عادي", nameFonts) { o.rfont = $0 }
-                    slider("حجم اسم القارئ", Binding(get: { Double(o.rsize) }, set: { o.rsize = Int($0) }), 70...170)
+                    field(tr("نص اسم القارئ"), tr("فارغ = «بصوت الشيخ …»"), Binding(get: { o.rtext }, set: { o.rtext = String($0.prefix(70)) }))
+                    menu(tr("خط اسم القارئ"), nameFonts.first { $0.0 == o.rfont }?.1 ?? tr("عادي"), nameFonts) { o.rfont = $0 }
+                    slider(tr("حجم اسم القارئ"), Binding(get: { Double(o.rsize) }, set: { o.rsize = Int($0) }), 70...170)
                 }
                 if o.mark {
-                    field("نص اسم الموقع", ctx.watermark.isEmpty ? "مثل: تطبيق بدر التلاوات" : ctx.watermark, Binding(get: { o.mtext }, set: { o.mtext = String($0.prefix(60)) }))
-                    menu("خط اسم الموقع", nameFonts.first { $0.0 == o.mfont }?.1 ?? "عادي", nameFonts) { o.mfont = $0 }
-                    slider("حجم اسم الموقع", Binding(get: { Double(o.msize) }, set: { o.msize = Int($0) }), 70...200)
+                    field(tr("نص اسم الموقع"), ctx.watermark.isEmpty ? tr("مثل: تطبيق بدر التلاوات") : ctx.watermark, Binding(get: { o.mtext }, set: { o.mtext = String($0.prefix(60)) }))
+                    menu(tr("خط اسم الموقع"), nameFonts.first { $0.0 == o.mfont }?.1 ?? tr("عادي"), nameFonts) { o.mfont = $0 }
+                    slider(tr("حجم اسم الموقع"), Binding(get: { Double(o.msize) }, set: { o.msize = Int($0) }), 70...200)
                 }
             }
         }.padding(.bottom, 40)
     }
     private func animName(_ k: String) -> String {
-        ["fade": "تلاشٍ ناعم", "rise": "صعود هادئ", "words": "كلمة كلمة مع التلاوة", "glow": "توهّج ذهبي", "shine": "لمعة ذهبية", "lines": "سطرًا سطرًا", "wipe": "كتابة من اليمين",
-         "scale": "تكبير ناعم", "pop": "ظهور بارز", "drop": "نزول من الأعلى", "blur": "من الضباب إلى الوضوح", "none": "بدون حركة"][k] ?? k
+        ["fade": tr("تلاشٍ ناعم"), "rise": tr("صعود هادئ"), "words": tr("كلمة كلمة مع التلاوة"), "glow": tr("توهّج ذهبي"), "shine": tr("لمعة ذهبية"), "lines": tr("سطرًا سطرًا"), "wipe": tr("كتابة من اليمين"),
+         "scale": tr("تكبير ناعم"), "pop": tr("ظهور بارز"), "drop": tr("نزول من الأعلى"), "blur": tr("من الضباب إلى الوضوح"), "none": tr("بدون حركة")][k] ?? k
     }
-    private func sec(_ v: CGFloat) -> String { let d = Int((v * 10).rounded()); return d <= 0 ? "بدون" : "\((d / 10).ar)\(d % 10 != 0 ? "٫" + (d % 10).ar : "") ث" }
+    private func sec(_ v: CGFloat) -> String { let d = Int((v * 10).rounded()); return d <= 0 ? tr("بدون") : tr("{0}{1} ث", (d / 10).ar, d % 10 != 0 ? "٫" + (d % 10).ar : "") }
 
     private var videoPicker: some View {
-        let lib: [(id: String, name: String, cat: String)] = mk["videos"].array.compactMap { v in v["url"].str.isEmpty ? nil : (v["url"].str, v["name"].str.isEmpty ? "فيديو" : v["name"].str, v["cat"].str.isEmpty ? "nature" : v["cat"].str) }
-            + myVideos.map { ($0.id, $0.name, "mine") } + [("scene:sky", "سماء وغيوم", "scene"), ("scene:sea", "بحر عند الغروب", "scene"), ("scene:stars", "ليل ونجوم", "scene")]
-        let cats = [("all", "الكل"), ("haram", "الحرم المكي"), ("nabawi", "المسجد النبوي"), ("nature", "مناظر طبيعية"), ("scene", "مشاهد مرسومة"), ("mine", "من جهازي")].filter { k, _ in k == "all" || lib.contains { $0.cat == k } }
+        let lib: [(id: String, name: String, cat: String)] = mk["videos"].array.compactMap { v in v["url"].str.isEmpty ? nil : (v["url"].str, v["name"].str.isEmpty ? tr("فيديو") : v["name"].str, v["cat"].str.isEmpty ? "nature" : v["cat"].str) }
+            + myVideos.map { ($0.id, $0.name, "mine") } + [("scene:sky", tr("سماء وغيوم"), "scene"), ("scene:sea", tr("بحر عند الغروب"), "scene"), ("scene:stars", tr("ليل ونجوم"), "scene")]
+        let cats = [("all", tr("الكل")), ("haram", tr("الحرم المكي")), ("nabawi", tr("المسجد النبوي")), ("nature", tr("مناظر طبيعية")), ("scene", tr("مشاهد مرسومة")), ("mine", tr("من جهازي"))].filter { k, _ in k == "all" || lib.contains { $0.cat == k } }
         return VStack(alignment: .leading, spacing: 8) {
             ScrollView(.horizontal, showsIndicators: false) { HStack(spacing: 6) { ForEach(cats, id: \.0) { k in Pill(title: k.1, on: vcat == k.0) { vcat = k.0 } } } }
             FlowLayout(spacing: 6) {
@@ -397,17 +397,17 @@ struct MakerView: View {
                     let i = o.videos.firstIndex(of: v.id)
                     Pill(title: (i.map { "\(($0 + 1).ar). " } ?? "") + v.name, on: i != nil) { if let i { o.videos.remove(at: i) } else { o.videos.append(v.id) } }
                 }
-                PhotosPicker(selection: $videoItem, matching: .videos) { Label("فيديو من جهازي", systemImage: "plus").font(F.plex(13, .medium)).foregroundStyle(c.gold).padding(.horizontal, 12).padding(.vertical, 8).background(Capsule().stroke(c.gold.opacity(0.5))) }
+                PhotosPicker(selection: $videoItem, matching: .videos) { Label(tr("فيديو من جهازي"), systemImage: "plus").font(F.plex(13, .medium)).foregroundStyle(c.gold).padding(.horizontal, 12).padding(.vertical, 8).background(Capsule().stroke(c.gold.opacity(0.5))) }
             }
-            Text(o.videos.count > 1 ? "\(o.videos.count.ar) خلفيات — تتبدّل بالترتيب المرقّم" : "اختر خلفية أو أكثر — مع أكثر من خلفية تتبدّل بانتقال ناعم").font(F.plex(12)).foregroundStyle(c.muted)
+            Text(o.videos.count > 1 ? tr("{0} خلفيات — تتبدّل بالترتيب المرقّم", o.videos.count.ar) : tr("اختر خلفية أو أكثر — مع أكثر من خلفية تتبدّل بانتقال ناعم")).font(F.plex(12)).foregroundStyle(c.muted)
             HStack(spacing: 8) {
-                menu("تبديل الخلفيات", ["time": "كل مدة أحددها", "ayah": "مع كل آية", "none": "بدون تبديل"][o.vidMode] ?? "", [("time", "كل مدة أحددها"), ("ayah", "مع كل آية"), ("none", "بدون تبديل")]) { o.vidMode = $0 }
-                if o.vidMode == "time" { menu("كل", "\(o.every.ar) ث", [4, 6, 8, 10, 15, 20, 30].map { ("\($0)", "\($0.ar) ث") }) { o.every = Int($0)! } }
+                menu(tr("تبديل الخلفيات"), ["time": tr("كل مدة أحددها"), "ayah": tr("مع كل آية"), "none": tr("بدون تبديل")][o.vidMode] ?? "", [("time", tr("كل مدة أحددها")), ("ayah", tr("مع كل آية")), ("none", tr("بدون تبديل"))]) { o.vidMode = $0 }
+                if o.vidMode == "time" { menu(tr("كل"), tr("{0} ث", o.every.ar), [4, 6, 8, 10, 15, 20, 30].map { ("\($0)", tr("{0} ث", $0.ar)) }) { o.every = Int($0)! } }
             }
             HStack(spacing: 8) {
-                menu("مدة الانتقال", "\(o.transLen) ث", [0.6, 1.0, 1.4, 2.0, 3.0].map { ("\($0)", "\($0) ث") }) { o.transLen = CGFloat(Double($0)!) }
-                menu("الانتقال", ["fade": "تلاشٍ ناعم", "black": "عبر الأسود", "white": "عبر الأبيض", "zoom": "تكبير ودخول", "blur": "ضبابي", "slide": "انزلاق", "wipe": "مسح", "circle": "دائرة"][o.trans] ?? "",
-                     [("fade", "تلاشٍ ناعم"), ("black", "عبر الأسود"), ("white", "عبر الأبيض"), ("zoom", "تكبير ودخول"), ("blur", "ضبابي"), ("slide", "انزلاق"), ("wipe", "مسح"), ("circle", "دائرة")]) { o.trans = $0 }
+                menu(tr("مدة الانتقال"), tr("{0} ث", o.transLen), [0.6, 1.0, 1.4, 2.0, 3.0].map { ("\($0)", tr("{0} ث", $0)) }) { o.transLen = CGFloat(Double($0)!) }
+                menu(tr("الانتقال"), ["fade": tr("تلاشٍ ناعم"), "black": tr("عبر الأسود"), "white": tr("عبر الأبيض"), "zoom": tr("تكبير ودخول"), "blur": tr("ضبابي"), "slide": tr("انزلاق"), "wipe": tr("مسح"), "circle": tr("دائرة")][o.trans] ?? "",
+                     [("fade", tr("تلاشٍ ناعم")), ("black", tr("عبر الأسود")), ("white", tr("عبر الأبيض")), ("zoom", tr("تكبير ودخول")), ("blur", tr("ضبابي")), ("slide", tr("انزلاق")), ("wipe", tr("مسح")), ("circle", tr("دائرة"))]) { o.trans = $0 }
             }
         }
     }
@@ -428,7 +428,7 @@ struct MakerView: View {
                 return UIGraphicsImageRenderer(size: CGSize(width: 270, height: 390), format: f).image { r in
                     r.cgContext.scaleBy(x: 0.25, y: 0.25)
                     var oo = MakerOpts(); oo.tpl = id; oo.videos = ["scene:sky"]; oo.surah = 24
-                    MakerContext.thumbs.drawFrame(r.cgContext, 1080, 1560, MakerEngine.staticFrame([MAyah(n: 35, text: "ٱللَّهُ نُورُ ٱلسَّمَٰوَٰتِ وَٱلْأَرْضِ")]), oo)
+                    MakerContext.thumbs.drawFrame(r.cgContext, 1080, 1560, MakerEngine.staticFrame([MAyah(n: 35, text: tr("ٱللَّهُ نُورُ ٱلسَّمَٰوَٰتِ وَٱلْأَرْضِ"))]), oo)
                 }
             }.value
             thumbs[id] = img
@@ -475,10 +475,10 @@ struct SurahPickSheet: View {
         NavigationStack {
             List {
                 ForEach(Array(Quran.surahs.enumerated()).filter { q.isEmpty || QuranMeta.norm($0.element).contains(QuranMeta.norm(q)) || "\($0.offset + 1)" == q }, id: \.offset) { i, n in
-                    Button { pick(i + 1) } label: { HStack { Text((i + 1).ar).font(F.plex(13)).foregroundStyle(c.gold).frame(width: 34); Text("سورة \(n)").font(F.amiri(18)).foregroundStyle(i + 1 == s ? c.gold : c.text); Spacer(); Text("\(Quran.ayahs[i].ar) آية").font(F.plex(12)).foregroundStyle(c.muted) } }
+                    Button { pick(i + 1) } label: { HStack { Text((i + 1).ar).font(F.plex(13)).foregroundStyle(c.gold).frame(width: 34); Text(tr("سورة {0}", n)).font(F.amiri(18)).foregroundStyle(i + 1 == s ? c.gold : c.text); Spacer(); Text(tr("{0} آية", Quran.ayahs[i].ar)).font(F.plex(12)).foregroundStyle(c.muted) } }
                 }.listRowBackground(c.surface)
-            }.bzList(c).searchable(text: $q, prompt: "ابحث عن سورة").navigationTitle("اختر السورة").navigationBarTitleDisplayMode(.inline)
-        }.environment(\.layoutDirection, .rightToLeft)
+            }.bzList(c).searchable(text: $q, prompt: tr("ابحث عن سورة")).navigationTitle(tr("اختر السورة")).navigationBarTitleDisplayMode(.inline)
+        }.environment(\.layoutDirection, L.dir)
     }
 }
 

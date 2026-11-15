@@ -24,25 +24,25 @@ struct HomeView: View {
                 if s?.sec("recitations") != false {
                     let vids = all.filter(\.isVideo)
                     if !vids.isEmpty {
-                        SectionHead(title: "تلاوات مرئية", action: "عرض الكل", kicker: "\(vids.count.ar) \(vids.count == 1 ? "تلاوة" : "تلاوات")") { RecKind.value = "video"; ui.go(.recitations) }
+                        SectionHead(title: tr("تلاوات مرئية"), action: tr("عرض الكل"), kicker: "\(vids.count.ar) \(vids.count == 1 ? "تلاوة" : "تلاوات")") { RecKind.value = "video"; ui.go(.recitations) }
                         ScrollView(.horizontal, showsIndicators: false) { HStack(alignment: .top, spacing: 12) { ForEach(vids.prefix(10)) { t in VideoCard(t: t).frame(width: 250) } }.padding(.horizontal, 16) }
                     }
-                    SectionHead(title: "أحدث التلاوات", action: "عرض الكل", kicker: "\(all.count.ar) تلاوة") { ui.go(.recitations) }
+                    SectionHead(title: tr("أحدث التلاوات"), action: tr("عرض الكل"), kicker: tr("{0} تلاوة", all.count.ar)) { ui.go(.recitations) }
                     ScrollView(.horizontal, showsIndicators: false) { HStack(alignment: .top, spacing: 12) { ForEach(all.prefix(10)) { t in TrackCard(t: t, list: all).frame(width: 150) } }.padding(.horizontal, 16) }
                     let w1 = (d?.weekly ?? []).compactMap { w in repo.track(w.id).map { ($0, w.count) } }
                     let weekly = Array((w1.isEmpty ? all.filter { (d?.plays[$0.id] ?? 0) > 0 }.sorted { (d?.plays[$0.id] ?? 0) > (d?.plays[$1.id] ?? 0) }.prefix(5).map { ($0, d?.plays[$0.id] ?? 0) } : w1).prefix(5))
                     if s?.feat("weeklyPopular") != false && !weekly.isEmpty {
-                        SectionHead(title: "الأكثر استماعًا هذا الأسبوع")
+                        SectionHead(title: tr("الأكثر استماعًا هذا الأسبوع"))
                         Panel(pad: 4, lattice: false) { ForEach(Array(weekly.enumerated()), id: \.offset) { i, w in TrackRow(t: w.0, list: weekly.map { $0.0 }, rank: i + 1, count: w.1) } }.padding(.horizontal, 12)
                     }
                 }
                 if s?.sec("reciters") != false, let rs = d?.reciters, !rs.isEmpty {
-                    SectionHead(title: "القرّاء", kicker: "\(rs.count.ar) قارئ")
+                    SectionHead(title: tr("القرّاء"), kicker: tr("{0} قارئ", rs.count.ar))
                     ReciterRow(rs: rs)
                 }
                 if s?.sec("ayah") != false { AyahOfDay().padding(.horizontal, 16).padding(.vertical, 8).reveal() }
                 if s?.sec("dua") != false { DuaCard() }
-                SectionHead(title: "استكشف أيضًا")
+                SectionHead(title: tr("استكشف أيضًا"))
                 ExploreTiles()
                 HomeFooter()
             }.padding(.bottom, 28)
@@ -59,8 +59,8 @@ struct HomeView: View {
             HStack(spacing: 8) {
                 Ico(name: "megaphone.fill", size: 20).foregroundStyle(c.onGold)
                 Text(text).font(F.plex(14, .medium)).foregroundStyle(c.onGold).frame(maxWidth: .infinity, alignment: .leading)
-                if !link.isEmpty, let u = URL(string: link) { Link(appBanner && !(n?.linkLabel.isEmpty ?? true) ? n!.linkLabel : "التفاصيل", destination: u).font(F.plex(14, .bold)).foregroundStyle(c.onGold) }
-                Button { annClosed = String(text.prefix(80)); UserDefaults.standard.set(annClosed, forKey: "annClosed") } label: { SiteIcon(name: "close", size: 22, color: c.onGold).frame(width: 40, height: 40) }.accessibilityLabel("إغلاق")
+                if !link.isEmpty, let u = URL(string: link) { Link(appBanner && !(n?.linkLabel.isEmpty ?? true) ? n!.linkLabel : tr("التفاصيل"), destination: u).font(F.plex(14, .bold)).foregroundStyle(c.onGold) }
+                Button { annClosed = String(text.prefix(80)); UserDefaults.standard.set(annClosed, forKey: "annClosed") } label: { SiteIcon(name: "close", size: 22, color: c.onGold).frame(width: 40, height: 40) }.accessibilityLabel(tr("إغلاق"))
             }.padding(.leading, 14).padding(.trailing, 4).padding(.vertical, 6).background(RoundedRectangle(cornerRadius: 18).fill(c.goldBrush)).padding(.horizontal, 16).padding(.vertical, 6)
         }
     }
@@ -78,12 +78,12 @@ struct QuickHead: View {
     @Environment(\.pal) private var c
     var body: some View {
         let h = Calendar.current.component(.hour, from: Date())
-        let g = (4...11).contains(h) ? "صباح الخير" : (12...16).contains(h) ? "طاب يومك" : "مساء الخير"
+        let g = (4...11).contains(h) ? tr("صباح الخير") : (12...16).contains(h) ? tr("طاب يومك") : tr("مساء الخير")
         let greet = repo.data?.site.feat("greeting") != false
         Button { if greet { ui.sheet = .name } } label: {
             VStack(alignment: .leading, spacing: 2) {
-                Text(greet && !store.name.isEmpty ? "\(g) يا \(store.name)" : "\(g)، أهلًا بك").font(F.amiri(24)).foregroundStyle(c.text).lineLimit(1)
-                Text([Prayers.hijri(), String(prayers.place.split(separator: "،").first ?? "")].filter { !$0.isEmpty }.joined(separator: " · ")).font(F.plex(12.5)).foregroundStyle(c.muted).lineLimit(1)
+                Text(greet && !store.name.isEmpty ? tr("{0} يا {1}", g, store.name) : tr("{0}، أهلًا بك", g)).font(F.amiri(24)).foregroundStyle(c.text).lineLimit(1)
+                Text([Prayers.hijri(), String(prayers.place.split(separator: tr("،")).first ?? "")].filter { !$0.isEmpty }.joined(separator: " · ")).font(F.plex(12.5)).foregroundStyle(c.muted).lineLimit(1)
             }.frame(maxWidth: .infinity, alignment: .leading)
         }.buttonStyle(.plain).padding(.horizontal, 16).padding(.top, 14)
     }
@@ -100,13 +100,13 @@ struct QuickTiles: View {
     struct T: Hashable { let icon: String, title: String, go: String, sec: String? }
     private var all: [T] {
         let s = repo.data?.site
-        return [T(icon: "mic", title: "التلاوات", go: "recitations", sec: "recitations"), T(icon: "play", title: "القرآن كاملًا", go: "listen", sec: "mushaf"),
-                T(icon: "book", title: "المصحف", go: "quran", sec: "mushaf"), T(icon: "beads", title: "الأذكار", go: "adhkar", sec: "adhkar"),
-                T(icon: "clock", title: "الصلاة", go: "prayer", sec: "prayer"), T(icon: "compass", title: "القبلة", go: "qibla", sec: nil),
-                T(icon: "image", title: "صمّم آية", go: "maker", sec: "maker"), T(icon: "library", title: "مكتبتي", go: "library", sec: nil),
-                T(icon: "chat", title: "المجتمع", go: "community", sec: "community"), T(icon: "live", title: "البث المباشر", go: "live", sec: "live"),
-                T(icon: "scroll", title: "دروس الفقه", go: "fiqh", sec: "fiqh"), T(icon: "clock", title: "الخط الزمني", go: "timeline", sec: "timeline"),
-                T(icon: "user", title: "عن الشيخ", go: "about", sec: "about")]
+        return [T(icon: "mic", title: tr("التلاوات"), go: "recitations", sec: "recitations"), T(icon: "play", title: tr("القرآن كاملًا"), go: "listen", sec: "mushaf"),
+                T(icon: "book", title: tr("المصحف"), go: "quran", sec: "mushaf"), T(icon: "beads", title: tr("الأذكار"), go: "adhkar", sec: "adhkar"),
+                T(icon: "clock", title: tr("الصلاة"), go: "prayer", sec: "prayer"), T(icon: "compass", title: tr("القبلة"), go: "qibla", sec: nil),
+                T(icon: "image", title: tr("صمّم آية"), go: "maker", sec: "maker"), T(icon: "library", title: tr("مكتبتي"), go: "library", sec: nil),
+                T(icon: "chat", title: tr("المجتمع"), go: "community", sec: "community"), T(icon: "live", title: tr("البث المباشر"), go: "live", sec: "live"),
+                T(icon: "scroll", title: tr("دروس الفقه"), go: "fiqh", sec: "fiqh"), T(icon: "clock", title: tr("الخط الزمني"), go: "timeline", sec: "timeline"),
+                T(icon: "user", title: tr("عن الشيخ"), go: "about", sec: "about")]
             .filter { $0.sec == nil || s?.sec($0.sec!) != false }.filter { $0.go != "listen" || !repo.quranRecs().isEmpty }.filter { $0.go != "live" || s?.liveOn != false }
     }
     private var tiles: [T] {
@@ -124,15 +124,15 @@ struct QuickTiles: View {
         VStack(spacing: 10) {
             grid(tiles) { t in tile(t, 38, 20, 11.5) { open(t.go) } }.padding(.horizontal, 16).padding(.top, 14)
             Button { pick = tiles.map(\.go); edit = true } label: {
-                HStack(spacing: 6) { Ico(name: "slider.horizontal.3", size: 15.6).foregroundStyle(c.gold); Text("تخصيص الاختصارات").font(F.plex(12.5)).foregroundStyle(c.muted) }
+                HStack(spacing: 6) { Ico(name: "slider.horizontal.3", size: 15.6).foregroundStyle(c.gold); Text(tr("تخصيص الاختصارات")).font(F.plex(12.5)).foregroundStyle(c.muted) }
                     .padding(.horizontal, 12).padding(.vertical, 6).overlay(Capsule().stroke(c.lineSoft))
             }.buttonStyle(Press())
         }
         .bzSheet(isPresented: $edit) {
             ScrollView {
                 VStack(alignment: .leading, spacing: 8) {
-                    SheetHead(title: "تخصيص الاختصارات")
-                    Text("اختر ٤ أو ٨ اختصارات بالترتيب الذي تفضّله، ليبقى الشكل متساويًا.").font(F.plex(14)).foregroundStyle(c.muted).padding(.horizontal, 20)
+                    SheetHead(title: tr("تخصيص الاختصارات"))
+                    Text(tr("اختر ٤ أو ٨ اختصارات بالترتيب الذي تفضّله، ليبقى الشكل متساويًا.")).font(F.plex(14)).foregroundStyle(c.muted).padding(.horizontal, 20)
                     grid(all) { t in
                         let i = pick.firstIndex(of: t.go)
                         tile(t, 34, 18, 11, on: i != nil) { if let i { pick.remove(at: i) } else if pick.count < 8 { pick.append(t.go) } }
@@ -140,11 +140,11 @@ struct QuickTiles: View {
                     }.padding(.horizontal, 16).padding(.vertical, 10)
                     let ok = pick.count == 4 || pick.count == 8
                     HStack(spacing: 10) {
-                        GoldButton(title: ok ? "حفظ" : "اخترت \(pick.count.ar) — اختر ٤ أو ٨") { if ok { mineRaw = pick.joined(separator: ","); edit = false } }
-                        GhostButton(title: "استعادة الافتراضي") { mineRaw = ""; edit = false }
+                        GoldButton(title: ok ? tr("حفظ") : tr("اخترت {0} — اختر ٤ أو ٨", pick.count.ar)) { if ok { mineRaw = pick.joined(separator: ","); edit = false } }
+                        GhostButton(title: tr("استعادة الافتراضي")) { mineRaw = ""; edit = false }
                     }.padding(.horizontal, 16)
                 }.padding(.bottom, 20)
-            }.background(c.bg2.ignoresSafeArea()).environment(\.layoutDirection, .rightToLeft).presentationDetents([.large])
+            }.background(c.bg2.ignoresSafeArea()).environment(\.layoutDirection, L.dir).presentationDetents([.large])
         }
     }
     private func grid(_ l: [T], @ViewBuilder _ cell: @escaping (T) -> some View) -> some View {
@@ -187,9 +187,9 @@ struct ResumeCard: View {
                 HStack(spacing: 12) {
                     RemoteImage(raw: t.cover.isEmpty ? repo.reciter(t.reciterId)?.image : t.cover).frame(width: 56, height: 56).clipShape(RoundedRectangle(cornerRadius: 14))
                     VStack(alignment: .leading, spacing: 1) {
-                        Text("تابع الاستماع").font(F.plex(12.5, .medium)).foregroundStyle(c.gold)
+                        Text(tr("تابع الاستماع")).font(F.plex(12.5, .medium)).foregroundStyle(c.gold)
                         Text(t.title).font(F.plex(14, .semibold)).foregroundStyle(c.text).lineLimit(1)
-                        Text("توقفت عند \(Fmt.dur(Int(pos.0)).isEmpty ? "0:00" : Fmt.dur(Int(pos.0)))\(pos.1 > 0 ? " من \(Fmt.dur(Int(pos.1)))" : "")").font(F.plex(12.5)).foregroundStyle(c.muted)
+                        Text(tr("توقفت عند {0}{1}", Fmt.dur(Int(pos.0)).isEmpty ? "0:00" : Fmt.dur(Int(pos.0)), pos.1 > 0 ? " من \(Fmt.dur(Int(pos.1)))" : "")).font(F.plex(12.5)).foregroundStyle(c.muted)
                         if pos.1 > 0 { ProgressView(value: min(1, pos.0 / pos.1)).tint(c.gold).padding(.top, 6) }
                     }.frame(maxWidth: .infinity, alignment: .leading)
                     PlayCircle(playing: false, size: 44) { play(t) }
@@ -220,8 +220,8 @@ struct ReciterRow: View {
                     Button { ui.path.append(.reciter(r.id)) } label: {
                         VStack(spacing: 0) {
                             ArchImg(raw: r.image).frame(width: 116, height: 150)
-                            Text(r.name).font(F.plex(14, .semibold)).foregroundStyle(r.id == active ? c.gold : c.text).lineLimit(2).multilineTextAlignment(.center).padding(.top, 8)
-                            Text("\((repo.data?.recitations.filter { $0.reciterId == r.id }.count ?? 0).ar) تلاوة").font(F.plex(11)).foregroundStyle(c.muted)
+                            Text(nm(r.name)).font(F.plex(14, .semibold)).foregroundStyle(r.id == active ? c.gold : c.text).lineLimit(2).multilineTextAlignment(.center).padding(.top, 8)
+                            Text(tr("{0} تلاوة", (repo.data?.recitations.filter { $0.reciterId == r.id }.count ?? 0).ar)).font(F.plex(11)).foregroundStyle(c.muted)
                         }.frame(width: 116)
                     }.buttonStyle(Press())
                 }
@@ -239,10 +239,10 @@ struct ExploreTiles: View {
     var body: some View {
         let s = repo.data?.site
         let tiles: [(String, String, String, String, String?)] = [
-            ("waveform", "اقرأ واستمع واحفظ", "الآيات تضيء مع الصوت", "read", "mushaf"), ("live", "البث المباشر", "من المسجد الحرام", "live", "live"),
-            ("graduationcap", "دروس الفقه", "الفقه الشافعي", "fiqh", "fiqh"), ("chat", "المجتمع", "شارك وتابع", "community", "community"),
-            ("clock", "الخط الزمني", "التلاوات والمناسبات", "timeline", "timeline"), ("user", "عن الشيخ", "السيرة والمحطات", "about", "about"),
-            ("wave", amb.current.isEmpty ? "أصوات هادئة" : "أصوات هادئة (تعمل)", "مطر، رياح، أمواج", "#ambient", nil),
+            ("waveform", tr("اقرأ واستمع واحفظ"), tr("الآيات تضيء مع الصوت"), "read", "mushaf"), ("live", tr("البث المباشر"), tr("من المسجد الحرام"), "live", "live"),
+            ("graduationcap", tr("دروس الفقه"), tr("الفقه الشافعي"), "fiqh", "fiqh"), ("chat", tr("المجتمع"), tr("شارك وتابع"), "community", "community"),
+            ("clock", tr("الخط الزمني"), tr("التلاوات والمناسبات"), "timeline", "timeline"), ("user", tr("عن الشيخ"), tr("السيرة والمحطات"), "about", "about"),
+            ("wave", amb.current.isEmpty ? tr("أصوات هادئة") : tr("أصوات هادئة (تعمل)"), tr("مطر، رياح، أمواج"), "#ambient", nil),
         ].filter { $0.4 == nil || (s?.sec($0.4!) != false && ($0.3 != "live" || s?.liveOn != false)) }
         let rows = stride(from: 0, to: tiles.count, by: 2).map { Array(tiles[$0..<min(tiles.count, $0 + 2)]) }
         VStack(spacing: 10) {
@@ -283,14 +283,14 @@ struct HomeFooter: View {
             Text(s?.title ?? "").font(F.amiri(24)).foregroundStyle(c.text).multilineTextAlignment(.center).padding(.top, 10)
             if let a = f?["about"].str, !a.isEmpty { Text(a).font(F.plex(12.5)).foregroundStyle(c.muted).multilineTextAlignment(.center).padding(.top, 4) }
             FlowLayout(spacing: 8) {
-                if let e = f?["email"].str, !e.isEmpty { Chip(text: "البريد", icon: "mail") { open("mailto:\(e)") } }
+                if let e = f?["email"].str, !e.isEmpty { Chip(text: tr("البريد"), icon: "mail") { open("mailto:\(e)") } }
                 if let u = f?["instagram"].str, !u.isEmpty { Chip(text: "Instagram", icon: "insta") { open(u) } }
                 if let u = f?["youtube"].str, !u.isEmpty { Chip(text: "YouTube", icon: "yt") { open(u) } }
                 if let u = f?["telegram"].str, !u.isEmpty { Chip(text: "Telegram", icon: "send") { open(u) } }
-                if let u = f?["whatsapp"].str, !u.isEmpty { Chip(text: "واتساب", icon: "chat") { open(u.hasPrefix("http") ? u : "https://wa.me/" + u.filter(\.isNumber)) } }
+                if let u = f?["whatsapp"].str, !u.isEmpty { Chip(text: tr("واتساب"), icon: "chat") { open(u.hasPrefix("http") ? u : "https://wa.me/" + u.filter(\.isNumber)) } }
                 if let u = f?["x"].str, !u.isEmpty { Chip(text: "X", icon: "number") { open(u) } }
             }.padding(.top, 12)
-            if let cr = f?["credit"].str, !cr.isEmpty { Text("إعداد وتطوير: \(cr)").font(F.plex(11)).foregroundStyle(c.faint).padding(.top, 14) }
+            if let cr = f?["credit"].str, !cr.isEmpty { Text(tr("إعداد وتطوير: {0}", cr)).font(F.plex(11)).foregroundStyle(c.faint).padding(.top, 14) }
         }.frame(maxWidth: .infinity).padding(.top, 18).padding(.horizontal, 24)
     }
     private func open(_ s: String) { if let u = URL(string: s) { UIApplication.shared.open(u) } }
@@ -302,12 +302,12 @@ struct DuaCard: View {
     @State private var i = Int(Date().timeIntervalSince1970 / 86400) % Quran.duas.count
     var body: some View {
         Panel(pad: 22) {
-            Text("دعاء اليوم").font(F.amiri(22)).foregroundStyle(c.gold)
+            Text(tr("دعاء اليوم")).font(F.amiri(22)).foregroundStyle(c.gold)
             Ornament(width: 110).padding(.vertical, 6)
             Text(Quran.duas[i]).font(F.amiri(22, bold: false)).foregroundStyle(c.text).lineSpacing(14).id(i).transition(.opacity)
             HStack(spacing: 8) {
-                Chip(text: "دعاء آخر", icon: "refresh") { withAnimation(.easeOut(duration: 0.4)) { i = (i + 1) % Quran.duas.count } }
-                Chip(text: "نسخ", icon: "copy") { UIPasteboard.general.string = Quran.duas[i]; ui.say("نُسخ الدعاء") }
+                Chip(text: tr("دعاء آخر"), icon: "refresh") { withAnimation(.easeOut(duration: 0.4)) { i = (i + 1) % Quran.duas.count } }
+                Chip(text: tr("نسخ"), icon: "copy") { UIPasteboard.general.string = Quran.duas[i]; ui.say(tr("نُسخ الدعاء")) }
             }.padding(.top, 12)
         }.padding(.horizontal, 16).padding(.vertical, 14)
     }
@@ -334,7 +334,7 @@ struct VideoCard: View {
                 Text(t.title).font(F.plex(13, .semibold)).foregroundStyle(c.text).lineLimit(2).multilineTextAlignment(.leading).padding(.top, 7)
                 HStack(spacing: 5) {
                     RemoteImage(raw: r?.image).frame(width: 18, height: 18).clipShape(Circle())
-                    Text((r?.name ?? "").replacingOccurrences(of: "الشيخ ", with: "")).font(F.plex(11)).foregroundStyle(c.muted).lineLimit(1)
+                    Text(nm((r?.name ?? "").replacingOccurrences(of: "الشيخ ", with: ""))).font(F.plex(11)).foregroundStyle(c.muted).lineLimit(1)
                     if !relAgo(t).isEmpty { Text("· " + relAgo(t)).font(F.plex(11)).foregroundStyle(c.faint) }
                 }.padding(.top, 3)
             }
@@ -362,12 +362,12 @@ struct AyahOfDay: View {
     var body: some View {
         let (s, a) = ref
         let mine = ayah.key?.hasPrefix("\(s):\(a)|") == true
-        let cite = "﴿\(text ?? "")﴾ [سورة \(Quran.surahs[s - 1]): \(a)]"
+        let cite = tr("﴿{0}﴾ [سورة {1}: {2}]", text ?? "", Quran.surahs[s - 1], a)
         Panel(pad: 20) {
             HStack {
                 VStack(alignment: .leading, spacing: 0) {
-                    Text("آية اليوم").font(F.amiri(22)).foregroundStyle(c.gold)
-                    Text("سورة \(Quran.surahs[s - 1]) — الآية \(a.ar)").font(F.plex(12.5)).foregroundStyle(c.muted)
+                    Text(tr("آية اليوم")).font(F.amiri(22)).foregroundStyle(c.gold)
+                    Text(tr("سورة {0} — الآية {1}", Quran.surahs[s - 1], a.ar)).font(F.plex(12.5)).foregroundStyle(c.muted)
                 }
                 Spacer()
                 Chip(text: nil, icon: "refresh") { newAyah() }
@@ -381,19 +381,19 @@ struct AyahOfDay: View {
                 PlayCircle(playing: mine && ayah.playing, size: 58) { if mine && ayah.playing { ayah.stop() } else { ayah.play(rv, s, a, repeat: repeatN) } }
                 VStack(alignment: .leading, spacing: 2) {
                     ProgressView(value: mine ? ayah.progress : 0).tint(c.gold).padding(.vertical, 10)
-                    Text(mine ? ayah.status : "اختر القارئ واضغط تشغيل").font(F.plex(11)).foregroundStyle(c.muted).lineLimit(1)
+                    Text(mine ? ayah.status : tr("اختر القارئ واضغط تشغيل")).font(F.plex(11)).foregroundStyle(c.muted).lineLimit(1)
                 }
             }.padding(.top, 6)
             ReciterPhotos(opts: ayah.options(s, a).map { RecChoice(value: $0.value, label: $0.label, img: repo.recImg($0.value, $0.label)) }, value: rv) { store.ayahReciter = $0; ayah.stop() }.padding(.top, 10)
-            OptMenu(label: "التكرار", value: repeatN, opts: [(1, "مرة"), (3, "٣ مرات"), (5, "٥ مرات"), (10, "١٠ مرات"), (0, "مستمر")]) { repeatN = $0; ayah.stop() }.padding(.top, 10)
+            OptMenu(label: tr("التكرار"), value: repeatN, opts: [(1, tr("مرة")), (3, tr("٣ مرات")), (5, tr("٥ مرات")), (10, tr("١٠ مرات")), (0, tr("مستمر"))]) { repeatN = $0; ayah.stop() }.padding(.top, 10)
             FlowLayout(spacing: 8) {
-                Chip(text: "اختر آية", icon: "book") { picking = true }
-                Chip(text: "آية أخرى", icon: "refresh") { newAyah() }
-                Chip(text: nil, icon: "copy") { UIPasteboard.general.string = cite; ui.say("نُسخت الآية") }
-                Chip(text: "التفسير", icon: "scroll") { tafsir = true }
-                if repo.data?.site.sec("maker") != false { Chip(text: "صمّمها", icon: "image") { ui.path.append(.maker(s, a)) } }
-                if repo.data?.site.sec("community") != false { Chip(text: "انشرها في المجتمع", icon: "chat") { ui.path.append(.compose("ayah:\(s):\(a)|\(rv)")) } }
-                Chip(text: "مشاركة", icon: "share") { share("\(cite)\n\(Repo.site)") }
+                Chip(text: tr("اختر آية"), icon: "book") { picking = true }
+                Chip(text: tr("آية أخرى"), icon: "refresh") { newAyah() }
+                Chip(text: nil, icon: "copy") { UIPasteboard.general.string = cite; ui.say(tr("نُسخت الآية")) }
+                Chip(text: tr("التفسير"), icon: "scroll") { tafsir = true }
+                if repo.data?.site.sec("maker") != false { Chip(text: tr("صمّمها"), icon: "image") { ui.path.append(.maker(s, a)) } }
+                if repo.data?.site.sec("community") != false { Chip(text: tr("انشرها في المجتمع"), icon: "chat") { ui.path.append(.compose("ayah:\(s):\(a)|\(rv)")) } }
+                Chip(text: tr("مشاركة"), icon: "share") { share("\(cite)\n\(Repo.site)") }
             }.padding(.top, 12)
         }
         .task(id: "\(s):\(a)") { text = nil; text = await load(s, a) }
@@ -417,7 +417,7 @@ struct Avatar2: View {
     var body: some View {
         ZStack {
             Circle().fill(c.surface3)
-            if let img, !img.isEmpty { RemoteImage(raw: img).clipShape(Circle()) } else { Text(initial(name).isEmpty ? "؟" : initial(name)).font(F.amiri(size * 0.38)).foregroundStyle(c.text) }
+            if let img, !img.isEmpty { RemoteImage(raw: img).clipShape(Circle()) } else { Text(initial(name).isEmpty ? tr("؟") : initial(name)).font(F.amiri(size * 0.38)).foregroundStyle(c.text) }
         }
         .frame(width: ring ? size - 6 : size, height: ring ? size - 6 : size).padding(ring ? 3 : 0)
         .overlay(Circle().stroke(ring ? c.gold : c.lineSoft, lineWidth: ring ? 2 : 1))
@@ -425,7 +425,7 @@ struct Avatar2: View {
 }
 /// Every reciter side by side with his photo; the chosen one has a ring.
 struct ReciterPhotos: View {
-    let opts: [RecChoice]; let value: String; var label = "بصوت"; let pick: (String) -> Void
+    let opts: [RecChoice]; let value: String; var label = tr("بصوت"); let pick: (String) -> Void
     @Environment(\.pal) private var c
     var body: some View {
         let list = opts.enumerated().sorted { ($0.element.img.isEmpty ? 1 : 0, $0.offset) < ($1.element.img.isEmpty ? 1 : 0, $1.offset) }.map(\.element).filter { !$0.value.isEmpty }
@@ -455,22 +455,22 @@ struct TafsirSheet: View {
     @EnvironmentObject var repo: Repo
     @EnvironmentObject var ui: UIState
     @Environment(\.pal) private var c
-    @AppStorage("tafsirEd") private var ed = "ar.muyassar"
+    @AppStorage("tafsirEd") private var ed = L.quran[L.code]?.0 ?? "ar.muyassar"
     @State private var t: String?
-    static let editions = [("ar.muyassar", "التفسير الميسّر"), ("ar.jalalayn", "الجلالين"), ("en.sahih", "English")]
+    static var editions: [(String, String)] { let base = [("ar.muyassar", "التفسير الميسّر"), ("ar.jalalayn", "الجلالين"), ("en.sahih", "English")]; if let q = L.quran[L.code], q.0 != "en.sahih" { return [(q.0, q.1)] + base }; return base }
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 10) {
-                SheetHead(title: "تفسير سورة \(Quran.surahs[s - 1]) — الآية \(a.ar)")
+                SheetHead(title: tr("تفسير سورة {0} — الآية {1}", Quran.surahs[s - 1], a.ar))
                 Seg(items: TafsirSheet.editions.map(\.1), selected: TafsirSheet.editions.firstIndex { $0.0 == ed } ?? 0) { ed = TafsirSheet.editions[$0].0 }.padding(.horizontal, 20)
                 Text("﴿\(text)﴾").font(F.quran(21)).foregroundStyle(c.text).lineSpacing(14).multilineTextAlignment(.center).frame(maxWidth: .infinity).padding(.horizontal, 20)
-                if let t { Text(t).font(ed == "en.sahih" ? F.plex(16) : F.amiri(18, bold: false)).foregroundStyle(c.text).lineSpacing(10).environment(\.layoutDirection, ed == "en.sahih" ? .leftToRight : .rightToLeft).frame(maxWidth: .infinity, alignment: .leading).padding(.horizontal, 20) }
+                if let t { Text(t).font(!ed.hasPrefix("ar.") ? F.plex(16) : F.amiri(18, bold: false)).foregroundStyle(c.text).lineSpacing(10).environment(\.layoutDirection, !ed.hasPrefix("ar.") ? (["ur.jalandhry", "fa.khorramdel"].contains(ed) ? .rightToLeft : .leftToRight) : .rightToLeft).frame(maxWidth: .infinity, alignment: .leading).padding(.horizontal, 20) }
                 else { ProgressView().tint(c.gold).frame(maxWidth: .infinity).padding(30) }
-                HStack(spacing: 8) { Chip(text: "نسخ", icon: "copy") { UIPasteboard.general.string = "﴿\(text)﴾\n\(t ?? "")"; ui.say("نُسخ التفسير") } }.padding(.horizontal, 20)
+                HStack(spacing: 8) { Chip(text: tr("نسخ"), icon: "copy") { UIPasteboard.general.string = "﴿\(text)﴾\n\(t ?? "")"; ui.say(tr("نُسخ التفسير")) } }.padding(.horizontal, 20)
             }.padding(.bottom, 20)
         }
-        .background(c.bg2.ignoresSafeArea()).environment(\.layoutDirection, .rightToLeft)
-        .task(id: ed) { t = nil; let m = await repo.tafsir(s, edition: ed); t = m[a] ?? "تعذّر تحميل التفسير الآن." }
+        .background(c.bg2.ignoresSafeArea()).environment(\.layoutDirection, L.dir)
+        .task(id: ed) { t = nil; let m = await repo.tafsir(s, edition: ed); t = m[a] ?? tr("تعذّر تحميل التفسير الآن.") }
     }
 }
 
@@ -482,15 +482,15 @@ struct AyahPickSheet: View {
     @State private var a = 1
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
-            SheetHead(title: "اختر آية")
+            SheetHead(title: tr("اختر آية"))
             HStack(spacing: 8) {
-                OptMenu(label: "السورة", value: s, opts: (1...114).map { ($0, "\($0.ar) \(Quran.surahs[$0 - 1])") }) { s = $0; a = 1 }
-                OptMenu(label: "الآية", value: a, opts: (1...Quran.ayahs[s - 1]).map { ($0, $0.ar) }) { a = $0 }
+                OptMenu(label: tr("السورة"), value: s, opts: (1...114).map { ($0, "\($0.ar) \(Quran.surahs[$0 - 1])") }) { s = $0; a = 1 }
+                OptMenu(label: tr("الآية"), value: a, opts: (1...Quran.ayahs[s - 1]).map { ($0, $0.ar) }) { a = $0 }
             }.padding(.horizontal, 20)
-            GoldButton(title: "عرض الآية", icon: "check") { pick(s, a) }.padding(.horizontal, 20)
+            GoldButton(title: tr("عرض الآية"), icon: "check") { pick(s, a) }.padding(.horizontal, 20)
             Spacer()
         }
-        .background(c.bg2.ignoresSafeArea()).environment(\.layoutDirection, .rightToLeft)
+        .background(c.bg2.ignoresSafeArea()).environment(\.layoutDirection, L.dir)
         .onAppear { s = s0; a = a0 }
     }
 }
@@ -510,7 +510,7 @@ struct PrayerBand: View {
                     Button { ui.sheet = .prayer } label: {
                         HStack(spacing: 4) {
                             SiteIcon(name: "pin", size: 18, color: c.gold)
-                            Text(prayers.place.isEmpty ? "حدّد مدينتك" : prayers.place).font(F.plex(14, .semibold)).foregroundStyle(c.text).lineLimit(1)
+                            Text(prayers.place.isEmpty ? tr("حدّد مدينتك") : prayers.place).font(F.plex(14, .semibold)).foregroundStyle(c.text).lineLimit(1)
                             SiteIcon(name: "chev-d", size: 18, color: c.muted)
                         }.padding(.vertical, 4)
                     }.buttonStyle(.plain)
@@ -521,7 +521,7 @@ struct PrayerBand: View {
                     ForEach(list) { p in
                         let on = p.key == next?.key && p.time == next?.time, sun = p.key == "sunrise"
                         VStack(spacing: 2) {
-                            Text(p.key == "dhuhr" && Calendar.current.component(.weekday, from: p.time) == 6 ? "الجمعة" : p.name).font(F.plex(12, .medium)).foregroundStyle(on ? c.onGold : sun ? c.faint : c.muted)
+                            Text(p.key == "dhuhr" && Calendar.current.component(.weekday, from: p.time) == 6 ? tr("الجمعة") : p.name).font(F.plex(12, .medium)).foregroundStyle(on ? c.onGold : sun ? c.faint : c.muted)
                             Text(hm(p.time)).font(F.plex(15, .bold)).foregroundStyle(on ? c.onGold : sun ? c.faint : c.text)
                         }.frame(maxWidth: .infinity).padding(.vertical, 8)
                         .background(RoundedRectangle(cornerRadius: 14).fill(on ? AnyShapeStyle(c.goldBrush) : AnyShapeStyle(Color.clear))).padding(.horizontal, 2)
@@ -531,7 +531,7 @@ struct PrayerBand: View {
                     let left = max(0, Int(n.time.timeIntervalSince(ctx.date)))
                     Button { ui.go(.prayer) } label: {
                         HStack {
-                            Text("المتبقي على \(n.name)").font(F.plex(14)).foregroundStyle(c.muted)
+                            Text(tr("المتبقي على {0}", n.name)).font(F.plex(14)).foregroundStyle(c.muted)
                             Spacer()
                             Text(String(format: "%02d:%02d:%02d", left / 3600, left % 3600 / 60, left % 60)).font(F.plex(22, .medium)).foregroundStyle(c.gold).monospacedDigit().environment(\.layoutDirection, .leftToRight)
                         }.padding(.horizontal, 14).padding(.vertical, 10).background(RoundedRectangle(cornerRadius: 16).fill(c.bg2.opacity(0.6)))
@@ -542,7 +542,7 @@ struct PrayerBand: View {
         .padding(.horizontal, 16).padding(.vertical, 8)
         .id(prayers.rev)
     }
-    private func hm(_ d: Date) -> String { let f = DateFormatter(); f.locale = Locale(identifier: "ar"); f.dateFormat = "h:mm"; return f.string(from: d) }
+    private func hm(_ d: Date) -> String { let f = DateFormatter(); f.locale = L.locale; f.dateFormat = "h:mm"; return f.string(from: d) }
 }
 
 /// The live stream on the home page (like the site): plays by itself without sound; a button turns the sound on;
@@ -550,44 +550,51 @@ struct PrayerBand: View {
 struct LiveStage: View {
     @EnvironmentObject var repo: Repo
     @EnvironmentObject var ui: UIState
-    @EnvironmentObject var prayers: Prayers
     @Environment(\.pal) private var c
     @Environment(\.scenePhase) private var phase
     @State private var sound = false
     @State private var poster = true
     @State private var pulse = false
+    @State private var mosque = Haram.chosen
     @StateObject private var ctl = LiveCtl()
     var body: some View {
         let l = repo.data?.site.live
-        let id = ytId(l?["url"].str ?? "") ?? "eC4LfEVxvKg"
+        let src = Haram.src(mosque)
         let auto = l?["autoplayHome"].bool(true) ?? true
         ZStack {
             c.surface3
-            if auto { LiveEmbed(id: id, ctl: ctl) }
-            RemoteImage(raw: "https://i.ytimg.com/vi/\(id)/hqdefault.jpg").opacity(poster || !auto ? 1 : 0).animation(.easeOut(duration: 0.6), value: poster)
+            if auto && !src.embed.isEmpty { LiveEmbed(id: src.embed, ctl: ctl).id(mosque) }
+            RemoteImage(raw: src.poster).opacity(poster || !auto ? 1 : 0).animation(.easeOut(duration: 0.6), value: poster)
             LinearGradient(stops: [.init(color: .black.opacity(0.35), location: 0), .init(color: .clear, location: 0.5), .init(color: .black.opacity(0.8), location: 1)], startPoint: .top, endPoint: .bottom)
-                .contentShape(Rectangle()).onTapGesture { ui.go(.live) }
+                .contentShape(Rectangle()).onTapGesture { ui.path.append(.liveAt(mosque)) }
             VStack {
                 HStack(alignment: .top) {
-                    HStack(spacing: 6) { Circle().fill(Color(hex: 0xFFE5484D)).frame(width: 8, height: 8).opacity(pulse ? 1 : 0.35); Text("مباشر").font(F.plex(12, .bold)).foregroundStyle(.white) }
-                        .padding(.horizontal, 10).padding(.vertical, 5).background(Capsule().fill(Color(hex: 0xCC000000)))
-                    Spacer()
-                    if l?["showPrayer"].bool(true) != false, let n = prayers.next() {
-                        TimelineView(.periodic(from: .now, by: 1)) { tl in
-                            let left = max(0, Int(n.time.timeIntervalSince(tl.date)))
-                            VStack(spacing: 0) {
-                                Text("\(n.name) بعد").font(F.plex(11)).foregroundStyle(Color(hex: 0xFFE3C88D))
-                                Text(String(format: "%02d:%02d:%02d", left / 3600, left % 3600 / 60, left % 60)).font(F.plex(15, .bold)).foregroundStyle(.white).monospacedDigit().environment(\.layoutDirection, .leftToRight)
-                            }.padding(.horizontal, 10).padding(.vertical, 5).background(RoundedRectangle(cornerRadius: 14).fill(Color(hex: 0xAA000000)))
-                        }
+                    VStack(alignment: .leading, spacing: 8) {
+                        HStack(spacing: 6) { Circle().fill(Color(hex: 0xFFE5484D)).frame(width: 8, height: 8).opacity(pulse ? 1 : 0.35); Text(tr("مباشر")).font(F.plex(12, .bold)).foregroundStyle(.white) }
+                            .padding(.horizontal, 10).padding(.vertical, 5).background(Capsule().fill(Color(hex: 0xCC000000)))
+                        MosqueChips(mosque: $mosque, onDark: true).onChange(of: mosque) { _ in poster = true; DispatchQueue.main.asyncAfter(deadline: .now() + 2.5) { poster = false } }
                     }
-                }.padding(14)
+                    Spacer()
+                    if l?["showPrayer"].bool(true) != false {
+                        TimelineView(.periodic(from: .now, by: 1)) { tl in HaramStateBox(st: Haram.state(mosque, tl.date)) }
+                    }
+                }.padding(12)
                 Spacer()
                 HStack(alignment: .center, spacing: 12) {
                     SiteIcon(name: "play", size: 28, color: c.onGold).frame(width: 46, height: 46).background(Circle().fill(c.goldBrush))
-                    VStack(alignment: .leading, spacing: 0) {
-                        Text(l?["title"].str.isEmpty == false ? l!["title"].str : "البث المباشر").font(F.plex(16, .semibold)).foregroundStyle(.white).lineLimit(1)
-                        Text(auto ? "اضغط لفتح البث" : "اضغط للمشاهدة بالصوت").font(F.plex(12.5)).foregroundStyle(.white.opacity(0.8))
+                    VStack(alignment: .leading, spacing: 1) {
+                        Text(src.title).font(F.plex(16, .semibold)).foregroundStyle(.white).lineLimit(1)
+                        // who leads the prayer: from a while before the adhan (the dashboard's «before», 0 = always), with its time, until the prayer ends
+                        TimelineView(.periodic(from: .now, by: 30)) { tl in
+                            if let n = Haram.next(mosque, tl.date), let p = n.imam {
+                                let left = n.at.timeIntervalSince(tl.date), bm = Haram.beforeMin, during = left <= 0
+                                let name = n.key == "jumuah" ? tr("الجمعة") : Haram.prayerName(n.key)
+                                if during || bm == 0 || left <= Double(bm * 60) {
+                                    Text(during ? tr("يؤم صلاة {0} الآن: الشيخ {1}", name, p.name) : tr("يؤم صلاة {0} الساعة {1}: الشيخ {2}", name, Haram.clock(n.at), p.name))
+                                        .font(F.plex(12.5)).foregroundStyle(Color(hex: 0xFFE3C88D)).lineLimit(1)
+                                } else { Text(Haram.mosque(mosque).city).font(F.plex(12.5)).foregroundStyle(.white.opacity(0.8)) }
+                            } else { Text(Haram.mosque(mosque).city).font(F.plex(12.5)).foregroundStyle(.white.opacity(0.8)) }
+                        }
                     }
                     Spacer()
                     if auto {
@@ -595,7 +602,7 @@ struct LiveStage: View {
                             sound.toggle()
                             if sound { AdhanPlayer.shared.stop(); AudioPlayer.shared.pause(); AyahPlayer.shared.stop(); ctl.js("cmd('unMute');cmd('setVolume',[100]);cmd('playVideo')") } else { ctl.js("cmd('mute')") }
                         } label: { SiteIcon(name: sound ? "volume" : "mute", size: 20, color: .white).frame(width: 42, height: 42).background(Circle().fill(Color(hex: 0xAA000000))) }
-                            .accessibilityLabel(sound ? "كتم الصوت" : "تشغيل الصوت")
+                            .accessibilityLabel(sound ? tr("كتم الصوت") : tr("تشغيل الصوت"))
                     }
                 }.padding(14).allowsHitTesting(true)
             }
@@ -603,7 +610,7 @@ struct LiveStage: View {
         .aspectRatio(16 / 9, contentMode: .fit)
         .clipShape(RoundedRectangle(cornerRadius: 24)).overlay(RoundedRectangle(cornerRadius: 24).stroke(c.line))
         .padding(.horizontal, 16).padding(.vertical, 8)
-        .onAppear { withAnimation(.easeInOut(duration: 0.9).repeatForever()) { pulse = true }; DispatchQueue.main.asyncAfter(deadline: .now() + 2.5) { poster = false } }
+        .onAppear { mosque = Haram.chosen; withAnimation(.easeInOut(duration: 0.9).repeatForever()) { pulse = true }; DispatchQueue.main.asyncAfter(deadline: .now() + 2.5) { poster = false } }
         .onChange(of: phase) { p in ctl.js(p == .active ? "cmd('playVideo')" : "cmd('pauseVideo')") }
         .onDisappear { ctl.js("cmd('pauseVideo')") }
     }
@@ -619,7 +626,7 @@ struct LiveEmbed: UIViewRepresentable {
         ctl.web = w
         let html = """
         <html><head><meta name="viewport" content="width=device-width,initial-scale=1"><style>html,body{margin:0;background:#000;height:100%;overflow:hidden}iframe{border:0;width:100%;height:100%;pointer-events:none}</style></head>
-        <body><iframe id="p" src="https://www.youtube.com/embed/\(id)?playsinline=1&autoplay=1&mute=1&controls=0&rel=0&modestbranding=1&enablejsapi=1" allow="autoplay; encrypted-media"></iframe>
+        <body><iframe id="p" src="https://www.youtube.com/embed/\(id)\(id.contains("?") ? "&" : "?")playsinline=1&autoplay=1&mute=1&controls=0&rel=0&modestbranding=1&enablejsapi=1" allow="autoplay; encrypted-media"></iframe>
         <script>function cmd(f,a){document.getElementById('p').contentWindow.postMessage(JSON.stringify({event:'command',func:f,args:a||[]}),'*')}</script></body></html>
         """
         w.loadHTMLString(html, baseURL: URL(string: Repo.site))

@@ -14,8 +14,8 @@ struct QuranView: View {
                 if q.isEmpty {
                     if mus {
                         HStack(spacing: 10) {
-                            BigTile(icon: "book", title: "المصحف الشريف", sub: "صفحات مصحف المدينة") { ui.path.append(.mushaf) }
-                            BigTile(icon: "waveform", title: "اقرأ واستمع واحفظ", sub: "الكلمات تضيء مع التلاوة") { ui.path.append(.readIndex) }
+                            BigTile(icon: "book", title: tr("المصحف الشريف"), sub: tr("صفحات مصحف المدينة")) { ui.path.append(.mushaf) }
+                            BigTile(icon: "waveform", title: tr("اقرأ واستمع واحفظ"), sub: tr("الكلمات تضيء مع التلاوة")) { ui.path.append(.readIndex) }
                         }.padding(.horizontal, 16).padding(.vertical, 8)
                         WirdCard().padding(.horizontal, 16).padding(.vertical, 6)
                         QuranFullBanner().padding(.horizontal, 16).padding(.vertical, 4)
@@ -24,20 +24,20 @@ struct QuranView: View {
                         Button { ui.path.append(.surah(last[0] * 1000 + last[1])) } label: {
                             HStack(spacing: 10) {
                                 SiteIcon(name: "bookmark", size: 24, color: c.onGold)
-                                VStack(alignment: .leading, spacing: 0) { Text("تابع القراءة").font(F.plex(12.5, .medium)); Text("سورة \(Quran.surahs[last[0] - 1]) — الآية \(last[1].ar)").font(F.plex(14, .semibold)) }.foregroundStyle(c.onGold)
+                                VStack(alignment: .leading, spacing: 0) { Text(tr("تابع القراءة")).font(F.plex(12.5, .medium)); Text(tr("سورة {0} — الآية {1}", Quran.surahs[last[0] - 1], last[1].ar)).font(F.plex(14, .semibold)) }.foregroundStyle(c.onGold)
                                 Spacer(); SiteIcon(name: "chev-l", size: 22, color: c.onGold)
                             }.padding(14).background(RoundedRectangle(cornerRadius: 18).fill(c.goldBrush))
                         }.buttonStyle(Press()).padding(.horizontal, 16).padding(.vertical, 4)
                     }
                 }
-                SectionHead(title: "فهرس السور", kicker: "١١٤ سورة")
-                SearchField(text: $q, hint: "ابحث عن سورة باسمها أو رقمها").padding(.horizontal, 16).padding(.vertical, 4)
+                SectionHead(title: tr("فهرس السور"), kicker: tr("١١٤ سورة"))
+                SearchField(text: $q, hint: tr("ابحث عن سورة باسمها أو رقمها")).padding(.horizontal, 16).padding(.vertical, 4)
                 ForEach(Array(Quran.surahs.enumerated()).filter { q.isEmpty || QuranMeta.norm($0.element).contains(QuranMeta.norm(q.trimmingCharacters(in: .whitespaces))) || "\($0.offset + 1)" == q.trimmingCharacters(in: .whitespaces) }, id: \.offset) { i, n in
                     HStack(spacing: 14) {
                         SurahMedal(n: i + 1, size: 44)
-                        VStack(alignment: .leading, spacing: 0) { Text("سورة \(n)").font(F.amiri(20, bold: false)).foregroundStyle(c.text); Text("\(Quran.ayahs[i].ar) آية · صفحة \(Quran.surahPage[i].ar)").font(F.plex(12.5)).foregroundStyle(c.muted) }
+                        VStack(alignment: .leading, spacing: 0) { Text(tr("سورة {0}", n)).font(F.amiri(20, bold: false)).foregroundStyle(c.text); Text(tr("{0} آية · صفحة {1}", Quran.ayahs[i].ar, Quran.surahPage[i].ar)).font(F.plex(12.5)).foregroundStyle(c.muted) }
                         Spacer()
-                        if mus { Button { UserDefaults.standard.set(Quran.surahPage[i], forKey: "mushafPage"); ui.path.append(.mushaf) } label: { SiteIcon(name: "book", size: 22, color: c.faint).frame(width: 44, height: 44) }.buttonStyle(.plain).accessibilityLabel("افتح في المصحف") }
+                        if mus { Button { UserDefaults.standard.set(Quran.surahPage[i], forKey: "mushafPage"); ui.path.append(.mushaf) } label: { SiteIcon(name: "book", size: 22, color: c.faint).frame(width: 44, height: 44) }.buttonStyle(.plain).accessibilityLabel(tr("افتح في المصحف")) }
                     }
                     .padding(.horizontal, 18).padding(.vertical, 10).contentShape(Rectangle())
                     .onTapGesture { ui.path.append(.surah(i + 1)) }
@@ -85,24 +85,24 @@ struct WirdCard: View {
             HStack(spacing: 10) {
                 SiteIcon(name: "calendar", size: 20, color: c.gold).frame(width: 38, height: 38).background(Circle().fill(c.gold.opacity(0.18)))
                 VStack(alignment: .leading, spacing: 0) {
-                    Text("الورد اليومي").font(F.plex(16, .semibold)).foregroundStyle(c.text)
-                    Text(!on ? "اجعل لك وردًا ثابتًا من القرآن كل يوم" : Wird.doneToday ? "أتممت ورد اليوم — بارك الله فيك" : "ورد اليوم بانتظارك").font(F.plex(12.5)).foregroundStyle(c.muted)
+                    Text(tr("الورد اليومي")).font(F.plex(16, .semibold)).foregroundStyle(c.text)
+                    Text(!on ? tr("اجعل لك وردًا ثابتًا من القرآن كل يوم") : Wird.doneToday ? tr("أتممت ورد اليوم — بارك الله فيك") : tr("ورد اليوم بانتظارك")).font(F.plex(12.5)).foregroundStyle(c.muted)
                 }
                 Spacer()
-                if on { Button { ui.sheet = .wird } label: { SiteIcon(name: "gear", size: 22, color: c.muted).frame(width: 44, height: 44) }.accessibilityLabel("إعدادات الورد") }
+                if on { Button { ui.sheet = .wird } label: { SiteIcon(name: "gear", size: 22, color: c.muted).frame(width: 44, height: 44) }.accessibilityLabel(tr("إعدادات الورد")) }
             }
-            if !on { GoldButton(title: "ابدأ وردك", icon: "plus") { ui.sheet = .wird }.frame(maxWidth: .infinity).padding(.top, 12) }
+            if !on { GoldButton(title: tr("ابدأ وردك"), icon: "plus") { ui.sheet = .wird }.frame(maxWidth: .infinity).padding(.top, 12) }
             else {
                 let (f, t) = Wird.range
-                Text(Wird.doneToday ? "الورد القادم" : "ورد اليوم").font(F.plex(12.5, .medium)).foregroundStyle(c.gold).padding(.top, 14)
-                Text(f == t ? "صفحة \(f.ar)" : "من صفحة \(f.ar) إلى \(t.ar)").font(F.amiri(24, bold: false)).foregroundStyle(c.text)
-                Text("سورة \(Quran.surahs[Wird.surahOfPage(f) - 1]) · الجزء \(Wird.juzOf(f).ar)").font(F.plex(12.5)).foregroundStyle(c.muted)
+                Text(Wird.doneToday ? tr("الورد القادم") : tr("ورد اليوم")).font(F.plex(12.5, .medium)).foregroundStyle(c.gold).padding(.top, 14)
+                Text(f == t ? tr("صفحة {0}", f.ar) : tr("من صفحة {0} إلى {1}", f.ar, t.ar)).font(F.amiri(24, bold: false)).foregroundStyle(c.text)
+                Text(tr("سورة {0} · الجزء {1}", Quran.surahs[Wird.surahOfPage(f) - 1], Wird.juzOf(f).ar)).font(F.plex(12.5)).foregroundStyle(c.muted)
                 GeometryReader { g in ZStack(alignment: .leading) { Capsule().fill(c.surface3); Capsule().fill(c.goldBrush).frame(width: g.size.width * max(0.015, Double(Wird.percent) / 100)) } }.frame(height: 7).padding(.top, 12)
-                HStack { Text("الختمة \(Wird.percent.ar)٪").font(F.plex(11)).foregroundStyle(c.muted); Spacer(); if Wird.khatmas > 0 { Text("ختمات: \(Wird.khatmas.ar)").font(F.plex(11)).foregroundStyle(c.gold) } }.padding(.top, 6)
+                HStack { Text(tr("الختمة {0}٪", Wird.percent.ar)).font(F.plex(11)).foregroundStyle(c.muted); Spacer(); if Wird.khatmas > 0 { Text(tr("ختمات: {0}", Wird.khatmas.ar)).font(F.plex(11)).foregroundStyle(c.gold) } }.padding(.top, 6)
                 HStack(spacing: 10) {
-                    GoldButton(title: "اقرأ الورد", icon: "book") { UserDefaults.standard.set(f, forKey: "mushafPage"); ui.path.append(.mushaf) }.frame(maxWidth: .infinity)
-                    if !Wird.doneToday { GhostButton(title: "أتممت", icon: "check") { msg = Wird.done() ? "مبارك! أتممت ختم القرآن الكريم — تقبّل الله منك" : "تقبّل الله منك — حُفظ موضع وردك القادم" }.frame(maxWidth: .infinity) }
-                    else if Wird.canUndo { GhostButton(title: "تراجع") { Wird.undo() }.frame(maxWidth: .infinity) }
+                    GoldButton(title: tr("اقرأ الورد"), icon: "book") { UserDefaults.standard.set(f, forKey: "mushafPage"); ui.path.append(.mushaf) }.frame(maxWidth: .infinity)
+                    if !Wird.doneToday { GhostButton(title: tr("أتممت"), icon: "check") { msg = Wird.done() ? tr("مبارك! أتممت ختم القرآن الكريم — تقبّل الله منك") : tr("تقبّل الله منك — حُفظ موضع وردك القادم") }.frame(maxWidth: .infinity) }
+                    else if Wird.canUndo { GhostButton(title: tr("تراجع")) { Wird.undo() }.frame(maxWidth: .infinity) }
                 }.padding(.top, 12)
                 if let msg { Text(msg).font(F.plex(12.5)).foregroundStyle(c.gold).padding(.top, 8) }
             }
@@ -123,6 +123,8 @@ struct SurahView: View {
     @EnvironmentObject var store: Store
     @Environment(\.pal) private var c
     @State private var ayahs: [String]?
+    /// the meaning under each ayah, in the app language (none in Arabic)
+    @State private var meaning: [Int: String] = [:]
     @State private var failed = false
     @AppStorage("qsize") private var size = 26.0
     @State private var cont = true
@@ -140,8 +142,8 @@ struct SurahView: View {
         let opts = ayah.options(s, 1)
         VStack(spacing: 0) {
             HStack(spacing: 6) {
-                OptMenu(label: "", value: rv, opts: opts.map { ($0.value, $0.label + ($0.ok ? "" : " (غير متاحة)")) }) { store.ayahReciter = $0; ayah.stop() }.frame(maxWidth: .infinity, alignment: .leading)
-                Chip(text: nil, icon: "queue", on: cont) { cont.toggle(); ui.say(cont ? "تشغيل متتابع للآيات" : "تشغيل آية واحدة") }
+                OptMenu(label: "", value: rv, opts: opts.map { ($0.value, $0.label + ($0.ok ? "" : tr(" (غير متاحة)"))) }) { store.ayahReciter = $0; ayah.stop() }.frame(maxWidth: .infinity, alignment: .leading)
+                Chip(text: nil, icon: "queue", on: cont) { cont.toggle(); ui.say(cont ? tr("تشغيل متتابع للآيات") : tr("تشغيل آية واحدة")) }
                 Chip(text: nil, icon: "zoom-out") { size = max(18, size - 2) }
                 Chip(text: nil, icon: "zoom-in") { size = min(44, size + 2) }
             }.padding(.horizontal, 12).padding(.vertical, 6)
@@ -150,47 +152,53 @@ struct SurahView: View {
                     LazyVStack(spacing: 0) {
                         Panel(pad: 18) {
                             VStack(spacing: 0) {
-                                Text("سورة \(Quran.surahs[s - 1])").font(F.amiri(30)).foregroundStyle(c.goldBrushV)
-                                Text("\(Quran.ayahs[s - 1].ar) آية · الجزء \(Quran.juzOfPage(Quran.surahPage[s - 1]).ar)").font(F.plex(12.5)).foregroundStyle(c.muted)
+                                Text(tr("سورة {0}", Quran.surahs[s - 1])).font(F.amiri(30)).foregroundStyle(c.goldBrushV)
+                                Text(tr("{0} آية · الجزء {1}", Quran.ayahs[s - 1].ar, Quran.juzOfPage(Quran.surahPage[s - 1]).ar)).font(F.plex(12.5)).foregroundStyle(c.muted)
                                 Ornament().padding(.vertical, 8)
-                                if s != 1 && s != 9 { Text("بِسْمِ ٱللَّهِ ٱلرَّحْمَٰنِ ٱلرَّحِيمِ").font(F.quran(24)).foregroundStyle(c.text) }
+                                if s != 1 && s != 9 { Text(tr("بِسْمِ ٱللَّهِ ٱلرَّحْمَٰنِ ٱلرَّحِيمِ")).font(F.quran(24)).foregroundStyle(c.text) }
                                 HStack(spacing: 8) {
-                                    Chip(text: cur != nil && ayah.playing ? "إيقاف" : "استمع للسورة", icon: cur != nil && ayah.playing ? "pause" : "play") { if cur != nil && ayah.playing { ayah.stop() } else { playFrom(1, sp) } }
-                                    if repo.data?.site.sec("mushaf") != false { Chip(text: "في المصحف", icon: "book") { UserDefaults.standard.set(Quran.surahPage[s - 1], forKey: "mushafPage"); ui.path.append(.mushaf) } }
+                                    Chip(text: cur != nil && ayah.playing ? tr("إيقاف") : tr("استمع للسورة"), icon: cur != nil && ayah.playing ? "pause" : "play") { if cur != nil && ayah.playing { ayah.stop() } else { playFrom(1, sp) } }
+                                    if repo.data?.site.sec("mushaf") != false { Chip(text: tr("في المصحف"), icon: "book") { UserDefaults.standard.set(Quran.surahPage[s - 1], forKey: "mushafPage"); ui.path.append(.mushaf) } }
                                 }.padding(.top, 10)
                             }.frame(maxWidth: .infinity)
                         }.padding(.bottom, 10)
                         if let ayahs {
                             ForEach(1...ayahs.count, id: \.self) { a in
                                 let on = cur == a
-                                Text("\(ayahClean(s, a, ayahs[a - 1])) ﴿\(a.ar)﴾").font(F.quran(size)).foregroundStyle(on ? c.gold : c.text).lineSpacing(size * 0.75).multilineTextAlignment(.leading)
+                                Text("\(ayahClean(s, a, ayahs[a - 1])) ﴿\(a.qar)﴾").font(F.quran(size)).foregroundStyle(on ? c.gold : c.text).lineSpacing(size * 0.75).multilineTextAlignment(.leading)
                                     .frame(maxWidth: .infinity, alignment: .leading).padding(.horizontal, 12).padding(.vertical, 10)
                                     .background(RoundedRectangle(cornerRadius: 18).fill(on ? c.gold.opacity(0.13) : .clear)).padding(.vertical, 3)
                                     .contentShape(Rectangle())
                                     .onTapGesture { if on { ayah.stop() } else { playFrom(a, sp) } }
                                     .onLongPressGesture { act = a }
                                     .id(a)
+                                if let m = meaning[a] {
+                                    Text(m).font(F.plex(15)).foregroundStyle(c.muted).lineSpacing(5).multilineTextAlignment(.leading)
+                                        .frame(maxWidth: .infinity, alignment: .leading).padding(.horizontal, 14).padding(.bottom, 8)
+                                        .environment(\.layoutDirection, L.dir)
+                                }
                             }
-                            Text("اضغط على الآية لسماعها، واضغط مطوّلًا للتفسير والمزيد").font(F.plex(11)).foregroundStyle(c.faint).frame(maxWidth: .infinity).padding(.top, 14)
+                            if !meaning.isEmpty, let q = L.quran[L.code] { Text(tr("ترجمة المعاني") + ": " + q.1).font(F.plex(11.5)).foregroundStyle(c.faint).frame(maxWidth: .infinity).padding(.top, 10) }
+                            Text(tr("اضغط على الآية لسماعها، واضغط مطوّلًا للتفسير والمزيد")).font(F.plex(11)).foregroundStyle(c.faint).frame(maxWidth: .infinity).padding(.top, 14)
                         } else {
-                            Group { if failed { Text("تعذّر تحميل السورة — تحقق من الاتصال").font(F.plex(14)).foregroundStyle(c.muted) } else { ProgressView().tint(c.gold) } }.padding(40)
+                            Group { if failed { Text(tr("تعذّر تحميل السورة — تحقق من الاتصال")).font(F.plex(14)).foregroundStyle(c.muted) } else { ProgressView().tint(c.gold) } }.padding(40)
                         }
                     }.padding(.horizontal, 14).padding(.top, 4).padding(.bottom, 32)
                 }
-                .task(id: s) { ayahs = await repo.surahText(s); failed = ayahs == nil; if start > 1 { try? await Task.sleep(nanoseconds: 300_000_000); sp.scrollTo(start, anchor: .top) } }
+                .task(id: s) { if let q = L.quran[L.code] { Task { meaning = await repo.tafsir(s, edition: q.0) } }; ayahs = await repo.surahText(s); failed = ayahs == nil; if start > 1 { try? await Task.sleep(nanoseconds: 300_000_000); sp.scrollTo(start, anchor: .top) } }
             }
         }
         .onDisappear { ayah.stop() }
         .bzSheet(item: Binding(get: { act.map(IntBox.init(v:)) }, set: { act = $0?.v })) { b in
-            let a = b.v, text = ayahClean(s, a, ayahs?[safe: a - 1] ?? ""), cite = "﴿\(text)﴾ [سورة \(Quran.surahs[s - 1]): \(a)]"
-            MenuSheet(title: "سورة \(Quran.surahs[s - 1]) — الآية \(a.ar)") {
-                MenuRow(icon: "play", title: "استمع للآية") { act = nil; ayah.play(rv, s, a) }
-                MenuRow(icon: "scroll", title: "التفسير") { act = nil; DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) { tafsir = a } }
-                MenuRow(icon: "copy", title: "نسخ") { UIPasteboard.general.string = cite; ui.say("نُسخت الآية"); act = nil }
-                MenuRow(icon: "share", title: "مشاركة") { act = nil; share("\(cite)\n\(Repo.site)") }
-                MenuRow(icon: "bookmark", title: "علامة القراءة هنا") { Store.shared.set("lastRead", "\(s):\(a)"); ui.say("حُفظت علامة القراءة"); act = nil }
-                if repo.data?.site.sec("maker") != false { MenuRow(icon: "image", title: "صمّمها") { act = nil; ui.path.append(.maker(s, a)) } }
-                if repo.data?.site.sec("community") != false { MenuRow(icon: "chat", title: "انشرها في المجتمع") { act = nil; ui.path.append(.compose("ayah:\(s):\(a)|\(rv)")) } }
+            let a = b.v, text = ayahClean(s, a, ayahs?[safe: a - 1] ?? ""), cite = tr("﴿{0}﴾ [سورة {1}: {2}]", text, Quran.surahs[s - 1], a)
+            MenuSheet(title: tr("سورة {0} — الآية {1}", Quran.surahs[s - 1], a.ar)) {
+                MenuRow(icon: "play", title: tr("استمع للآية")) { act = nil; ayah.play(rv, s, a) }
+                MenuRow(icon: "scroll", title: tr("التفسير")) { act = nil; DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) { tafsir = a } }
+                MenuRow(icon: "copy", title: tr("نسخ")) { UIPasteboard.general.string = cite; ui.say(tr("نُسخت الآية")); act = nil }
+                MenuRow(icon: "share", title: tr("مشاركة")) { act = nil; share("\(cite)\n\(Repo.site)") }
+                MenuRow(icon: "bookmark", title: tr("علامة القراءة هنا")) { Store.shared.set("lastRead", "\(s):\(a)"); ui.say(tr("حُفظت علامة القراءة")); act = nil }
+                if repo.data?.site.sec("maker") != false { MenuRow(icon: "image", title: tr("صمّمها")) { act = nil; ui.path.append(.maker(s, a)) } }
+                if repo.data?.site.sec("community") != false { MenuRow(icon: "chat", title: tr("انشرها في المجتمع")) { act = nil; ui.path.append(.compose("ayah:\(s):\(a)|\(rv)")) } }
             }.presentationDetents([.medium, .large])
         }
         .bzSheet(item: Binding(get: { tafsir.map(IntBox.init(v:)) }, set: { tafsir = $0?.v })) { b in

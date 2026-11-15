@@ -44,9 +44,9 @@ struct MiniPlayer: View {
                         Text(t.title).font(F.plex(15, .bold)).foregroundStyle(c.text).lineLimit(1)
                         Text(p.nowLabel?.0 == t.id ? p.nowLabel!.1 : (Repo.shared.reciter(t.reciterId)?.name ?? "")).font(F.plex(12.5)).foregroundStyle(c.muted).lineLimit(1)
                     }.padding(.leading, 12).frame(maxWidth: .infinity, alignment: .leading)
-                    Button { store.toggleFav(t.id) } label: { SiteIcon(name: store.favs.contains(t.id) ? "heart-f" : "heart", size: 22, color: store.favs.contains(t.id) ? c.danger : c.muted).frame(width: 40, height: 40) }.accessibilityLabel("المفضلة")
-                    Button { ui.playerOpen = true } label: { Ico(name: "chevron.up", size: 19.2).foregroundStyle(c.muted).frame(width: 38, height: 38) }.accessibilityLabel("فتح المشغّل")
-                    Button { p.close() } label: { SiteIcon(name: "close", size: 20, color: c.muted).frame(width: 38, height: 38) }.accessibilityLabel("إغلاق المشغّل")
+                    Button { store.toggleFav(t.id) } label: { SiteIcon(name: store.favs.contains(t.id) ? "heart-f" : "heart", size: 22, color: store.favs.contains(t.id) ? c.danger : c.muted).frame(width: 40, height: 40) }.accessibilityLabel(tr("المفضلة"))
+                    Button { ui.playerOpen = true } label: { Ico(name: "chevron.up", size: 19.2).foregroundStyle(c.muted).frame(width: 38, height: 38) }.accessibilityLabel(tr("فتح المشغّل"))
+                    Button { p.close() } label: { SiteIcon(name: "close", size: 20, color: c.muted).frame(width: 38, height: 38) }.accessibilityLabel(tr("إغلاق المشغّل"))
                 }
                 HStack(spacing: 0) {
                     Text(Fmt.dur(Int(v * p.duration)).isEmpty ? "0:00" : Fmt.dur(Int(v * p.duration))).font(F.plex(11)).foregroundStyle(c.muted).frame(width: 40)
@@ -56,23 +56,23 @@ struct MiniPlayer: View {
                 HStack(spacing: 0) {
                     Button { p.setSpeed(nextSpeed(store.speed)) } label: { Text("×" + speedText(store.speed)).font(F.plex(13, .bold)).foregroundStyle(store.speed != 1 ? c.gold : c.muted).frame(width: 40, height: 40) }
                     Spacer(minLength: 0)
-                    Button { p.cycleRepeat() } label: { ZStack { SiteIcon(name: "repeat", size: 22, color: p.repeatMode > 0 || p.repN > 0 ? c.gold : c.muted); if p.repeatMode == 2 { Text("١").font(F.plex(9, .bold)).foregroundStyle(c.gold) } }.frame(width: 40, height: 40) }.accessibilityLabel("تكرار")
+                    Button { p.cycleRepeat() } label: { ZStack { SiteIcon(name: "repeat", size: 22, color: p.repeatMode > 0 || p.repN > 0 ? c.gold : c.muted); if p.repeatMode == 2 { Text(tr("١")).font(F.plex(9, .bold)).foregroundStyle(c.gold) } }.frame(width: 40, height: 40) }.accessibilityLabel(tr("تكرار"))
                     Spacer(minLength: 0)
-                    Button { p.prev() } label: { SiteIcon(name: "prev", size: 24, color: c.text).frame(width: 40, height: 40) }.accessibilityLabel("السابق")
+                    Button { p.prev() } label: { SiteIcon(name: "prev", size: 24, color: c.text).frame(width: 40, height: 40) }.accessibilityLabel(tr("السابق"))
                     Spacer(minLength: 0)
-                    Button { p.skip(10) } label: { Ico(name: "gobackward.10", size: 24.0).foregroundStyle(c.text).frame(width: 40, height: 40) }.accessibilityLabel("تقديم ١٠ ثوانٍ")
+                    Button { p.skip(10) } label: { Ico(name: "gobackward.10", size: 24.0).foregroundStyle(c.text).frame(width: 40, height: 40) }.accessibilityLabel(tr("تقديم ١٠ ثوانٍ"))
                     Spacer(minLength: 0)
                     Button { p.toggle() } label: {
                         ZStack { Circle().fill(c.gold).shadow(color: c.gold.opacity(0.6), radius: 8); if p.buffering && p.playing { ProgressView().tint(c.onGold) } else { SiteIcon(name: p.playing ? "pause" : "play", size: 24, color: c.onGold) } }.frame(width: 54, height: 54)
-                    }.accessibilityLabel(p.playing ? "إيقاف مؤقت" : "تشغيل")
+                    }.accessibilityLabel(p.playing ? tr("إيقاف مؤقت") : tr("تشغيل"))
                     Spacer(minLength: 0)
-                    Button { p.skip(-10) } label: { Ico(name: "goforward.10", size: 24.0).foregroundStyle(c.text).frame(width: 40, height: 40) }.accessibilityLabel("رجوع ١٠ ثوانٍ")
+                    Button { p.skip(-10) } label: { Ico(name: "goforward.10", size: 24.0).foregroundStyle(c.text).frame(width: 40, height: 40) }.accessibilityLabel(tr("رجوع ١٠ ثوانٍ"))
                     Spacer(minLength: 0)
-                    Button { p.next() } label: { SiteIcon(name: "next", size: 24, color: c.text).frame(width: 40, height: 40) }.accessibilityLabel("التالي")
+                    Button { p.next() } label: { SiteIcon(name: "next", size: 24, color: c.text).frame(width: 40, height: 40) }.accessibilityLabel(tr("التالي"))
                     Spacer(minLength: 0)
-                    Button { p.shuffle.toggle() } label: { SiteIcon(name: "shuffle", size: 22, color: p.shuffle ? c.gold : c.muted).frame(width: 40, height: 40) }.accessibilityLabel("عشوائي")
+                    Button { p.shuffle.toggle() } label: { SiteIcon(name: "shuffle", size: 22, color: p.shuffle ? c.gold : c.muted).frame(width: 40, height: 40) }.accessibilityLabel(tr("عشوائي"))
                     Spacer(minLength: 0)
-                    Button { ui.playerOpen = true } label: { SiteIcon(name: "queue", size: 22, color: c.muted).frame(width: 40, height: 40) }.accessibilityLabel("قائمة الانتظار")
+                    Button { ui.playerOpen = true } label: { SiteIcon(name: "queue", size: 22, color: c.muted).frame(width: 40, height: 40) }.accessibilityLabel(tr("قائمة الانتظار"))
                 }
                 .environment(\.layoutDirection, .leftToRight)
             }
@@ -114,13 +114,13 @@ struct PlayerView: View {
                 StarPattern(tile: 110, alpha: 0.6, fade: true).ignoresSafeArea()
                 VStack(spacing: 0) {
                     HStack(spacing: 0) {
-                        Button { dismiss() } label: { Ico(name: "chevron.down", size: 28.8).foregroundStyle(c.text).frame(width: 48, height: 48) }.accessibilityLabel("إغلاق")
+                        Button { dismiss() } label: { Ico(name: "chevron.down", size: 28.8).foregroundStyle(c.text).frame(width: 48, height: 48) }.accessibilityLabel(tr("إغلاق"))
                         VStack(spacing: 0) {
-                            Text("يُشغَّل الآن").font(F.plex(12.5, .medium)).foregroundStyle(c.muted)
-                            if !t.surah.isEmpty { Text("سورة " + t.surah.replacingOccurrences(of: "سورة ", with: "")).font(F.plex(14, .semibold)).foregroundStyle(c.gold) }
+                            Text(tr("يُشغَّل الآن")).font(F.plex(12.5, .medium)).foregroundStyle(c.muted)
+                            if !t.surah.isEmpty { Text(tr("سورة ") + t.surah.replacingOccurrences(of: "سورة ", with: "")).font(F.plex(14, .semibold)).foregroundStyle(c.gold) }
                         }.frame(maxWidth: .infinity)
-                        if repo.data?.site.sec("community") != false { Button { dismiss(); DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) { ui.path.append(.compose("track:" + t.id)) } } label: { SiteIcon(name: "quote", size: 24, color: c.gold).frame(width: 48, height: 48) }.accessibilityLabel("اقتبسها في المجتمع") }
-                        Button { dismiss(); DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) { ui.menuFor = t } } label: { SiteIcon(name: "dots", size: 24, color: c.text).frame(width: 48, height: 48) }.accessibilityLabel("خيارات أخرى")
+                        if repo.data?.site.sec("community") != false { Button { dismiss(); DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) { ui.path.append(.compose("track:" + t.id)) } } label: { SiteIcon(name: "quote", size: 24, color: c.gold).frame(width: 48, height: 48) }.accessibilityLabel(tr("اقتبسها في المجتمع")) }
+                        Button { dismiss(); DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) { ui.menuFor = t } } label: { SiteIcon(name: "dots", size: 24, color: c.text).frame(width: 48, height: 48) }.accessibilityLabel(tr("خيارات أخرى"))
                     }.padding(.top, 4)
                     Spacer(minLength: 8)
                     ZStack {
@@ -132,50 +132,50 @@ struct PlayerView: View {
                     HStack(alignment: .center) {
                         VStack(alignment: .leading, spacing: 2) {
                             Text(t.title).font(F.amiri(24)).foregroundStyle(c.text).lineLimit(2).id(t.id).transition(.opacity)
-                            Button { if let r { dismiss(); DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) { ui.path.append(.reciter(r.id)) } } } label: { Text(r?.name ?? "").font(F.plex(14, .semibold)).foregroundStyle(c.gold) }.buttonStyle(.plain)
+                            Button { if let r { dismiss(); DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) { ui.path.append(.reciter(r.id)) } } } label: { Text(nm(r?.name)).font(F.plex(14, .semibold)).foregroundStyle(c.gold) }.buttonStyle(.plain)
                             if !t.location.isEmpty { Text(t.location).font(F.plex(12.5)).foregroundStyle(c.muted) }
                         }.frame(maxWidth: .infinity, alignment: .leading)
-                        Button { store.toggleFav(t.id) } label: { SiteIcon(name: store.favs.contains(t.id) ? "heart-f" : "heart", size: 26, color: store.favs.contains(t.id) ? c.danger : c.muted).frame(width: 48, height: 48) }.accessibilityLabel("المفضلة")
+                        Button { store.toggleFav(t.id) } label: { SiteIcon(name: store.favs.contains(t.id) ? "heart-f" : "heart", size: 26, color: store.favs.contains(t.id) ? c.danger : c.muted).frame(width: 48, height: 48) }.accessibilityLabel(tr("المفضلة"))
                     }
                     SeekBar(value: v, onDrag: { drag = $0 }, onDone: { drag = nil; p.seek($0 * p.duration) }).padding(.top, 8)
                     HStack { Text(Fmt.dur(Int(v * p.duration)).isEmpty ? "0:00" : Fmt.dur(Int(v * p.duration))); Spacer(); Text(Fmt.dur(Int(p.duration)).isEmpty ? "0:00" : Fmt.dur(Int(p.duration))) }.font(F.plex(12.5)).foregroundStyle(c.muted)
                     HStack {
-                        Button { p.shuffle.toggle() } label: { SiteIcon(name: "shuffle", size: 24, color: p.shuffle ? c.gold : c.muted).frame(width: 48, height: 48) }.accessibilityLabel("عشوائي")
+                        Button { p.shuffle.toggle() } label: { SiteIcon(name: "shuffle", size: 24, color: p.shuffle ? c.gold : c.muted).frame(width: 48, height: 48) }.accessibilityLabel(tr("عشوائي"))
                         Spacer()
-                        Button { p.prev() } label: { SiteIcon(name: "prev", size: 36, color: c.text).frame(width: 52, height: 52) }.accessibilityLabel("السابق")
+                        Button { p.prev() } label: { SiteIcon(name: "prev", size: 36, color: c.text).frame(width: 52, height: 52) }.accessibilityLabel(tr("السابق"))
                         Spacer()
                         PlayCircle(playing: p.playing, loading: p.buffering && p.playing, size: 74) { p.toggle() }
                         Spacer()
-                        Button { p.next() } label: { SiteIcon(name: "next", size: 36, color: c.text).frame(width: 52, height: 52) }.accessibilityLabel("التالي")
+                        Button { p.next() } label: { SiteIcon(name: "next", size: 36, color: c.text).frame(width: 52, height: 52) }.accessibilityLabel(tr("التالي"))
                         Spacer()
-                        Button { p.cycleRepeat() } label: { ZStack { SiteIcon(name: "repeat", size: 24, color: p.repeatMode > 0 ? c.gold : c.muted); if p.repeatMode == 2 { Text("١").font(F.plex(9, .bold)).foregroundStyle(c.gold) } }.frame(width: 48, height: 48) }.accessibilityLabel("تكرار")
+                        Button { p.cycleRepeat() } label: { ZStack { SiteIcon(name: "repeat", size: 24, color: p.repeatMode > 0 ? c.gold : c.muted); if p.repeatMode == 2 { Text(tr("١")).font(F.plex(9, .bold)).foregroundStyle(c.gold) } }.frame(width: 48, height: 48) }.accessibilityLabel(tr("تكرار"))
                     }.padding(.vertical, 10)
                     HStack {
-                        Button { p.skip(-10) } label: { Ico(name: "goforward.10", size: 25.2).foregroundStyle(c.muted).frame(width: 44, height: 44) }.accessibilityLabel("رجوع ١٠ ثوانٍ")
+                        Button { p.skip(-10) } label: { Ico(name: "goforward.10", size: 25.2).foregroundStyle(c.muted).frame(width: 44, height: 44) }.accessibilityLabel(tr("رجوع ١٠ ثوانٍ"))
                         Spacer(); action("gauge.with.needle", "\(speedText(store.speed))×", store.speed != 1) { showSpeed = true }
-                        Spacer(); action("timer", p.sleepAt.map { "\(max(0, Int($0.timeIntervalSinceNow / 60) + 1).ar) د" } ?? "مؤقت", p.sleepOn) { showSleep = true }
-                        Spacer(); action("wave", "أصوات", !amb.current.isEmpty) { showAmb = true }
-                        Spacer(); action("queue", "القائمة", false) { showQueue = true }
+                        Spacer(); action("timer", p.sleepAt.map { tr("{0} د", max(0, Int($0.timeIntervalSinceNow / 60) + 1).ar) } ?? tr("مؤقت"), p.sleepOn) { showSleep = true }
+                        Spacer(); action("wave", tr("أصوات"), !amb.current.isEmpty) { showAmb = true }
+                        Spacer(); action("queue", tr("القائمة"), false) { showQueue = true }
                         Spacer()
-                        Button { p.skip(10) } label: { Ico(name: "gobackward.10", size: 25.2).foregroundStyle(c.muted).frame(width: 44, height: 44) }.accessibilityLabel("تقديم ١٠ ثوانٍ")
+                        Button { p.skip(10) } label: { Ico(name: "gobackward.10", size: 25.2).foregroundStyle(c.muted).frame(width: 44, height: 44) }.accessibilityLabel(tr("تقديم ١٠ ثوانٍ"))
                     }
                     Spacer(minLength: 12)
                 }.padding(.horizontal, 24)
             }
             .gesture(DragGesture().onEnded { if $0.translation.height > 80 { dismiss() } })
             .onAppear { withAnimation(.easeInOut(duration: 2.6).repeatForever()) { breathe = true } }
-            .environment(\.layoutDirection, .rightToLeft)
+            .environment(\.layoutDirection, L.dir)
             .bzSheet(isPresented: $showQueue) { QueueSheet().presentationDetents([.medium, .large]) }
             .bzSheet(isPresented: $showAmb) { AmbientSheet().presentationDetents([.medium]) }
             .bzSheet(isPresented: $showSpeed) {
-                MenuSheet(title: "سرعة التشغيل") {
-                    ForEach([Float(0.75), 1, 1.25, 1.5, 1.75, 2], id: \.self) { s in MenuRow(icon: "gauge.with.needle", title: "\(speedText(s))×" + (s == 1 ? " (عادية)" : ""), on: store.speed == s) { p.setSpeed(s); showSpeed = false } }
+                MenuSheet(title: tr("سرعة التشغيل")) {
+                    ForEach([Float(0.75), 1, 1.25, 1.5, 1.75, 2], id: \.self) { s in MenuRow(icon: "gauge.with.needle", title: "\(speedText(s))×" + (s == 1 ? tr(" (عادية)") : ""), on: store.speed == s) { p.setSpeed(s); showSpeed = false } }
                 }.presentationDetents([.medium])
             }
             .bzSheet(isPresented: $showSleep) {
-                MenuSheet(title: "مؤقت الإيقاف") {
-                    if let at = p.sleepAt { Text("سيتوقف التشغيل بعد \((Int(at.timeIntervalSinceNow / 60) + 1).ar) دقيقة تقريبًا.").font(F.plex(14)).foregroundStyle(c.muted).padding(.horizontal, 22).padding(.vertical, 4) }
-                    ForEach([(0, "إيقاف المؤقت"), (10, "١٠ دقائق"), (15, "١٥ دقيقة"), (30, "٣٠ دقيقة"), (45, "٤٥ دقيقة"), (60, "ساعة"), (-1, "عند نهاية التلاوة الحالية")], id: \.0) { m, l in
+                MenuSheet(title: tr("مؤقت الإيقاف")) {
+                    if let at = p.sleepAt { Text(tr("سيتوقف التشغيل بعد {0} دقيقة تقريبًا.", (Int(at.timeIntervalSinceNow / 60) + 1).ar)).font(F.plex(14)).foregroundStyle(c.muted).padding(.horizontal, 22).padding(.vertical, 4) }
+                    ForEach([(0, tr("إيقاف المؤقت")), (10, tr("١٠ دقائق")), (15, tr("١٥ دقيقة")), (30, tr("٣٠ دقيقة")), (45, tr("٤٥ دقيقة")), (60, tr("ساعة")), (-1, tr("عند نهاية التلاوة الحالية"))], id: \.0) { m, l in
                         MenuRow(icon: "timer", title: l) { p.sleep(m); showSleep = false }
                     }
                 }.presentationDetents([.medium, .large])
@@ -194,8 +194,8 @@ struct QueueSheet: View {
     @EnvironmentObject var p: AudioPlayer
     @Environment(\.pal) private var c
     var body: some View {
-        MenuSheet(title: "قائمة التشغيل") {
-            HStack { Chip(text: "مسح القادم", icon: "trash") { p.clearUpcoming() } }.padding(.horizontal, 18).padding(.bottom, 6)
+        MenuSheet(title: tr("قائمة التشغيل")) {
+            HStack { Chip(text: tr("مسح القادم"), icon: "trash") { p.clearUpcoming() } }.padding(.horizontal, 18).padding(.bottom, 6)
             ForEach(Array(p.queue.enumerated()), id: \.offset) { i, q in
                 let cur = i == p.index
                 HStack(spacing: 10) {
@@ -204,8 +204,8 @@ struct QueueSheet: View {
                     VStack(alignment: .leading, spacing: 0) { Text(q.title).font(F.plex(14, .semibold)).foregroundStyle(cur ? c.gold : c.text).lineLimit(1); Text(Repo.shared.reciter(q.reciterId)?.name ?? "").font(F.plex(12.5)).foregroundStyle(c.muted).lineLimit(1) }
                     Spacer()
                     if !cur {
-                        Button { p.move(i, max(0, i - 1)) } label: { SiteIcon(name: "up", size: 20, color: c.muted).frame(width: 34, height: 34) }.accessibilityLabel("تحريك لأعلى")
-                        Button { p.remove(at: i) } label: { SiteIcon(name: "close", size: 20, color: c.muted).frame(width: 34, height: 34) }.accessibilityLabel("إزالة")
+                        Button { p.move(i, max(0, i - 1)) } label: { SiteIcon(name: "up", size: 20, color: c.muted).frame(width: 34, height: 34) }.accessibilityLabel(tr("تحريك لأعلى"))
+                        Button { p.remove(at: i) } label: { SiteIcon(name: "close", size: 20, color: c.muted).frame(width: 34, height: 34) }.accessibilityLabel(tr("إزالة"))
                     }
                 }
                 .padding(.leading, 18).padding(.trailing, 6).padding(.vertical, 8).background(cur ? c.gold.opacity(0.12) : .clear)
@@ -233,41 +233,41 @@ struct TrackMenu: View {
             VStack(alignment: .leading, spacing: 0) {
                 HStack(spacing: 12) {
                     RemoteImage(raw: t.cover.isEmpty ? r?.image : t.cover).frame(width: 58, height: 58).clipShape(RoundedRectangle(cornerRadius: 14))
-                    VStack(alignment: .leading, spacing: 1) { Text(t.title).font(F.plex(16, .semibold)).foregroundStyle(c.text).lineLimit(2); Text(r?.name ?? "").font(F.plex(12.5)).foregroundStyle(c.gold) }
+                    VStack(alignment: .leading, spacing: 1) { Text(t.title).font(F.plex(16, .semibold)).foregroundStyle(c.text).lineLimit(2); Text(nm(r?.name)).font(F.plex(12.5)).foregroundStyle(c.gold) }
                     Spacer()
                 }.padding(.horizontal, 22).padding(.top, 22).padding(.bottom, 6)
                 if !t.description.isEmpty { Text(t.description).font(F.plex(12.5)).foregroundStyle(c.muted).padding(.horizontal, 22).padding(.vertical, 4) }
                 Rectangle().fill(c.lineSoft).frame(height: 1).padding(.vertical, 6)
                 let fav = store.favs.contains(t.id)
-                MenuRow(icon: fav ? "heart-f" : "heart", title: fav ? "إزالة من المفضلة" : "إضافة للمفضلة") { store.toggleFav(t.id); ui.say(fav ? "أُزيلت من المفضلة" : "أُضيفت إلى المفضلة"); dismiss() }
-                if t.isVideo { MenuRow(icon: "film", title: "مشاهدة الفيديو") { dismiss(); ui.path.append(.watch(t.id)) } }
+                MenuRow(icon: fav ? "heart-f" : "heart", title: fav ? tr("إزالة من المفضلة") : tr("إضافة للمفضلة")) { store.toggleFav(t.id); ui.say(fav ? tr("أُزيلت من المفضلة") : tr("أُضيفت إلى المفضلة")); dismiss() }
+                if t.isVideo { MenuRow(icon: "film", title: tr("مشاهدة الفيديو")) { dismiss(); ui.path.append(.watch(t.id)) } }
                 else {
-                    MenuRow(icon: "next", title: "تشغيل بعد الحالية") { p.playNext(t); ui.say("ستُشغَّل بعد التلاوة الحالية"); dismiss() }
-                    MenuRow(icon: "queue", title: "إضافة لقائمة الانتظار") { p.enqueue(t); ui.say("أُضيفت إلى قائمة الانتظار"); dismiss() }
+                    MenuRow(icon: "next", title: tr("تشغيل بعد الحالية")) { p.playNext(t); ui.say(tr("ستُشغَّل بعد التلاوة الحالية")); dismiss() }
+                    MenuRow(icon: "queue", title: tr("إضافة لقائمة الانتظار")) { p.enqueue(t); ui.say(tr("أُضيفت إلى قائمة الانتظار")); dismiss() }
                 }
-                if feat("playlists") { MenuRow(icon: "playlist", title: "إضافة لقائمة تشغيل") { addList = true } }
-                if feat("listenLater") { MenuRow(icon: "clock", title: store.later.contains(t.id) ? "إزالة من «استمع لاحقًا»" : "استمع لاحقًا") { let on = store.toggleLater(t.id); ui.say(on ? "أُضيفت إلى استمع لاحقًا" : "أُزيلت من استمع لاحقًا"); dismiss() } }
-                if s?.sec("community") != false { MenuRow(icon: "quote", title: "اقتبسها في المجتمع", sub: "انشر التلاوة في منشور مع تعليقك") { dismiss(); ui.path.append(.compose("track:" + t.id)) } }
-                if feat("shareLinks") { MenuRow(icon: "share", title: "مشاركة") { dismiss(); share("\(t.title) — \(r?.name ?? "")\n\(Repo.site)track/\(Repo.enc(t.id))") } }
-                if t.isVideo && t.downloadable { MenuRow(icon: "download", title: "تحميل الفيديو", sub: "اختر الجودة واحفظه للمشاهدة دون إنترنت") { dismiss(); ui.path.append(.watch(t.id)) } }
+                if feat("playlists") { MenuRow(icon: "playlist", title: tr("إضافة لقائمة تشغيل")) { addList = true } }
+                if feat("listenLater") { MenuRow(icon: "clock", title: store.later.contains(t.id) ? tr("إزالة من «استمع لاحقًا»") : tr("استمع لاحقًا")) { let on = store.toggleLater(t.id); ui.say(on ? tr("أُضيفت إلى استمع لاحقًا") : tr("أُزيلت من استمع لاحقًا")); dismiss() } }
+                if s?.sec("community") != false { MenuRow(icon: "quote", title: tr("اقتبسها في المجتمع"), sub: tr("انشر التلاوة في منشور مع تعليقك")) { dismiss(); ui.path.append(.compose("track:" + t.id)) } }
+                if feat("shareLinks") { MenuRow(icon: "share", title: tr("مشاركة")) { dismiss(); share("\(t.title) — \(r?.name ?? "")\n\(Repo.site)track/\(Repo.enc(t.id))") } }
+                if t.isVideo && t.downloadable { MenuRow(icon: "download", title: tr("تحميل الفيديو"), sub: tr("اختر الجودة واحفظه للمشاهدة دون إنترنت")) { dismiss(); ui.path.append(.watch(t.id)) } }
                 if feat("offline") && s?.allowDownloads != false && t.downloadable && !t.isVideo {
                     let have = OfflineFiles.local(t.id) != nil
-                    MenuRow(icon: "offline", title: have ? "حذف من «بدون إنترنت»" : "حفظ للاستماع بدون إنترنت") {
-                        if have { OfflineFiles.delete(t.id); ui.say("حُذفت من «بدون إنترنت»") }
-                        else { ui.say("جارٍ حفظ التلاوة على الجهاز…"); Task { let ok = await OfflineFiles.save(t); ui.say(ok ? "حُفظت — يمكنك سماعها بدون إنترنت" : "تعذّر حفظ الملف على الجهاز") } }
+                    MenuRow(icon: "offline", title: have ? tr("حذف من «بدون إنترنت»") : tr("حفظ للاستماع بدون إنترنت")) {
+                        if have { OfflineFiles.delete(t.id); ui.say(tr("حُذفت من «بدون إنترنت»")) }
+                        else { ui.say(tr("جارٍ حفظ التلاوة على الجهاز…")); Task { let ok = await OfflineFiles.save(t); ui.say(ok ? tr("حُفظت — يمكنك سماعها بدون إنترنت") : tr("تعذّر حفظ الملف على الجهاز")) } }
                         dismiss()
                     }
                 }
-                if let r { MenuRow(icon: "mic", title: "صفحة \(r.name)") { dismiss(); ui.path.append(.reciter(r.id)) } }
+                if let r { MenuRow(icon: "mic", title: tr("صفحة {0}", r.name)) { dismiss(); ui.path.append(.reciter(r.id)) } }
             }.padding(.bottom, 16)
         }
-        .background(c.bg2.ignoresSafeArea()).environment(\.layoutDirection, .rightToLeft)
+        .background(c.bg2.ignoresSafeArea()).environment(\.layoutDirection, L.dir)
         .bzSheet(isPresented: $addList) {
-            MenuSheet(title: "إضافة إلى قائمة تشغيل") {
-                ForEach(store.playlists) { pl in MenuRow(icon: "queue", title: pl.name, sub: "\(pl.ids.count.ar) تلاوة") { _ = store.addToPlaylist(pl.name, t.id); ui.say("أُضيفت إلى «\(pl.name)»"); addList = false; dismiss() } }
+            MenuSheet(title: tr("إضافة إلى قائمة تشغيل")) {
+                ForEach(store.playlists) { pl in MenuRow(icon: "queue", title: pl.name, sub: tr("{0} تلاوة", pl.ids.count.ar)) { _ = store.addToPlaylist(pl.name, t.id); ui.say(tr("أُضيفت إلى «{0}»", pl.name)); addList = false; dismiss() } }
                 HStack(spacing: 10) {
-                    TextField("اسم قائمة جديدة", text: Binding(get: { newList }, set: { newList = String($0.prefix(40)) })).font(F.plex(15)).padding(12).background(RoundedRectangle(cornerRadius: 16).fill(c.surface.opacity(0.45))).overlay(RoundedRectangle(cornerRadius: 16).stroke(c.line))
-                    GoldButton(title: "إنشاء وإضافة") { let n = newList.trimmingCharacters(in: .whitespaces); guard !n.isEmpty else { return }; _ = store.addToPlaylist(n, t.id); ui.say("أُضيفت إلى «\(n)»"); addList = false; dismiss() }
+                    TextField(tr("اسم قائمة جديدة"), text: Binding(get: { newList }, set: { newList = String($0.prefix(40)) })).font(F.plex(15)).padding(12).background(RoundedRectangle(cornerRadius: 16).fill(c.surface.opacity(0.45))).overlay(RoundedRectangle(cornerRadius: 16).stroke(c.line))
+                    GoldButton(title: tr("إنشاء وإضافة")) { let n = newList.trimmingCharacters(in: .whitespaces); guard !n.isEmpty else { return }; _ = store.addToPlaylist(n, t.id); ui.say(tr("أُضيفت إلى «{0}»", n)); addList = false; dismiss() }
                 }.padding(.horizontal, 18).padding(.vertical, 10)
             }.presentationDetents([.medium, .large])
         }

@@ -226,7 +226,7 @@ enum ClipEngine {
         let f = font(o.font, fs), nf = font("amiri", fs * 0.82)
         let glow = Double(o.glow) / 100
         let shadow = NSShadow(); shadow.shadowBlurRadius = fs * (0.1 + 0.6 * glow); shadow.shadowOffset = CGSize(width: 0, height: fs * 0.05)
-        var toks = seg.toks; let withNum = o.num && seg.last; if withNum { toks.append("﴿\(seg.n.ar)﴾") }
+        var toks = seg.toks; let withNum = o.num && seg.last; if withNum { toks.append("﴿\(seg.n.qar)﴾") }
         func attrs(_ col: UIColor, _ al: Double, _ font: UIFont) -> [NSAttributedString.Key: Any] {
             let s = NSShadow(); s.shadowBlurRadius = shadow.shadowBlurRadius; s.shadowOffset = shadow.shadowOffset; s.shadowColor = UIColor(white: 0, alpha: (90 + 130 * glow) / 255 * al)
             return [.font: font, .foregroundColor: col.withAlphaComponent(CGFloat(al)), .shadow: s]
@@ -538,18 +538,18 @@ struct ClipView: View {
     private var segs: [ClipSeg] { ClipEngine.buildSegs(times, o.font == "uthmani" ? texts.mapValues(ClipEngine.qpc) : texts, t0, t1, o.per, modes) }
     private var info: ClipInfo {
         let r = repo.reciter(t?.reciterId)?.name ?? ""
-        let s = (1...114).contains(surahNo) ? "سورة \(Quran.surahs[surahNo - 1])" : (t?.surah ?? "").isEmpty ? "" : ((t?.surah ?? "").hasPrefix("سورة") ? t!.surah : "سورة \(t!.surah)")
-        let b = repo.data?.site.title ?? "بدر التلاوات"
+        let s = (1...114).contains(surahNo) ? tr("سورة {0}", Quran.surahs[surahNo - 1]) : (t?.surah ?? "").isEmpty ? "" : ((t?.surah ?? "").hasPrefix("سورة") ? t!.surah : tr("سورة {0}", t!.surah))
+        let b = repo.data?.site.title ?? tr("بدر التلاوات")
         func n(_ k: String, _ d: String) -> String { let v = (names[k] ?? "").trimmingCharacters(in: .whitespaces); return v.isEmpty ? d : v }
         return ClipInfo(sheikh: n("sh", r), surah: n("sur", s), brand: n("brand", b))
     }
 
     var body: some View {
         Group {
-            if let t, let src { body(t, src) } else { Empty(text: "هذه التلاوة غير متاحة.", icon: "scissors") }
+            if let t, let src { body(t, src) } else { Empty(text: tr("هذه التلاوة غير متاحة."), icon: "scissors") }
         }
-        .navigationTitle("اصنع مقطعًا").navigationBarTitleDisplayMode(.inline)
-        .environment(\.layoutDirection, .rightToLeft)
+        .navigationTitle(tr("اصنع مقطعًا")).navigationBarTitleDisplayMode(.inline)
+        .environment(\.layoutDirection, L.dir)
     }
 
     private func set(_ f: (inout ClipOpts) -> Void) { var n = o; f(&n); o = n; n.save() }
@@ -566,21 +566,21 @@ struct ClipView: View {
                     .onTapGesture { togglePlay() }
                 HStack(spacing: 10) {
                     Button { togglePlay() } label: { Ico(name: playing ? "pause.fill" : "play.fill", size: 20).foregroundStyle(c.onGold).frame(width: 44, height: 44).background(Circle().fill(c.gold)) }
-                        .accessibilityLabel(playing ? "إيقاف مؤقت" : "تشغيل")
-                    Text("\(fmt(t0)) – \(fmt(t1)) · \(Int(t1 - t0).ar) ث").font(F.plex(13).monospacedDigit()).foregroundStyle(c.muted)
+                        .accessibilityLabel(playing ? tr("إيقاف مؤقت") : tr("تشغيل"))
+                    Text(tr("{0} – {1} · {2} ث", fmt(t0), fmt(t1), Int(t1 - t0).ar)).font(F.plex(13).monospacedDigit()).foregroundStyle(c.muted)
                     Spacer()
                     if let p = exporting {
-                        HStack(spacing: 8) { ProgressView(value: p).tint(c.gold).frame(width: 90); Text("\(Int(p * 100).ar)٪").font(F.plex(13)).foregroundStyle(c.text)
-                            Button { exporter?.cancel() } label: { Ico(name: "xmark.circle.fill", size: 20).foregroundStyle(c.muted) }.accessibilityLabel("إلغاء") }
-                    } else { GoldButton(title: "حفظ المقطع", icon: "square.and.arrow.down") { export(src) } }
+                        HStack(spacing: 8) { ProgressView(value: p).tint(c.gold).frame(width: 90); Text(tr("{0}٪", Int(p * 100).ar)).font(F.plex(13)).foregroundStyle(c.text)
+                            Button { exporter?.cancel() } label: { Ico(name: "xmark.circle.fill", size: 20).foregroundStyle(c.muted) }.accessibilityLabel(tr("إلغاء")) }
+                    } else { GoldButton(title: tr("حفظ المقطع"), icon: "square.and.arrow.down") { export(src) } }
                 }
                 if let done {
                     HStack(spacing: 8) {
-                        GoldButton(title: "مشاركة", icon: "square.and.arrow.up") { shareFile(done) }
-                        GhostButton(title: "حفظ في الصور", icon: "photo") { saveToPhotos(done) }
+                        GoldButton(title: tr("مشاركة"), icon: "square.and.arrow.up") { shareFile(done) }
+                        GhostButton(title: tr("حفظ في الصور"), icon: "photo") { saveToPhotos(done) }
                     }
                 }
-                Picker("", selection: $tab) { Text("المقطع").tag("part"); Text("الآيات").tag("ayah"); Text("الشكل").tag("look"); Text("البيانات").tag("info"); Text("الحركة").tag("motion") }.pickerStyle(.segmented)
+                Picker("", selection: $tab) { Text(tr("المقطع")).tag("part"); Text(tr("الآيات")).tag("ayah"); Text(tr("الشكل")).tag("look"); Text(tr("البيانات")).tag("info"); Text(tr("الحركة")).tag("motion") }.pickerStyle(.segmented)
                 Group {
                     switch tab {
                     case "ayah": ayahTab()
@@ -635,18 +635,18 @@ struct ClipView: View {
     // the chosen part: where it starts and how long it is (up to two minutes)
     private func partTab() -> some View {
         VStack(alignment: .leading, spacing: 12) {
-            Text("اختر حتى دقيقتين — تظهر الآيات تلقائيًا مع التلاوة").font(F.plex(13)).foregroundStyle(c.muted)
-            row("البداية · \(fmt(t0))") { Slider(value: Binding(get: { t0 }, set: { v in let l = t1 - t0; t0 = v; t1 = min(dur, v + l); player.seek(to: CMTime(seconds: v, preferredTimescale: 600), toleranceBefore: .zero, toleranceAfter: .zero) }), in: 0...max(1, dur - 3)) }
-            row("المدة · \(Int(t1 - t0).ar) ثانية") { Slider(value: Binding(get: { t1 - t0 }, set: { t1 = min(dur, t0 + $0) }), in: 3...min(ClipEngine.maxLen, max(4, dur - t0))) }
+            Text(tr("اختر حتى دقيقتين — تظهر الآيات تلقائيًا مع التلاوة")).font(F.plex(13)).foregroundStyle(c.muted)
+            row(tr("البداية · {0}", fmt(t0))) { Slider(value: Binding(get: { t0 }, set: { v in let l = t1 - t0; t0 = v; t1 = min(dur, v + l); player.seek(to: CMTime(seconds: v, preferredTimescale: 600), toleranceBefore: .zero, toleranceAfter: .zero) }), in: 0...max(1, dur - 3)) }
+            row(tr("المدة · {0} ثانية", Int(t1 - t0).ar)) { Slider(value: Binding(get: { t1 - t0 }, set: { t1 = min(dur, t0 + $0) }), in: 3...min(ClipEngine.maxLen, max(4, dur - t0))) }
             if let times {
                 let inPart = times.ayahs.filter { Double($0[2]) / 1000 > t0 && Double($0[1]) / 1000 < t1 }
                 if !inPart.isEmpty {
-                    Text("الآيات في المقطع").font(F.plex(14, .bold)).foregroundStyle(c.text)
+                    Text(tr("الآيات في المقطع")).font(F.plex(14, .bold)).foregroundStyle(c.text)
                     ScrollView(.horizontal, showsIndicators: false) {
                         HStack(spacing: 6) {
                             ForEach(times.ayahs.indices, id: \.self) { i in
                                 let a = times.ayahs[i]
-                                Pill(title: "الآية \(a[0].ar)", on: inPart.contains { $0[0] == a[0] }) {
+                                Pill(title: tr("الآية {0}", a[0].ar), on: inPart.contains { $0[0] == a[0] }) {
                                     t0 = max(0, Double(a[1]) / 1000 - 0.25); t1 = min(dur, max(t0 + 3, min(t0 + ClipEngine.maxLen, Double(a[2]) / 1000 + 0.35)))
                                     player.seek(to: CMTime(seconds: t0, preferredTimescale: 600), toleranceBefore: .zero, toleranceAfter: .zero)
                                 }
@@ -654,77 +654,77 @@ struct ClipView: View {
                         }
                     }
                 }
-            } else if !loading { Text("لم تُحلَّل هذه التلاوة بعد، فلن تظهر الآيات تلقائيًا.").font(F.plex(13)).foregroundStyle(c.muted) }
-            Text("المقاس").font(F.plex(14, .bold)).foregroundStyle(c.text)
+            } else if !loading { Text(tr("لم تُحلَّل هذه التلاوة بعد، فلن تظهر الآيات تلقائيًا.")).font(F.plex(13)).foregroundStyle(c.muted) }
+            Text(tr("المقاس")).font(F.plex(14, .bold)).foregroundStyle(c.text)
             HStack(spacing: 6) {
-                Pill(title: "ملاءمة الفيديو", on: o.size == "auto") { set { $0.size = "auto" } }
+                Pill(title: tr("ملاءمة الفيديو"), on: o.size == "auto") { set { $0.size = "auto" } }
                 ForEach(ClipEngine.sizes, id: \.key) { s in Pill(title: s.name, on: o.size == s.key) { set { $0.size = s.key } } }
             }
         }
     }
     private func ayahTab() -> some View {
         VStack(alignment: .leading, spacing: 12) {
-            Toggle("إظهار الآيات على الفيديو", isOn: Binding(get: { o.show }, set: { v in set { $0.show = v } })).tint(c.gold).font(F.plex(14))
-            Toggle("رقم الآية ﴿ ﴾", isOn: Binding(get: { o.num }, set: { v in set { $0.num = v } })).tint(c.gold).font(F.plex(14))
-            Text("الخط").font(F.plex(14, .bold)).foregroundStyle(c.text)
+            Toggle(tr("إظهار الآيات على الفيديو"), isOn: Binding(get: { o.show }, set: { v in set { $0.show = v } })).tint(c.gold).font(F.plex(14))
+            Toggle(tr("رقم الآية ﴿ ﴾"), isOn: Binding(get: { o.num }, set: { v in set { $0.num = v } })).tint(c.gold).font(F.plex(14))
+            Text(tr("الخط")).font(F.plex(14, .bold)).foregroundStyle(c.text)
             HStack(spacing: 6) { ForEach(ClipEngine.ayahFonts, id: \.0) { f in Pill(title: f.1, on: o.font == f.0) { set { $0.font = f.0 } } } }
-            Text("اللون").font(F.plex(14, .bold)).foregroundStyle(c.text)
+            Text(tr("اللون")).font(F.plex(14, .bold)).foregroundStyle(c.text)
             colors(o.color) { v in set { $0.color = v } }
-            row("الحجم") { Slider(value: Binding(get: { Double(o.fs) }, set: { v in set { $0.fs = Int(v) } }), in: 36...110) }
-            row("كلمات في الجزء الواحد · \(o.per.ar)") { Stepper("", value: Binding(get: { o.per }, set: { v in set { $0.per = v } }), in: 2...12).labelsHidden() }
+            row(tr("الحجم")) { Slider(value: Binding(get: { Double(o.fs) }, set: { v in set { $0.fs = Int(v) } }), in: 36...110) }
+            row(tr("كلمات في الجزء الواحد · {0}", o.per.ar)) { Stepper("", value: Binding(get: { o.per }, set: { v in set { $0.per = v } }), in: 2...12).labelsHidden() }
             if let times {
-                Text("طريقة عرض كل آية").font(F.plex(14, .bold)).foregroundStyle(c.text)
+                Text(tr("طريقة عرض كل آية")).font(F.plex(14, .bold)).foregroundStyle(c.text)
                 let inPart = times.ayahs.filter { Double($0[2]) / 1000 > t0 && Double($0[1]) / 1000 < t1 }
                 ForEach(inPart.indices, id: \.self) { i in
                     let n = inPart[i][0]
-                    HStack { Text("الآية \(n.ar)").font(F.plex(13)).foregroundStyle(c.text); Spacer()
-                        Pill(title: "كاملة", on: (modes[n] ?? "whole") == "whole") { modes[n] = "whole" }
-                        Pill(title: "على أجزاء", on: modes[n] == "split") { modes[n] = "split" } }
+                    HStack { Text(tr("الآية {0}", n.ar)).font(F.plex(13)).foregroundStyle(c.text); Spacer()
+                        Pill(title: tr("كاملة"), on: (modes[n] ?? "whole") == "whole") { modes[n] = "whole" }
+                        Pill(title: tr("على أجزاء"), on: modes[n] == "split") { modes[n] = "split" } }
                 }
             }
-            row("موضع النص") { Slider(value: Binding(get: { o.ty < 0 ? 0.8 : o.ty }, set: { v in set { $0.ty = v } }), in: 0.1...0.92) }
-            Button("الموضع التلقائي") { set { $0.ty = -1 } }.font(F.plex(13)).foregroundStyle(c.gold)
+            row(tr("موضع النص")) { Slider(value: Binding(get: { o.ty < 0 ? 0.8 : o.ty }, set: { v in set { $0.ty = v } }), in: 0.1...0.92) }
+            Button(tr("الموضع التلقائي")) { set { $0.ty = -1 } }.font(F.plex(13)).foregroundStyle(c.gold)
         }
     }
     private func lookTab() -> some View {
         VStack(alignment: .leading, spacing: 12) {
-            HStack(spacing: 6) { Pill(title: "الفيديو في المنتصف", on: o.layout != "fill") { set { $0.layout = "center" } }; Pill(title: "ملء الإطار", on: o.layout == "fill") { set { $0.layout = "fill" } } }
+            HStack(spacing: 6) { Pill(title: tr("الفيديو في المنتصف"), on: o.layout != "fill") { set { $0.layout = "center" } }; Pill(title: tr("ملء الإطار"), on: o.layout == "fill") { set { $0.layout = "fill" } } }
             if o.layout != "fill" {
-                row("تمويه الخلفية") { Slider(value: Binding(get: { Double(o.blur) }, set: { v in set { $0.blur = Int(v) } }), in: 0...100) }
-                row("حجم الفيديو · \(o.vscale.ar)٪") { Slider(value: Binding(get: { Double(o.vscale) }, set: { v in set { $0.vscale = Int(v) } }), in: 50...160) }
+                row(tr("تمويه الخلفية")) { Slider(value: Binding(get: { Double(o.blur) }, set: { v in set { $0.blur = Int(v) } }), in: 0...100) }
+                row(tr("حجم الفيديو · {0}٪", o.vscale.ar)) { Slider(value: Binding(get: { Double(o.vscale) }, set: { v in set { $0.vscale = Int(v) } }), in: 50...160) }
             }
-            row("تعتيم") { Slider(value: Binding(get: { Double(o.dark) }, set: { v in set { $0.dark = Int(v) } }), in: 0...80) }
-            Toggle("شريط خلف الآية", isOn: Binding(get: { o.band }, set: { v in set { $0.band = v } })).tint(c.gold).font(F.plex(14))
-            Toggle("إطار حول الحروف", isOn: Binding(get: { o.stroke }, set: { v in set { $0.stroke = v } })).tint(c.gold).font(F.plex(14))
-            row("التوهج") { Slider(value: Binding(get: { Double(o.glow) }, set: { v in set { $0.glow = Int(v) } }), in: 0...100) }
-            row("تباعد الأسطر") { Slider(value: Binding(get: { Double(o.lh) }, set: { v in set { $0.lh = Int(v) } }), in: 130...240) }
-            row("عرض النص") { Slider(value: Binding(get: { Double(o.wmax) }, set: { v in set { $0.wmax = Int(v) } }), in: 50...96) }
+            row(tr("تعتيم")) { Slider(value: Binding(get: { Double(o.dark) }, set: { v in set { $0.dark = Int(v) } }), in: 0...80) }
+            Toggle(tr("شريط خلف الآية"), isOn: Binding(get: { o.band }, set: { v in set { $0.band = v } })).tint(c.gold).font(F.plex(14))
+            Toggle(tr("إطار حول الحروف"), isOn: Binding(get: { o.stroke }, set: { v in set { $0.stroke = v } })).tint(c.gold).font(F.plex(14))
+            row(tr("التوهج")) { Slider(value: Binding(get: { Double(o.glow) }, set: { v in set { $0.glow = Int(v) } }), in: 0...100) }
+            row(tr("تباعد الأسطر")) { Slider(value: Binding(get: { Double(o.lh) }, set: { v in set { $0.lh = Int(v) } }), in: 130...240) }
+            row(tr("عرض النص")) { Slider(value: Binding(get: { Double(o.wmax) }, set: { v in set { $0.wmax = Int(v) } }), in: 50...96) }
         }
     }
     private func infoTab() -> some View {
         VStack(alignment: .leading, spacing: 12) {
-            Toggle("إظهار البيانات", isOn: Binding(get: { o.name }, set: { v in set { $0.name = v } })).tint(c.gold).font(F.plex(14))
+            Toggle(tr("إظهار البيانات"), isOn: Binding(get: { o.name }, set: { v in set { $0.name = v } })).tint(c.gold).font(F.plex(14))
             if o.name {
-                nameField("sh", "اسم الشيخ", on: o.sh) { v in set { $0.sh = v } }
-                nameField("sur", "السورة", on: o.sur) { v in set { $0.sur = v } }
-                nameField("brand", "اسم الموقع", on: o.brand) { v in set { $0.brand = v } }
-                HStack(spacing: 6) { Pill(title: "أسفل", on: o.ipos != "top") { set { $0.ipos = "bot" } }; Pill(title: "أعلى", on: o.ipos == "top") { set { $0.ipos = "top" } } }
-                Text("الخط").font(F.plex(14, .bold)).foregroundStyle(c.text)
+                nameField("sh", tr("اسم الشيخ"), on: o.sh) { v in set { $0.sh = v } }
+                nameField("sur", tr("السورة"), on: o.sur) { v in set { $0.sur = v } }
+                nameField("brand", tr("اسم الموقع"), on: o.brand) { v in set { $0.brand = v } }
+                HStack(spacing: 6) { Pill(title: tr("أسفل"), on: o.ipos != "top") { set { $0.ipos = "bot" } }; Pill(title: tr("أعلى"), on: o.ipos == "top") { set { $0.ipos = "top" } } }
+                Text(tr("الخط")).font(F.plex(14, .bold)).foregroundStyle(c.text)
                 ScrollView(.horizontal, showsIndicators: false) { HStack(spacing: 6) { ForEach(ClipEngine.infoFonts, id: \.0) { f in Pill(title: f.1, on: o.ifont == f.0) { set { $0.ifont = f.0 } } } } }
                 colors(o.icolor) { v in set { $0.icolor = v } }
-                row("الحجم") { Slider(value: Binding(get: { Double(o.ifs) }, set: { v in set { $0.ifs = Int(v) } }), in: 60...180) }
+                row(tr("الحجم")) { Slider(value: Binding(get: { Double(o.ifs) }, set: { v in set { $0.ifs = Int(v) } }), in: 60...180) }
             }
         }
     }
     private func motionTab() -> some View {
         VStack(alignment: .leading, spacing: 12) {
-            Text("ظهور الآيات").font(F.plex(14, .bold)).foregroundStyle(c.text)
-            HStack(spacing: 6) { ForEach([("fade", "تلاشٍ"), ("words", "كلمة بكلمة"), ("slide", "انزلاق"), ("zoom", "تكبير")], id: \.0) { a in Pill(title: a.1, on: o.anim == a.0) { set { $0.anim = a.0 } } } }
-            row("نعومة تبدّل الآيات · \(String(format: "%.1f", o.tfade)) ث") { Slider(value: Binding(get: { o.tfade }, set: { v in set { $0.tfade = v } }), in: 0.15...1.2) }
-            row("ظهور الصورة من السواد · \(String(format: "%.1f", o.vfi)) ث") { Slider(value: Binding(get: { o.vfi }, set: { v in set { $0.vfi = v } }), in: 0...3) }
-            row("اختفاء الصورة إلى السواد · \(String(format: "%.1f", o.vfo)) ث") { Slider(value: Binding(get: { o.vfo }, set: { v in set { $0.vfo = v } }), in: 0...3) }
-            row("ارتفاع الصوت في البداية · \(String(format: "%.1f", o.afi)) ث") { Slider(value: Binding(get: { o.afi }, set: { v in set { $0.afi = v } }), in: 0...4) }
-            row("انخفاض الصوت في النهاية · \(String(format: "%.1f", o.afo)) ث") { Slider(value: Binding(get: { o.afo }, set: { v in set { $0.afo = v } }), in: 0...4) }
+            Text(tr("ظهور الآيات")).font(F.plex(14, .bold)).foregroundStyle(c.text)
+            HStack(spacing: 6) { ForEach([("fade", tr("تلاشٍ")), ("words", tr("كلمة بكلمة")), ("slide", tr("انزلاق")), ("zoom", tr("تكبير"))], id: \.0) { a in Pill(title: a.1, on: o.anim == a.0) { set { $0.anim = a.0 } } } }
+            row(tr("نعومة تبدّل الآيات · {0} ث", String(format: "%.1f", o.tfade))) { Slider(value: Binding(get: { o.tfade }, set: { v in set { $0.tfade = v } }), in: 0.15...1.2) }
+            row(tr("ظهور الصورة من السواد · {0} ث", String(format: "%.1f", o.vfi))) { Slider(value: Binding(get: { o.vfi }, set: { v in set { $0.vfi = v } }), in: 0...3) }
+            row(tr("اختفاء الصورة إلى السواد · {0} ث", String(format: "%.1f", o.vfo))) { Slider(value: Binding(get: { o.vfo }, set: { v in set { $0.vfo = v } }), in: 0...3) }
+            row(tr("ارتفاع الصوت في البداية · {0} ث", String(format: "%.1f", o.afi))) { Slider(value: Binding(get: { o.afi }, set: { v in set { $0.afi = v } }), in: 0...4) }
+            row(tr("انخفاض الصوت في النهاية · {0} ث", String(format: "%.1f", o.afo))) { Slider(value: Binding(get: { o.afo }, set: { v in set { $0.afo = v } }), in: 0...4) }
         }
     }
     private func nameField(_ k: String, _ label: String, on: Bool, _ toggle: @escaping (Bool) -> Void) -> some View {
@@ -749,11 +749,11 @@ struct ClipView: View {
             do {
                 let url = try await ex.run(src: src, o: oo, vw: w, vh: h, t0: a, t1: b, segs: s, info: inf) { p in DispatchQueue.main.async { exporting = p } }
                 exporting = nil; exporter = nil; done = url
-                ui.say("المقطع جاهز")
+                ui.say(tr("المقطع جاهز"))
                 Repo.shared.event("clip", ["id": trackId])
             } catch {
                 exporting = nil; exporter = nil
-                if !(error is CancellationError) { ui.say("تعذّر حفظ المقطع. حاول مرة أخرى.") }
+                if !(error is CancellationError) { ui.say(tr("تعذّر حفظ المقطع. حاول مرة أخرى.")) }
             }
         }
     }
@@ -763,8 +763,8 @@ struct ClipView: View {
     }
     private func saveToPhotos(_ u: URL) {
         PHPhotoLibrary.requestAuthorization(for: .addOnly) { st in
-            guard st == .authorized || st == .limited else { DispatchQueue.main.async { ui.say("اسمح للتطبيق بحفظ الصور من الإعدادات") }; return }
-            PHPhotoLibrary.shared().performChanges({ PHAssetChangeRequest.creationRequestForAssetFromVideo(atFileURL: u) }) { ok, _ in DispatchQueue.main.async { ui.say(ok ? "حُفظ المقطع في الصور" : "تعذّر الحفظ في الصور") } }
+            guard st == .authorized || st == .limited else { DispatchQueue.main.async { ui.say(tr("اسمح للتطبيق بحفظ الصور من الإعدادات")) }; return }
+            PHPhotoLibrary.shared().performChanges({ PHAssetChangeRequest.creationRequestForAssetFromVideo(atFileURL: u) }) { ok, _ in DispatchQueue.main.async { ui.say(ok ? tr("حُفظ المقطع في الصور") : tr("تعذّر الحفظ في الصور")) } }
         }
     }
 }

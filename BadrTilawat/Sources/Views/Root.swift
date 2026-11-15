@@ -2,12 +2,12 @@ import SwiftUI
 
 private struct TabDef { let key: String, label: String, icon: String, sec: String? }
 private let TAB_DEFS: [TabDef] = [
-    TabDef(key: "home", label: "الرئيسية", icon: "home", sec: nil), TabDef(key: "recitations", label: "التلاوات", icon: "mic", sec: "recitations"),
-    TabDef(key: "quran", label: "المصحف", icon: "book", sec: "mushaf"), TabDef(key: "adhkar", label: "الأذكار", icon: "beads", sec: "adhkar"),
-    TabDef(key: "community", label: "المجتمع", icon: "chat", sec: "community"), TabDef(key: "library", label: "مكتبتي", icon: "library", sec: nil),
-    TabDef(key: "fiqh", label: "الفقه", icon: "scroll", sec: "fiqh"), TabDef(key: "live", label: "البث", icon: "live", sec: "live"),
-    TabDef(key: "timeline", label: "الخط الزمني", icon: "clock", sec: "timeline"), TabDef(key: "about", label: "عن الشيخ", icon: "user", sec: "about"),
-    TabDef(key: "prayer", label: "الصلاة", icon: "clock", sec: "prayer"),
+    TabDef(key: "home", label: tr("الرئيسية"), icon: "home", sec: nil), TabDef(key: "recitations", label: tr("التلاوات"), icon: "mic", sec: "recitations"),
+    TabDef(key: "quran", label: tr("المصحف"), icon: "book", sec: "mushaf"), TabDef(key: "adhkar", label: tr("الأذكار"), icon: "beads", sec: "adhkar"),
+    TabDef(key: "community", label: tr("المجتمع"), icon: "chat", sec: "community"), TabDef(key: "library", label: tr("مكتبتي"), icon: "library", sec: nil),
+    TabDef(key: "fiqh", label: tr("الفقه"), icon: "scroll", sec: "fiqh"), TabDef(key: "live", label: tr("البث"), icon: "live", sec: "live"),
+    TabDef(key: "timeline", label: tr("الخط الزمني"), icon: "clock", sec: "timeline"), TabDef(key: "about", label: tr("عن الشيخ"), icon: "user", sec: "about"),
+    TabDef(key: "prayer", label: tr("الصلاة"), icon: "clock", sec: "prayer"),
 ]
 
 struct RootView: View {
@@ -47,7 +47,7 @@ struct RootView: View {
             }
             .safeAreaInset(edge: .bottom, spacing: 0) {
                 VStack(spacing: 0) {
-                    if repo.offline { Text("بدون اتصال — نعرض آخر بيانات محفوظة").font(F.plex(11.5)).foregroundStyle(c.muted).frame(maxWidth: .infinity).padding(4).background(c.surface) }
+                    if repo.offline { Text(tr("بدون اتصال — نعرض آخر بيانات محفوظة")).font(F.plex(11.5)).foregroundStyle(c.muted).frame(maxWidth: .infinity).padding(4).background(c.surface) }
                     if player.current != nil { MiniPlayer() }
                     bottomBar
                 }
@@ -81,7 +81,7 @@ struct RootView: View {
         .bzSheet(item: $ui.sheet) { k in sheetView(k).presentationDetents([.large]) }
         .animation(.easeInOut(duration: 0.3), value: ui.drawer)
         .task { await repo.refresh(); if let t = repo.data?.site.defaultTheme { store.applyDefaultTheme(t) }; if let r = RootView.shot { openShot(r) } }
-        .onChange(of: ui.tab) { t in Repo.shared.page = TAB_DEFS.first { $0.key == t }?.label ?? "الرئيسية"; Repo.shared.event("page", ["pageLabel": Repo.shared.page]) }
+        .onChange(of: ui.tab) { t in Repo.shared.page = TAB_DEFS.first { $0.key == t }?.label ?? tr("الرئيسية"); Repo.shared.event("page", ["pageLabel": Repo.shared.page]) }
     }
 
     private func openShot(_ r: String) {
@@ -104,6 +104,11 @@ struct RootView: View {
         case "ambient": ui.sheet = .ambient
         case "blocked": ui.path = [.blocked]
         case "widgets": ui.path = [.widgets]
+        case "imams": ui.path = [.imams("mk")]
+        case "imamsMd": ui.path = [.imams("md")]
+        case "imamAlerts": ui.path = [.imamAlerts]
+        case "liveMd": ui.path = [.liveAt("md")]
+        case "lang": ui.sheet = .lang
         case "adhan": ui.adhan = AdhanKey(key: "fajr")
         default: if let t = Route.tab(r) { ui.go(t) }
         }
@@ -112,24 +117,27 @@ struct RootView: View {
     /// the bar's title for a screen opened on top of a tab (like the Android app's)
     private func title(_ r: Route) -> String {
         switch r {
-        case .reciter(let id): return repo.reciter(id)?.name ?? "القارئ"
-        case .surah(let n): return "سورة \(Quran.surahs[max(0, min(113, n - 1))])"
-        case .mushaf: return "المصحف"
-        case .search: return "البحث"
-        case .qibla: return "اتجاه القبلة"
-        case .compose: return "منشور جديد"
+        case .reciter(let id): return repo.reciter(id).map { nm($0.name) } ?? tr("القارئ")
+        case .surah(let n): return tr("سورة {0}", Quran.surahs[max(0, min(113, n - 1))])
+        case .mushaf: return tr("المصحف")
+        case .search: return tr("البحث")
+        case .qibla: return tr("اتجاه القبلة")
+        case .compose: return tr("منشور جديد")
         case .user(let h): return "@" + h
-        case .people: return "المجتمع"
-        case .thread: return "المنشور"
-        case .watch: return "تلاوة مرئية"
-        case .listen: return "القرآن الكريم كاملًا"
-        case .clip: return "اصنع مقطعًا"
-        case .maker: return "صانع التصاميم"
-        case .blocked: return "الحظر والكتم"
-        case .readIndex, .read: return "اقرأ واستمع واحفظ"
-        case .widgets: return "الويدجت"
-        case .cm(let a): return a == "notifications" ? "الإشعارات" : a.hasPrefix("search") ? "استكشف" : "المجتمع"
-        default: return ["recitations": "التلاوات", "quran": "القرآن الكريم", "adhkar": "الأذكار", "library": "مكتبتي", "prayer": "مواقيت الصلاة", "live": "البث المباشر", "fiqh": "دروس الفقه", "about": "عن الشيخ", "timeline": "الخط الزمني", "community": "المجتمع", "home": "الرئيسية"][r.tabKey ?? ""] ?? ""
+        case .people: return tr("المجتمع")
+        case .thread: return tr("المنشور")
+        case .watch: return tr("تلاوة مرئية")
+        case .listen: return tr("القرآن الكريم كاملًا")
+        case .clip: return tr("اصنع مقطعًا")
+        case .maker: return tr("صانع التصاميم")
+        case .blocked: return tr("الحظر والكتم")
+        case .readIndex, .read: return tr("اقرأ واستمع واحفظ")
+        case .widgets: return tr("الويدجت")
+        case .imams: return tr("جدول أئمة الحرمين")
+        case .imamAlerts: return tr("تنبيهات الأئمة")
+        case .liveAt: return tr("البث المباشر")
+        case .cm(let a): return a == "notifications" ? tr("الإشعارات") : a.hasPrefix("search") ? tr("استكشف") : tr("المجتمع")
+        default: return ["recitations": tr("التلاوات"), "quran": tr("القرآن الكريم"), "adhkar": tr("الأذكار"), "library": tr("مكتبتي"), "prayer": tr("مواقيت الصلاة"), "live": tr("البث المباشر"), "fiqh": tr("دروس الفقه"), "about": tr("عن الشيخ"), "timeline": tr("الخط الزمني"), "community": tr("المجتمع"), "home": tr("الرئيسية")][r.tabKey ?? ""] ?? ""
         }
     }
 
@@ -139,7 +147,7 @@ struct RootView: View {
                 let sel = ui.tab == t.key && ui.path.isEmpty
                 Button { ui.go(Route.tab(t.key) ?? .home) } label: { navItem(t.icon, t.label, sel) }.buttonStyle(Press(scale: 0.92))
             }
-            Button { ui.drawer = true } label: { navItem("menu", "القائمة", false) }.buttonStyle(Press(scale: 0.92))
+            Button { ui.drawer = true } label: { navItem("menu", tr("القائمة"), false) }.buttonStyle(Press(scale: 0.92))
         }
         .padding(.horizontal, 4).padding(.vertical, 6)
         .background(LinearGradient(colors: [c.bg2.opacity(0.97), c.bg.opacity(0.99)], startPoint: .top, endPoint: .bottom).ignoresSafeArea(edges: .bottom))
@@ -166,7 +174,7 @@ struct RootView: View {
         case "community": CommunityView()
         case "library": LibraryView()
         case "fiqh": FiqhView()
-        case "live": LiveView()
+        case "live": HaramLiveView()
         case "about": AboutView()
         case "timeline": TimelineScreen()
         case "prayer": PrayerView()
@@ -185,12 +193,15 @@ struct RootView: View {
         case .people(let h, let l): PeopleView(handle: h, list: l)
         case .thread(let id): ThreadView(id: id)
         case .watch(let id): WatchView(id: id)
-        case .listen: ListenView().navigationTitle("القرآن الكريم كاملًا")
+        case .listen: ListenView().navigationTitle(tr("القرآن الكريم كاملًا"))
         case .clip(let id): ClipView(trackId: id)
         case .maker(let s, let a): MakerView(s0: s, a0: a)
         case .blocked: BlockedView()
         case .cm(let a): CommunityView(arg: a)
         case .widgets: WidgetsHelpView()
+        case .imams(let m): ImamsView(start: m)
+        case .imamAlerts: ImamAlertsView()
+        case .liveAt(let m): HaramLiveView(start: m)
         case .readIndex: ReadIndexView()
         case .read(let a, let b): ReadView(a: a, b: b).id(a + "/" + b)
         default: screen(r.tabKey ?? "home")
@@ -204,6 +215,7 @@ struct RootView: View {
         case .ambient: AmbientSheet()
         case .name: NameSheet()
         case .notices: NoticesSheet()
+        case .lang: LangSheet()
         }
     }
 }
@@ -221,17 +233,17 @@ struct TopBar: View {
         let unseen = !(repo.data?.notices ?? []).isEmpty && Set((repo.data?.notices ?? []).map(\.id)) != Set(store.str("seenNotices").split(separator: ",").map(String.init))
         HStack(spacing: 0) {
             if !tab {
-                Button { if !ui.path.isEmpty { ui.path.removeLast() } else { dismiss() } } label: { Ico(name: "arrow.right", size: 24.0).foregroundStyle(c.text).frame(width: 48, height: 48) }.accessibilityLabel("رجوع")
+                Button { if !ui.path.isEmpty { ui.path.removeLast() } else { dismiss() } } label: { Ico(name: "arrow.right", size: 24.0).foregroundStyle(c.text).frame(width: 48, height: 48) }.accessibilityLabel(tr("رجوع"))
             } else {
                 Image("Logo").resizable().scaledToFit().frame(width: 38, height: 38).padding(.leading, 6).padding(.trailing, 8)
             }
-            if home { Text("بدر التلاوات").font(F.amiri(22)).foregroundStyle(c.goldBrushV) }
+            if home { Text(tr("بدر التلاوات")).font(F.amiri(22)).foregroundStyle(c.goldBrushV) }
             else { Text(title).font(F.amiri(21)).foregroundStyle(c.text).lineLimit(1) }
             Spacer(minLength: 4)
-            barButton("search", "بحث") { ui.path.append(.search) }
-            barButton("bell", "التنبيهات") { store.set("seenNotices", (repo.data?.notices ?? []).map(\.id).joined(separator: ",")); store.objectWillChange.send(); ui.sheet = .notices }
+            barButton("search", tr("بحث")) { ui.path.append(.search) }
+            barButton("bell", tr("التنبيهات")) { store.set("seenNotices", (repo.data?.notices ?? []).map(\.id).joined(separator: ",")); store.objectWillChange.send(); ui.sheet = .notices }
                 .overlay(alignment: .topTrailing) { if unseen { Circle().fill(c.danger).frame(width: 8, height: 8).offset(x: -12, y: 12) } }
-            barButton("palette", "المظهر") { ui.sheet = .theme }
+            barButton("palette", tr("المظهر")) { ui.sheet = .theme }
         }
         .padding(.horizontal, 8).frame(height: 58)
         .background(c.bg.opacity(home ? 0 : 0.92).ignoresSafeArea(edges: .top))
@@ -253,21 +265,21 @@ struct DrawerView: View {
         let s = repo.data?.site
         func ok(_ it: Item) -> Bool { (it.sec == nil || s?.sec(it.sec!) != false) && (it.feat == nil || s?.j["features"][it.feat!].bool(true) != false) && (it.id != "live" || s?.liveOn != false) && (it.id != "listen" || !repo.quranRecs().isEmpty) }
         let quick: [Item] = [
-            Item(id: "home", label: "الرئيسية", icon: "home", sec: nil) { ui.go(.home) }, Item(id: "recitations", label: "التلاوات", icon: "mic", sec: "recitations") { ui.go(.recitations) },
-            Item(id: "quran", label: "المصحف", icon: "book", sec: "mushaf") { ui.go(.quran) }, Item(id: "prayer", label: "الصلاة", icon: "clock", sec: "prayer") { ui.go(.prayer) },
+            Item(id: "home", label: tr("الرئيسية"), icon: "home", sec: nil) { ui.go(.home) }, Item(id: "recitations", label: tr("التلاوات"), icon: "mic", sec: "recitations") { ui.go(.recitations) },
+            Item(id: "quran", label: tr("المصحف"), icon: "book", sec: "mushaf") { ui.go(.quran) }, Item(id: "prayer", label: tr("الصلاة"), icon: "clock", sec: "prayer") { ui.go(.prayer) },
         ].filter(ok)
         let push: (Route) -> Void = { r in ui.drawer = false; ui.path.append(r) }
         let sheet: (SheetKind) -> Void = { k in ui.drawer = false; ui.sheet = k }
         let groups: [(String, [Item])] = [
-            ("القرآن والتلاوات", [Item(id: "listen", label: "القرآن الكريم كاملًا", icon: "play", sec: "mushaf") { push(.listen) }, Item(id: "library", label: "مكتبتي", icon: "library", sec: nil) { ui.go(.library) },
-                                  Item(id: "wird", label: "الورد اليومي", icon: "calendar", sec: "mushaf") { sheet(.wird) }, Item(id: "ambient", label: "أصوات هادئة للاستماع", icon: "rain", sec: nil) { sheet(.ambient) }]),
-            ("الصلاة والأذكار", [Item(id: "prayer2", label: "مواقيت الصلاة والأذان", icon: "clock", sec: "prayer") { ui.go(.prayer) }, Item(id: "qibla", label: "اتجاه القبلة", icon: "compass", sec: nil, feat: "qibla") { push(.qibla) },
-                                 Item(id: "adhkar", label: "الأذكار", icon: "beads", sec: "adhkar") { ui.go(.adhkar) }]),
-            ("تعلّم وشارك", [Item(id: "maker", label: "صمّم آية للمشاركة", icon: "image", sec: "maker") { push(.maker(0, 0)) }, Item(id: "live", label: "البث المباشر", icon: "live", sec: "live") { ui.go(.live) },
-                             Item(id: "fiqh", label: "دروس الفقه", icon: "scroll", sec: "fiqh") { ui.go(.fiqh) }, Item(id: "community", label: "المجتمع", icon: "chat", sec: "community") { ui.go(.community) }]),
-            ("عن الشيخ", [Item(id: "about", label: "عن الشيخ", icon: "user", sec: "about") { ui.go(.about) }, Item(id: "timeline", label: "الخط الزمني", icon: "clock", sec: "timeline") { ui.go(.timeline) }]),
-            ("الإعدادات", [Item(id: "theme", label: "المظهر", icon: "palette", sec: nil) { sheet(.theme) }, Item(id: "name", label: "اسمك في التطبيق", icon: "user", sec: nil, feat: "greeting") { sheet(.name) },
-                           Item(id: "widgets", label: "الويدجت على الشاشة الرئيسية", icon: "image", sec: nil) { push(.widgets) }]),
+            (tr("القرآن والتلاوات"), [Item(id: "listen", label: tr("القرآن الكريم كاملًا"), icon: "play", sec: "mushaf") { push(.listen) }, Item(id: "library", label: tr("مكتبتي"), icon: "library", sec: nil) { ui.go(.library) },
+                                  Item(id: "wird", label: tr("الورد اليومي"), icon: "calendar", sec: "mushaf") { sheet(.wird) }, Item(id: "ambient", label: tr("أصوات هادئة للاستماع"), icon: "rain", sec: nil) { sheet(.ambient) }]),
+            (tr("الصلاة والأذكار"), [Item(id: "prayer2", label: tr("مواقيت الصلاة والأذان"), icon: "clock", sec: "prayer") { ui.go(.prayer) }, Item(id: "qibla", label: tr("اتجاه القبلة"), icon: "compass", sec: nil, feat: "qibla") { push(.qibla) },
+                                 Item(id: "adhkar", label: tr("الأذكار"), icon: "beads", sec: "adhkar") { ui.go(.adhkar) }]),
+            (tr("تعلّم وشارك"), [Item(id: "maker", label: tr("صمّم آية للمشاركة"), icon: "image", sec: "maker") { push(.maker(0, 0)) }, Item(id: "live", label: tr("البث المباشر"), icon: "live", sec: "live") { ui.go(.live) }, Item(id: "imams", label: tr("جدول أئمة الحرمين"), icon: "calendar", sec: "live") { push(.imams(Haram.chosen)) }, Item(id: "imamAlerts", label: tr("تنبيهات الأئمة"), icon: "bell", sec: "live") { push(.imamAlerts) },
+                             Item(id: "fiqh", label: tr("دروس الفقه"), icon: "scroll", sec: "fiqh") { ui.go(.fiqh) }, Item(id: "community", label: tr("المجتمع"), icon: "chat", sec: "community") { ui.go(.community) }]),
+            (tr("عن الشيخ"), [Item(id: "about", label: tr("عن الشيخ"), icon: "user", sec: "about") { ui.go(.about) }, Item(id: "timeline", label: tr("الخط الزمني"), icon: "clock", sec: "timeline") { ui.go(.timeline) }]),
+            (tr("الإعدادات"), [Item(id: "lang", label: tr("اللغة") + " · " + Lang.shared.name, icon: "globe", sec: nil) { sheet(.lang) }, Item(id: "theme", label: tr("المظهر"), icon: "palette", sec: nil) { sheet(.theme) }, Item(id: "name", label: tr("اسمك في التطبيق"), icon: "user", sec: nil, feat: "greeting") { sheet(.name) },
+                           Item(id: "widgets", label: tr("الويدجت على الشاشة الرئيسية"), icon: "image", sec: nil) { push(.widgets) }]),
         ].map { ($0.0, $0.1.filter(ok)) }.filter { !$0.1.isEmpty }
         func sel(_ id: String) -> Bool { ui.path.isEmpty && (ui.tab == id || (id == "prayer2" && ui.tab == "prayer")) }
         return ZStack(alignment: .leading) {
@@ -275,9 +287,9 @@ struct DrawerView: View {
             VStack(alignment: .leading, spacing: 0) {
                 HStack(spacing: 10) {
                     Image("Logo").resizable().scaledToFit().frame(width: 34, height: 34)
-                    Text("بدر التلاوات").font(F.plex(16, .bold)).foregroundStyle(c.goldBrushV)
+                    Text(tr("بدر التلاوات")).font(F.plex(16, .bold)).foregroundStyle(c.goldBrushV)
                     Spacer()
-                    Button { close() } label: { SiteIcon(name: "close", size: 22, color: c.muted).frame(width: 44, height: 44) }.accessibilityLabel("إغلاق")
+                    Button { close() } label: { SiteIcon(name: "close", size: 22, color: c.muted).frame(width: 44, height: 44) }.accessibilityLabel(tr("إغلاق"))
                 }.padding(.leading, 18).padding(.trailing, 8).padding(.top, 8).padding(.bottom, 4)
                 ScrollView {
                     VStack(alignment: .leading, spacing: 0) {
@@ -307,7 +319,7 @@ struct DrawerView: View {
                                 }
                             }.background(RoundedRectangle(cornerRadius: 18).fill(c.surface)).clipShape(RoundedRectangle(cornerRadius: 18)).overlay(RoundedRectangle(cornerRadius: 18).stroke(c.lineSoft))
                         }
-                        Link("سياسة الخصوصية", destination: URL(string: Repo.site + "privacy")!).font(F.plex(12)).foregroundStyle(c.faint).padding(.leading, 8).padding(.top, 16).padding(.bottom, 12)
+                        Link(tr("سياسة الخصوصية"), destination: URL(string: Repo.site + "privacy")!).font(F.plex(12)).foregroundStyle(c.faint).padding(.leading, 8).padding(.top, 16).padding(.bottom, 12)
                     }.padding(.horizontal, 14).padding(.vertical, 4)
                 }
             }
@@ -328,7 +340,7 @@ struct Maintenance: View {
         ZStack { Backdrop()
             VStack(spacing: 14) {
                 Image("Logo").resizable().scaledToFit().frame(width: 90)
-                Text(title.isEmpty ? "نجري بعض التحديثات" : title).font(F.amiri(28)).foregroundStyle(c.text)
+                Text(title.isEmpty ? tr("نجري بعض التحديثات") : title).font(F.amiri(28)).foregroundStyle(c.text)
                 Text(message).font(F.plex(16)).foregroundStyle(c.muted).multilineTextAlignment(.center)
             }.padding(32)
         }

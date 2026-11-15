@@ -1,6 +1,6 @@
 import SwiftUI
 
-let SORTS: [(String, String)] = [("new", "الأحدث"), ("popular", "الأكثر استماعًا"), ("surah", "ترتيب المصحف"), ("order", "الترتيب"), ("az", "أبجدي")]
+let SORTS: [(String, String)] = [("new", tr("الأحدث")), ("popular", tr("الأكثر استماعًا")), ("surah", tr("ترتيب المصحف")), ("order", tr("الترتيب")), ("az", tr("أبجدي"))]
 func sortTracks(_ l: [Track], _ mode: String, _ plays: [String: Int]) -> [Track] {
     switch mode {
     case "popular": return l.sorted { (plays[$0.id] ?? 0, $0.stamp) > (plays[$1.id] ?? 0, $1.stamp) }
@@ -34,15 +34,15 @@ struct RecitationsView: View {
             LazyVStack(alignment: .leading, spacing: 0) {
                 if vids > 0 { KindTabs(kind: kind, nAll: all.count, nAudio: all.count - vids, nVideo: vids) { kind = $0; RecKind.value = $0; rec = "" }.padding(.horizontal, 16).padding(.vertical, 6) }
                 if !kv && repo.data?.site.sec("mushaf") != false { QuranFullBanner().padding(.horizontal, 16).padding(.vertical, 6) }
-                SearchField(text: $q, hint: "ابحث بالسورة أو القارئ أو المكان").padding(.horizontal, 16).padding(.vertical, 8)
+                SearchField(text: $q, hint: tr("ابحث بالسورة أو القارئ أو المكان")).padding(.horizontal, 16).padding(.vertical, 8)
                 ScrollView(.horizontal, showsIndicators: false) {
                     HStack(spacing: 8) {
-                        Pill(title: "الكل", on: rec.isEmpty) { rec = "" }
+                        Pill(title: tr("الكل"), on: rec.isEmpty) { rec = "" }
                         ForEach((repo.data?.reciters ?? []).map { r in (r, all.filter { (ka || $0.isVideo == kv) && $0.reciterId == r.id }.count) }.filter { $0.1 > 0 }, id: \.0.id) { r, n in
                             Button { rec = rec == r.id ? "" : r.id } label: {
                                 HStack(spacing: 7) {
                                     RemoteImage(raw: r.image).frame(width: 28, height: 28).clipShape(Circle())
-                                    Text(noSheikh(r.name)).font(F.plex(14, .semibold)).foregroundStyle(rec == r.id ? c.onGold : c.text).lineLimit(1)
+                                    Text(nm(noSheikh(r.name))).font(F.plex(14, .semibold)).foregroundStyle(rec == r.id ? c.onGold : c.text).lineLimit(1)
                                     Text(n.ar).font(F.plex(11)).foregroundStyle(rec == r.id ? c.onGold.opacity(0.7) : c.faint)
                                 }.padding(.leading, 5).padding(.trailing, 12).padding(.vertical, 4)
                                 .background(Capsule().fill(rec == r.id ? c.gold : c.surface.opacity(0.7))).overlay(Capsule().stroke(rec == r.id ? .clear : c.line))
@@ -51,13 +51,13 @@ struct RecitationsView: View {
                     }.padding(.horizontal, 16)
                 }
                 HStack {
-                    Text(kv ? "\(list.count.ar) \(list.count == 1 ? "تلاوة مرئية" : "تلاوات مرئية")" : "\(list.count.ar) تلاوة" + (rec.isEmpty ? " من \((repo.data?.reciters.count ?? 0).ar) قارئ" : " للشيخ \(noSheikh(repo.reciter(rec)?.name ?? ""))"))
+                    Text(kv ? "\(list.count.ar) \(list.count == 1 ? "تلاوة مرئية" : "تلاوات مرئية")" : tr("{0} تلاوة", list.count.ar) + (rec.isEmpty ? tr(" من {0} قارئ", (repo.data?.reciters.count ?? 0).ar) : tr(" للشيخ {0}", noSheikh(repo.reciter(rec)?.name ?? ""))))
                         .font(F.plex(12.5)).foregroundStyle(c.muted)
                     Spacer()
                     OptMenu(label: "", value: sort, opts: SORTS) { sort = $0 }
                 }.padding(.leading, 18).padding(.trailing, 12).padding(.top, 12).padding(.bottom, 4)
                 if kv {
-                    if list.isEmpty { Empty(text: q.isEmpty ? "لا توجد تلاوات مرئية بعد." : "لا توجد نتائج لـ «\(q.trimmingCharacters(in: .whitespaces))».", icon: "film") }
+                    if list.isEmpty { Empty(text: q.isEmpty ? tr("لا توجد تلاوات مرئية بعد.") : tr("لا توجد نتائج لـ «{0}».", q.trimmingCharacters(in: .whitespaces)), icon: "film") }
                     else {
                         VideoHero(t: list[0]).padding(.horizontal, 16).padding(.vertical, 8)
                         let rest = Array(list.dropFirst())
@@ -68,11 +68,11 @@ struct RecitationsView: View {
                 } else {
                     if !audio.isEmpty {
                         HStack(spacing: 10) {
-                            GoldButton(title: "تشغيل الكل", icon: "play") { player.play(audio[0], in: audio) }
-                            GhostButton(title: "عشوائي", icon: "shuffle") { let sh = audio.shuffled(); player.play(sh[0], in: sh) }
+                            GoldButton(title: tr("تشغيل الكل"), icon: "play") { player.play(audio[0], in: audio) }
+                            GhostButton(title: tr("عشوائي"), icon: "shuffle") { let sh = audio.shuffled(); player.play(sh[0], in: sh) }
                         }.padding(.horizontal, 16).padding(.vertical, 8)
                     }
-                    if list.isEmpty { Empty(text: repo.data == nil ? "جارٍ التحميل…" : q.isEmpty ? "لا توجد تلاوات بعد." : "لا توجد نتائج لـ «\(q.trimmingCharacters(in: .whitespaces))».", icon: "search") }
+                    if list.isEmpty { Empty(text: repo.data == nil ? tr("جارٍ التحميل…") : q.isEmpty ? tr("لا توجد تلاوات بعد.") : tr("لا توجد نتائج لـ «{0}».", q.trimmingCharacters(in: .whitespaces)), icon: "search") }
                     ForEach(Array(list.enumerated()), id: \.element.id) { i, t in
                         if grouped && (i == 0 || ageGroup(list[i - 1]) != ageGroup(t)) {
                             Text(ageGroup(t)).font(F.plex(14, .bold)).foregroundStyle(c.gold).padding(.horizontal, 20).padding(.top, i == 0 ? 6 : 18).padding(.bottom, 2)
@@ -94,7 +94,7 @@ struct KindTabs: View {
     @Environment(\.pal) private var c
     var body: some View {
         HStack(spacing: 4) {
-            ForEach([("all", "الكل", nAll), ("audio", "صوتية", nAudio), ("video", "مرئية", nVideo)], id: \.0) { k, l, n in
+            ForEach([("all", tr("الكل"), nAll), ("audio", tr("صوتية"), nAudio), ("video", tr("مرئية"), nVideo)], id: \.0) { k, l, n in
                 let on = k == kind
                 Button { pick(k) } label: {
                     HStack(spacing: 5) {
@@ -122,11 +122,11 @@ struct VideoHero: View {
                 LinearGradient(stops: [.init(color: .black.opacity(0.25), location: 0), .init(color: .clear, location: 0.45), .init(color: Color(hex: 0xEB050C0A), location: 1)], startPoint: .top, endPoint: .bottom)
                 SiteIcon(name: "play", size: 26, color: .white).frame(width: 62, height: 62).background(Circle().fill(.white.opacity(0.16))).overlay(Circle().stroke(.white.opacity(0.38))).offset(y: -14)
                 VStack(alignment: .leading, spacing: 0) {
-                    HStack { if isNewTrack(t) { Text("جديد").font(F.plex(11, .bold)).foregroundStyle(c.onGold).padding(.horizontal, 10).padding(.vertical, 2).background(Capsule().fill(c.goldBrush)) }; Spacer()
+                    HStack { if isNewTrack(t) { Text(tr("جديد")).font(F.plex(11, .bold)).foregroundStyle(c.onGold).padding(.horizontal, 10).padding(.vertical, 2).background(Capsule().fill(c.goldBrush)) }; Spacer()
                         if !t.durationText.isEmpty { Text(t.durationText).font(F.plex(11, .semibold)).foregroundStyle(.white).padding(.horizontal, 6).padding(.vertical, 1).background(RoundedRectangle(cornerRadius: 6).fill(.black.opacity(0.7))) } }
                     Spacer()
                     Text(t.title).font(F.amiri(25)).foregroundStyle(Color(hex: 0xFFFFF7E6)).lineLimit(1)
-                    Text([r?.name ?? "", t.location].filter { !$0.isEmpty }.joined(separator: " · ")).font(F.plex(12.5)).foregroundStyle(Color(hex: 0xC7ECE4D2)).lineLimit(1)
+                    Text([nm(r?.name), t.location].filter { !$0.isEmpty }.joined(separator: " · ")).font(F.plex(12.5)).foregroundStyle(Color(hex: 0xC7ECE4D2)).lineLimit(1)
                 }.padding(.horizontal, 16).padding(.vertical, 12)
             }
             .aspectRatio(16 / 8.6, contentMode: .fit).clipShape(RoundedRectangle(cornerRadius: 22)).overlay(RoundedRectangle(cornerRadius: 22).stroke(c.line))
@@ -149,23 +149,23 @@ struct ReciterView: View {
                     VStack(spacing: 0) {
                         ArchImg(raw: r.image).frame(width: 190, height: 246)
                             .background(RadialGradient(colors: [c.gold.opacity(0.18), .clear], center: UnitPoint(x: 0.5, y: 0.45), startRadius: 0, endRadius: 190))
-                        Text(r.name).font(F.amiri(28)).foregroundStyle(c.text).multilineTextAlignment(.center).padding(.top, 14)
+                        Text(nm(r.name)).font(F.amiri(28)).foregroundStyle(c.text).multilineTextAlignment(.center).padding(.top, 14)
                         Ornament().padding(.vertical, 4)
-                        Text(r.bio.isEmpty ? "\(list.count.ar) تلاوة متاحة للاستماع والتنزيل." : r.bio).font(F.plex(14)).foregroundStyle(c.muted).multilineTextAlignment(.center)
+                        Text(r.bio.isEmpty ? tr("{0} تلاوة متاحة للاستماع والتنزيل.", list.count.ar) : r.bio).font(F.plex(14)).foregroundStyle(c.muted).multilineTextAlignment(.center)
                         HStack(spacing: 10) {
-                            GoldButton(title: "تشغيل", icon: "play") { if let t = audio.first { player.play(t, in: audio) } }
-                            GhostButton(title: "عشوائي", icon: "shuffle") { if !audio.isEmpty { let sh = audio.shuffled(); player.play(sh[0], in: sh) } }
-                            Chip(text: nil, icon: "share") { share("تلاوات \(r.name)\n\(Repo.site)reciter/\(Repo.enc(r.id))") }
+                            GoldButton(title: tr("تشغيل"), icon: "play") { if let t = audio.first { player.play(t, in: audio) } }
+                            GhostButton(title: tr("عشوائي"), icon: "shuffle") { if !audio.isEmpty { let sh = audio.shuffled(); player.play(sh[0], in: sh) } }
+                            Chip(text: nil, icon: "share") { share(tr("تلاوات {0}\n{1}reciter/{2}", r.name, Repo.site, Repo.enc(r.id))) }
                         }.padding(.top, 16)
                     }.frame(maxWidth: .infinity).padding(20)
-                    HStack { Text("\(list.count.ar) تلاوة").font(F.plex(12.5)).foregroundStyle(c.muted); Spacer(); OptMenu(label: "", value: sort, opts: SORTS) { sort = $0 } }.padding(.leading, 18).padding(.trailing, 12).padding(.bottom, 4)
-                    if list.isEmpty { Empty(text: "لا توجد تلاوات منشورة لهذا القارئ بعد.") }
+                    HStack { Text(tr("{0} تلاوة", list.count.ar)).font(F.plex(12.5)).foregroundStyle(c.muted); Spacer(); OptMenu(label: "", value: sort, opts: SORTS) { sort = $0 } }.padding(.leading, 18).padding(.trailing, 12).padding(.bottom, 4)
+                    if list.isEmpty { Empty(text: tr("لا توجد تلاوات منشورة لهذا القارئ بعد.")) }
                     ForEach(list) { t in TrackRow(t: t, list: audio, showReciter: false) }
                     let others = (repo.data?.reciters ?? []).filter { $0.id != id }
-                    if !others.isEmpty { SectionHead(title: "قرّاء آخرون"); ReciterRow(rs: others) }
+                    if !others.isEmpty { SectionHead(title: tr("قرّاء آخرون")); ReciterRow(rs: others) }
                 }.padding(.bottom, 24)
             }
-        } else { Empty(text: "القارئ غير موجود") }
+        } else { Empty(text: tr("القارئ غير موجود")) }
     }
 }
 
@@ -181,7 +181,7 @@ struct LibraryView: View {
     @State private var askDelete: String?
     var body: some View {
         let s = repo.data?.site
-        let tabs = [("favs", "المفضلة"), ("later", "استمع لاحقًا"), ("recent", "السجل"), ("offline", "بدون إنترنت"), ("queue", "قائمة الانتظار"), ("playlists", "قوائمي")]
+        let tabs = [("favs", tr("المفضلة")), ("later", tr("استمع لاحقًا")), ("recent", tr("السجل")), ("offline", tr("بدون إنترنت")), ("queue", tr("قائمة الانتظار")), ("playlists", tr("قوائمي"))]
             .filter { k, _ in s?.j["features"][["later": "listenLater", "recent": "recentlyPlayed", "offline": "offline", "playlists": "playlists"][k] ?? "_"].bool(true) ?? true }
         ScrollView {
             LazyVStack(alignment: .leading, spacing: 0) {
@@ -193,39 +193,39 @@ struct LibraryView: View {
                 }
             }.padding(.bottom, 20)
         }
-        .confirmationDialog("حذف القائمة «\(askDelete ?? "")»؟", isPresented: Binding(get: { askDelete != nil }, set: { if !$0 { askDelete = nil } }), titleVisibility: .visible) {
-            Button("حذف", role: .destructive) { store.playlists.removeAll { $0.name == askDelete }; openList = nil; askDelete = nil }
+        .confirmationDialog(tr("حذف القائمة «{0}»؟", askDelete ?? ""), isPresented: Binding(get: { askDelete != nil }, set: { if !$0 { askDelete = nil } }), titleVisibility: .visible) {
+            Button(tr("حذف"), role: .destructive) { store.playlists.removeAll { $0.name == askDelete }; openList = nil; askDelete = nil }
         }
     }
     @ViewBuilder private var plain: some View {
         let ids: [String] = tab == "favs" ? store.favs : tab == "later" ? store.later : tab == "recent" ? store.history : Array(Set(OfflineFiles.ids + VideoFiles.ids))
         let list = ids.compactMap { repo.track($0) }
         if list.isEmpty {
-            Empty(text: tab == "favs" ? "اضغط على القلب بجانب أي تلاوة لتظهر هنا." : tab == "later" ? "أضف تلاوات لتسمعها لاحقًا من «خيارات أخرى»." : tab == "recent" ? "لم تستمع لأي تلاوة بعد." : "احفظ تلاوة من «خيارات أخرى» لتسمعها بدون إنترنت.", icon: tab == "favs" ? "heart" : tab == "later" ? "clock" : tab == "recent" ? "clock.arrow.circlepath" : "arrow.down.circle")
-            GhostButton(title: "تصفّح التلاوات", icon: "headphones") { ui.go(.recitations) }.frame(maxWidth: .infinity)
+            Empty(text: tab == "favs" ? tr("اضغط على القلب بجانب أي تلاوة لتظهر هنا.") : tab == "later" ? tr("أضف تلاوات لتسمعها لاحقًا من «خيارات أخرى».") : tab == "recent" ? tr("لم تستمع لأي تلاوة بعد.") : tr("احفظ تلاوة من «خيارات أخرى» لتسمعها بدون إنترنت."), icon: tab == "favs" ? "heart" : tab == "later" ? "clock" : tab == "recent" ? "clock.arrow.circlepath" : "arrow.down.circle")
+            GhostButton(title: tr("تصفّح التلاوات"), icon: "headphones") { ui.go(.recitations) }.frame(maxWidth: .infinity)
         } else {
-            if tab == "offline" { Text(String(format: "المساحة المستخدمة: %.1f ميجابايت", usedMb())).font(F.plex(12)).foregroundStyle(c.muted).padding(.horizontal, 18).padding(.bottom, 6) }
+            if tab == "offline" { Text(String(format: tr("المساحة المستخدمة: %.1f ميجابايت"), usedMb())).font(F.plex(12)).foregroundStyle(c.muted).padding(.horizontal, 18).padding(.bottom, 6) }
             HStack {
                 let audio = list.filter { !$0.isVideo }
                 if !audio.isEmpty { playAll(audio) }
-                if tab == "recent" { Button("مسح السجل") { store.history = [] }.font(F.plex(13)).foregroundStyle(c.muted) }
+                if tab == "recent" { Button(tr("مسح السجل")) { store.history = [] }.font(F.plex(13)).foregroundStyle(c.muted) }
             }.padding(.horizontal, 16).padding(.bottom, 8)
             ForEach(list) { t in TrackRow(t: t, list: list) }
         }
     }
     @ViewBuilder private var queue: some View {
         let up = player.queue.indices.filter { $0 > player.index }
-        if up.isEmpty { Empty(text: "قائمة الانتظار فارغة. أضف تلاوات من «خيارات أخرى».", icon: "text.append") }
+        if up.isEmpty { Empty(text: tr("قائمة الانتظار فارغة. أضف تلاوات من «خيارات أخرى»."), icon: "text.append") }
         else {
             HStack(spacing: 8) {
-                Button { player.playAt(up[0]) } label: { Label("تشغيل التالي", systemImage: "play.fill").font(F.plex(13, .bold)).foregroundStyle(c.onGold).padding(.horizontal, 14).padding(.vertical, 8).background(Capsule().fill(c.gold)) }
-                Button { player.clearUpcoming() } label: { Label("مسح القائمة", systemImage: "trash").font(F.plex(13)).foregroundStyle(c.muted) }
+                Button { player.playAt(up[0]) } label: { Label(tr("تشغيل التالي"), systemImage: "play.fill").font(F.plex(13, .bold)).foregroundStyle(c.onGold).padding(.horizontal, 14).padding(.vertical, 8).background(Capsule().fill(c.gold)) }
+                Button { player.clearUpcoming() } label: { Label(tr("مسح القائمة"), systemImage: "trash").font(F.plex(13)).foregroundStyle(c.muted) }
             }.padding(.horizontal, 16).padding(.bottom, 8)
             ForEach(up, id: \.self) { i in
                 HStack(spacing: 4) {
                     TrackRow(t: player.queue[i], list: [player.queue[i]])
-                    Button { player.move(i, max(player.index + 1, i - 1)) } label: { Ico(name: "arrow.up", size: 20).foregroundStyle(c.muted).frame(width: 34, height: 40) }.accessibilityLabel("تحريك لأعلى")
-                    Button { player.remove(at: i) } label: { Ico(name: "xmark", size: 20).foregroundStyle(c.muted).frame(width: 34, height: 40) }.accessibilityLabel("إزالة").padding(.trailing, 8)
+                    Button { player.move(i, max(player.index + 1, i - 1)) } label: { Ico(name: "arrow.up", size: 20).foregroundStyle(c.muted).frame(width: 34, height: 40) }.accessibilityLabel(tr("تحريك لأعلى"))
+                    Button { player.remove(at: i) } label: { Ico(name: "xmark", size: 20).foregroundStyle(c.muted).frame(width: 34, height: 40) }.accessibilityLabel(tr("إزالة")).padding(.trailing, 8)
                 }
             }
         }
@@ -234,32 +234,32 @@ struct LibraryView: View {
         if let n = openList, let pl = store.playlists.first(where: { $0.name == n }) {
             let items = pl.ids.compactMap { repo.track($0) }
             HStack(spacing: 8) {
-                Pill(title: "كل القوائم", on: false) { openList = nil }
+                Pill(title: tr("كل القوائم"), on: false) { openList = nil }
                 if !items.isEmpty { playAll(items.filter { !$0.isVideo }) }
-                Button { askDelete = n } label: { Label("حذف القائمة", systemImage: "trash").font(F.plex(13)).foregroundStyle(c.danger) }
+                Button { askDelete = n } label: { Label(tr("حذف القائمة"), systemImage: "trash").font(F.plex(13)).foregroundStyle(c.danger) }
             }.padding(.horizontal, 16)
             Text(n).font(F.amiri(24)).foregroundStyle(c.text).padding(.horizontal, 16).padding(.vertical, 8)
-            if items.isEmpty { Empty(text: "القائمة فارغة — أضف إليها من «خيارات أخرى» بجانب أي تلاوة.", icon: "music.note.list") }
+            if items.isEmpty { Empty(text: tr("القائمة فارغة — أضف إليها من «خيارات أخرى» بجانب أي تلاوة."), icon: "music.note.list") }
             ForEach(items) { t in
                 HStack(spacing: 4) {
                     TrackRow(t: t, list: items)
-                    Button { if let i = store.playlists.firstIndex(where: { $0.name == n }) { store.playlists[i].ids.removeAll { $0 == t.id } } } label: { Ico(name: "xmark", size: 20).foregroundStyle(c.muted).frame(width: 34, height: 40) }.accessibilityLabel("إزالة من القائمة").padding(.trailing, 8)
+                    Button { if let i = store.playlists.firstIndex(where: { $0.name == n }) { store.playlists[i].ids.removeAll { $0 == t.id } } } label: { Ico(name: "xmark", size: 20).foregroundStyle(c.muted).frame(width: 34, height: 40) }.accessibilityLabel(tr("إزالة من القائمة")).padding(.trailing, 8)
                 }
             }
         } else {
             HStack(spacing: 8) {
-                TextField("اسم قائمة جديدة", text: Binding(get: { newName }, set: { newName = String($0.prefix(40)) })).font(F.plex(15)).padding(12).background(RoundedRectangle(cornerRadius: 14).fill(c.surface))
-                GoldButton(title: "إنشاء", icon: "plus") {
+                TextField(tr("اسم قائمة جديدة"), text: Binding(get: { newName }, set: { newName = String($0.prefix(40)) })).font(F.plex(15)).padding(12).background(RoundedRectangle(cornerRadius: 14).fill(c.surface))
+                GoldButton(title: tr("إنشاء"), icon: "plus") {
                     let n = newName.trimmingCharacters(in: .whitespaces); guard !n.isEmpty else { return }
                     if !store.playlists.contains(where: { $0.name == n }) { store.playlists.append(.init(name: n, ids: [])) }; newName = ""
                 }
             }.padding(.horizontal, 16).padding(.bottom, 8)
-            if store.playlists.isEmpty { Empty(text: "أنشئ قائمة تشغيل خاصة بك، ثم أضف إليها من «خيارات أخرى» بجانب أي تلاوة.", icon: "music.note.list") }
+            if store.playlists.isEmpty { Empty(text: tr("أنشئ قائمة تشغيل خاصة بك، ثم أضف إليها من «خيارات أخرى» بجانب أي تلاوة."), icon: "music.note.list") }
             ForEach(store.playlists) { p in
                 Button { openList = p.name } label: {
                     HStack(spacing: 12) {
                         Ico(name: "music.note.list", size: 20).foregroundStyle(c.gold)
-                        VStack(alignment: .leading, spacing: 2) { Text(p.name).font(F.plex(15, .semibold)).foregroundStyle(c.text); Text("\(p.ids.count.ar) تلاوة").font(F.plex(12)).foregroundStyle(c.muted) }
+                        VStack(alignment: .leading, spacing: 2) { Text(p.name).font(F.plex(15, .semibold)).foregroundStyle(c.text); Text(tr("{0} تلاوة", p.ids.count.ar)).font(F.plex(12)).foregroundStyle(c.muted) }
                         Spacer(); Ico(name: "chevron.left", size: 20).foregroundStyle(c.faint)
                     }.padding(14).background(RoundedRectangle(cornerRadius: 16).fill(c.surface)).overlay(RoundedRectangle(cornerRadius: 16).stroke(c.lineSoft))
                 }.buttonStyle(Press()).padding(.horizontal, 16).padding(.vertical, 4)
@@ -267,7 +267,7 @@ struct LibraryView: View {
         }
     }
     private func playAll(_ l: [Track]) -> some View {
-        Button { if let f = l.first { player.play(f, in: l) } } label: { Label("تشغيل الكل", systemImage: "play.fill").font(F.plex(13, .bold)).foregroundStyle(c.onGold).padding(.horizontal, 14).padding(.vertical, 8).background(Capsule().fill(c.gold)) }
+        Button { if let f = l.first { player.play(f, in: l) } } label: { Label(tr("تشغيل الكل"), systemImage: "play.fill").font(F.plex(13, .bold)).foregroundStyle(c.onGold).padding(.horizontal, 14).padding(.vertical, 8).background(Capsule().fill(c.gold)) }
     }
     private func usedMb() -> Double {
         let fm = FileManager.default
@@ -292,37 +292,37 @@ struct SearchView: View {
         let sn = n.replacingOccurrences(of: "^سوره", with: "", options: .regularExpression).trimmingCharacters(in: .whitespaces)
         let ss = n.isEmpty ? [] : Array(Quran.surahs.indices.filter { QuranMeta.norm(Quran.surahs[$0]).contains(sn) || "\($0 + 1)" == n }.prefix(4))
         VStack(spacing: 0) {
-            SearchField(text: $q, hint: "ابحث باسم السورة أو القارئ أو عنوان الدرس").focused($focus).padding(16)
+            SearchField(text: $q, hint: tr("ابحث باسم السورة أو القارئ أو عنوان الدرس")).focused($focus).padding(16)
             ScrollView {
                 LazyVStack(alignment: .leading, spacing: 0) {
-                    if n.isEmpty { Empty(text: "ابحث باسم السورة أو القارئ أو عنوان الدرس.", icon: "search") }
-                    else if rs.isEmpty && ts.isEmpty && fs.isEmpty && ss.isEmpty { Empty(text: "لا نتائج لـ «\(q.trimmingCharacters(in: .whitespaces))».", icon: "search") }
+                    if n.isEmpty { Empty(text: tr("ابحث باسم السورة أو القارئ أو عنوان الدرس."), icon: "search") }
+                    else if rs.isEmpty && ts.isEmpty && fs.isEmpty && ss.isEmpty { Empty(text: tr("لا نتائج لـ «{0}».", q.trimmingCharacters(in: .whitespaces)), icon: "search") }
                     if !rs.isEmpty {
-                        SectionHead(title: "القرّاء")
+                        SectionHead(title: tr("القرّاء"))
                         ForEach(rs) { r in
                             Button { ui.path.append(.reciter(r.id)) } label: {
                                 HStack(spacing: 12) {
                                     RemoteImage(raw: r.image).frame(width: 52, height: 52).clipShape(Circle())
-                                    VStack(alignment: .leading, spacing: 1) { Text(r.name).font(F.plex(14, .semibold)).foregroundStyle(c.text); Text("\((d?.recitations.filter { $0.reciterId == r.id }.count ?? 0).ar) تلاوة").font(F.plex(12.5)).foregroundStyle(c.muted) }
+                                    VStack(alignment: .leading, spacing: 1) { Text(nm(r.name)).font(F.plex(14, .semibold)).foregroundStyle(c.text); Text(tr("{0} تلاوة", (d?.recitations.filter { $0.reciterId == r.id }.count ?? 0).ar)).font(F.plex(12.5)).foregroundStyle(c.muted) }
                                     Spacer()
                                 }.padding(.horizontal, 18).padding(.vertical, 8).contentShape(Rectangle())
                             }.buttonStyle(.plain)
                         }
                     }
                     if !ss.isEmpty && d?.site.sec("mushaf") != false {
-                        SectionHead(title: "القرآن الكريم")
+                        SectionHead(title: tr("القرآن الكريم"))
                         ForEach(ss, id: \.self) { i in
                             HStack(spacing: 12) {
                                 SurahMedal(n: i + 1, size: 46)
-                                VStack(alignment: .leading, spacing: 1) { Text("سورة \(Quran.surahs[i])").font(F.plex(14, .semibold)).foregroundStyle(c.text); Text("\(Quran.ayahs[i].ar) آية — صفحة \(Quran.surahPage[i].ar)").font(F.plex(12.5)).foregroundStyle(c.muted) }
+                                VStack(alignment: .leading, spacing: 1) { Text(tr("سورة {0}", Quran.surahs[i])).font(F.plex(14, .semibold)).foregroundStyle(c.text); Text(tr("{0} آية — صفحة {1}", Quran.ayahs[i].ar, Quran.surahPage[i].ar)).font(F.plex(12.5)).foregroundStyle(c.muted) }
                                 Spacer()
-                                Chip(text: "المصحف", icon: "book") { UserDefaults.standard.set(Quran.surahPage[i], forKey: "mushafPage"); ui.path.append(.mushaf) }
+                                Chip(text: tr("المصحف"), icon: "book") { UserDefaults.standard.set(Quran.surahPage[i], forKey: "mushafPage"); ui.path.append(.mushaf) }
                             }.padding(.horizontal, 18).padding(.vertical, 8).contentShape(Rectangle()).onTapGesture { ui.path.append(.surah(i + 1)) }
                         }
                     }
-                    if !ts.isEmpty { SectionHead(title: "التلاوات"); ForEach(ts) { TrackRow(t: $0, list: ts) } }
+                    if !ts.isEmpty { SectionHead(title: tr("التلاوات")); ForEach(ts) { TrackRow(t: $0, list: ts) } }
                     if !fs.isEmpty {
-                        SectionHead(title: "دروس الفقه")
+                        SectionHead(title: tr("دروس الفقه"))
                         ForEach(fs) { f in
                             Button { ui.go(.fiqh) } label: {
                                 HStack(spacing: 12) {

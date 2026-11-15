@@ -39,7 +39,9 @@ enum Quran {
 }
 
 extension Int {
-    /// Arabic-Indic digits: 12 → ١٢
-    var ar: String { String(String(self).map { c -> Character in
+    /// The number in the app language's digits: 12 → ١٢ in Arabic, 12 in English.
+    var ar: String { L.digits(String(self)) }
+    /// Arabic-Indic digits whatever the language (the ayah markers of the Quran's text): 12 → ١٢
+    var qar: String { String(String(self).map { c -> Character in
         if let d = c.wholeNumberValue { return Character(UnicodeScalar(0x0660 + d)!) }; return c }) }
 }

@@ -22,7 +22,7 @@ enum Wird {
     static var range: (Int, Int) { (next, min(604, next + pages - 1)) }
     static func juzOf(_ p: Int) -> Int { p < 22 ? 1 : min(30, (p - 2) / 20 + 1) }
     static func surahOfPage(_ p: Int) -> Int { (Quran.surahPage.lastIndex { $0 <= p } ?? 0) + 1 }
-    static var text: String { let (f, t) = range; return (f == t ? "صفحة \(f.ar)" : "من صفحة \(f.ar) إلى \(t.ar)") + " — \(Quran.surahs[surahOfPage(f) - 1])" }
+    static var text: String { let (f, t) = range; return (f == t ? tr("صفحة {0}", f.ar) : tr("من صفحة {0} إلى {1}", f.ar, t.ar)) + " — \(Quran.surahs[surahOfPage(f) - 1])" }
     static var percent: Int { (next - 1) * 100 / 604 }
 
     private static func put(_ kv: [(String, String)]) { kv.forEach { s.set($0.0, $0.1) }; s.objectWillChange.send(); Prayers.shared.schedule() }
@@ -50,7 +50,7 @@ enum Wird {
         for d in 0..<7 {
             guard let day = cal.date(byAdding: .day, value: d, to: now), let at = cal.date(bySettingHour: hm[0], minute: hm[1], second: 0, of: day), at > now else { continue }
             if d == 0 && doneToday { continue }
-            let n = UNMutableNotificationContent(); n.title = "وردك من القرآن"; n.body = "وردك اليوم: \(text)"; n.sound = .default; n.userInfo = ["open": "wird"]
+            let n = UNMutableNotificationContent(); n.title = tr("وردك من القرآن"); n.body = tr("وردك اليوم: {0}", text); n.sound = .default; n.userInfo = ["open": "wird"]
             out.append(UNNotificationRequest(identifier: "wird-\(d)", content: n, trigger: UNCalendarNotificationTrigger(dateMatching: cal.dateComponents([.year, .month, .day, .hour, .minute], from: at), repeats: false)))
         }
         return out
@@ -70,42 +70,42 @@ struct WirdSheet: View {
         let done = Wird.doneToday, (f, _) = Wird.range
         ScrollView {
             VStack(alignment: .leading, spacing: 12) {
-                Text("الورد اليومي").font(F.amiri(26)).foregroundStyle(c.text)
+                Text(tr("الورد اليومي")).font(F.amiri(26)).foregroundStyle(c.text)
                 VStack(alignment: .leading, spacing: 6) {
-                    Text(done ? "وردك القادم" : "وردك اليوم").font(F.plex(12)).foregroundStyle(c.muted)
+                    Text(done ? tr("وردك القادم") : tr("وردك اليوم")).font(F.plex(12)).foregroundStyle(c.muted)
                     Text(Wird.text).font(F.plex(18, .bold)).foregroundStyle(c.text)
-                    Text("الجزء \(Wird.juzOf(f).ar)" + (done ? " · أتممت ورد اليوم، بارك الله فيك" : "")).font(F.plex(12)).foregroundStyle(c.muted)
+                    Text(tr("الجزء {0}", Wird.juzOf(f).ar) + (done ? tr(" · أتممت ورد اليوم، بارك الله فيك") : "")).font(F.plex(12)).foregroundStyle(c.muted)
                     ProgressView(value: Double(Wird.percent), total: 100).tint(c.gold)
-                    Text("أنجزت \(Wird.percent.ar)٪ من الختمة" + (Wird.khatmas > 0 ? " · الختمات: \(Wird.khatmas.ar)" : "")).font(F.plex(12)).foregroundStyle(c.muted)
+                    Text(tr("أنجزت {0}٪ من الختمة", Wird.percent.ar) + (Wird.khatmas > 0 ? tr(" · الختمات: {0}", Wird.khatmas.ar) : "")).font(F.plex(12)).foregroundStyle(c.muted)
                 }.padding(18).frame(maxWidth: .infinity, alignment: .leading)
                 .background(RoundedRectangle(cornerRadius: 22).fill(LinearGradient(colors: [c.gold.opacity(0.16), c.surface], startPoint: .topLeading, endPoint: .bottomTrailing)))
                 .overlay(RoundedRectangle(cornerRadius: 22).stroke(c.gold.opacity(0.4)))
                 HStack(spacing: 10) {
-                    GoldButton(title: "اقرأ الورد", icon: "book") {
+                    GoldButton(title: tr("اقرأ الورد"), icon: "book") {
                         if !Wird.on { Wird.setOn(Wird.remind) }
                         UserDefaults.standard.set(Wird.range.0, forKey: "mushafPage"); dismiss(); ui.drawer = false; ui.path.append(.mushaf)
                     }
-                    if !done { GhostButton(title: "أتممت ورد اليوم", icon: "checkmark") { ui.say(Wird.done() ? "مبارك! أتممت ختم القرآن الكريم — تقبّل الله منك" : "تقبّل الله منك — حُفظ موضع وردك القادم") } }
-                    else if Wird.canUndo { GhostButton(title: "تراجع عن «أتممت»") { Wird.undo() } }
+                    if !done { GhostButton(title: tr("أتممت ورد اليوم"), icon: "checkmark") { ui.say(Wird.done() ? tr("مبارك! أتممت ختم القرآن الكريم — تقبّل الله منك") : tr("تقبّل الله منك — حُفظ موضع وردك القادم")) } }
+                    else if Wird.canUndo { GhostButton(title: tr("تراجع عن «أتممت»")) { Wird.undo() } }
                 }
-                Text("مقدار الورد كل يوم").font(F.plex(15, .bold)).padding(.top, 8)
+                Text(tr("مقدار الورد كل يوم")).font(F.plex(15, .bold)).padding(.top, 8)
                 ScrollView(.horizontal, showsIndicators: false) {
-                    HStack(spacing: 6) { ForEach(Wird.amounts, id: \.0) { n, l in Pill(title: n == 1 ? l : "\(l) · \(n.ar) ص", on: Wird.pages == n) { Wird.setPages(n) } } }
+                    HStack(spacing: 6) { ForEach(Wird.amounts, id: \.0) { n, l in Pill(title: n == 1 ? l : tr("{0} · {1} ص", l, n.ar), on: Wird.pages == n) { Wird.setPages(n) } } }
                 }
-                Text("التذكير").font(F.plex(15, .bold)).padding(.top, 8)
+                Text(tr("التذكير")).font(F.plex(15, .bold)).padding(.top, 8)
                 Toggle(isOn: Binding(get: { Wird.on && Wird.remind }, set: { v in
                     Wird.setOn(v); if v { Task { _ = await prayers.requestNotifications() } }
-                    ui.say(v ? "سيصلك التذكير كل يوم الساعة \(timeText(Wird.time))" : "أُوقف تذكير الورد")
-                })) { Text("ذكّرني بوردي كل يوم").font(F.plex(15)) }.tint(c.gold)
-                DatePicker("وقت التذكير", selection: Binding(get: {
+                    ui.say(v ? tr("سيصلك التذكير كل يوم الساعة {0}", timeText(Wird.time)) : tr("أُوقف تذكير الورد"))
+                })) { Text(tr("ذكّرني بوردي كل يوم")).font(F.plex(15)) }.tint(c.gold)
+                DatePicker(tr("وقت التذكير"), selection: Binding(get: {
                     let hm = Wird.time.split(separator: ":").compactMap { Int($0) }
                     return Calendar.current.date(bySettingHour: hm.first ?? 21, minute: hm.last ?? 0, second: 0, of: Date()) ?? Date()
                 }, set: { d in let x = Calendar.current.dateComponents([.hour, .minute], from: d); Wird.setTime(String(format: "%02d:%02d", x.hour ?? 21, x.minute ?? 0)) }), displayedComponents: .hourAndMinute)
                     .font(F.plex(15)).padding(12).background(RoundedRectangle(cornerRadius: 16).fill(c.surface)).overlay(RoundedRectangle(cornerRadius: 16).stroke(c.lineSoft))
-                Button("ابدأ من موضع آخر") { start = true }.font(F.plex(14, .semibold)).foregroundStyle(c.gold).padding(.top, 6)
+                Button(tr("ابدأ من موضع آخر")) { start = true }.font(F.plex(14, .semibold)).foregroundStyle(c.gold).padding(.top, 6)
             }.padding(22)
         }
-        .background(c.bg2.ignoresSafeArea()).environment(\.layoutDirection, .rightToLeft)
+        .background(c.bg2.ignoresSafeArea()).environment(\.layoutDirection, L.dir)
         .bzSheet(isPresented: $start) { WirdStart().presentationDetents([.large]) }
     }
     private func timeText(_ t: String) -> String {
@@ -123,18 +123,18 @@ private struct WirdStart: View {
         NavigationStack {
             List {
                 Section {
-                    HStack { TextField("رقم الصفحة (١–٦٠٤)", text: Binding(get: { page }, set: { page = String($0.filter(\.isNumber).prefix(3)) })).keyboardType(.numberPad)
-                        Button("حفظ") { guard let p = Int(page), (1...604).contains(p) else { ui.say("اكتب رقم صفحة من ١ إلى ٦٠٤"); return }; Wird.setStart(p); ui.say("حُفظ موضع الورد"); dismiss() }.foregroundStyle(c.gold) }
-                } header: { Text("رقم الصفحة") }.listRowBackground(c.surface)
+                    HStack { TextField(tr("رقم الصفحة (١–٦٠٤)"), text: Binding(get: { page }, set: { page = String($0.filter(\.isNumber).prefix(3)) })).keyboardType(.numberPad)
+                        Button(tr("حفظ")) { guard let p = Int(page), (1...604).contains(p) else { ui.say(tr("اكتب رقم صفحة من ١ إلى ٦٠٤")); return }; Wird.setStart(p); ui.say(tr("حُفظ موضع الورد")); dismiss() }.foregroundStyle(c.gold) }
+                } header: { Text(tr("رقم الصفحة")) }.listRowBackground(c.surface)
                 Section {
                     ForEach(0..<114, id: \.self) { i in
-                        Button { Wird.setStart(Quran.surahPage[i]); ui.say("حُفظ موضع الورد: سورة \(Quran.surahs[i])"); dismiss() } label: {
-                            HStack { Text((i + 1).ar).foregroundStyle(c.gold).frame(width: 34); Text("سورة \(Quran.surahs[i])").font(F.amiri(18)).foregroundStyle(c.text); Spacer(); Text("صفحة \(Quran.surahPage[i].ar)").font(F.plex(12)).foregroundStyle(c.muted) }
+                        Button { Wird.setStart(Quran.surahPage[i]); ui.say(tr("حُفظ موضع الورد: سورة {0}", Quran.surahs[i])); dismiss() } label: {
+                            HStack { Text((i + 1).ar).foregroundStyle(c.gold).frame(width: 34); Text(tr("سورة {0}", Quran.surahs[i])).font(F.amiri(18)).foregroundStyle(c.text); Spacer(); Text(tr("صفحة {0}", Quran.surahPage[i].ar)).font(F.plex(12)).foregroundStyle(c.muted) }
                         }
                     }
-                } header: { Text("أو من أول سورة") }.listRowBackground(c.surface)
-            }.bzList(c).navigationTitle("ابدأ وردك من…").navigationBarTitleDisplayMode(.inline)
-        }.environment(\.layoutDirection, .rightToLeft)
+                } header: { Text(tr("أو من أول سورة")) }.listRowBackground(c.surface)
+            }.bzList(c).navigationTitle(tr("ابدأ وردك من…")).navigationBarTitleDisplayMode(.inline)
+        }.environment(\.layoutDirection, L.dir)
     }
 }
 
@@ -230,8 +230,8 @@ struct AmbientSheet: View {
     @Environment(\.dismiss) private var dismiss
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
-            Text("أصوات هادئة مع الاستماع").font(F.amiri(24)).foregroundStyle(c.text)
-            Text("تعمل مع التلاوة وتساعد على التركيز وعزل الضوضاء حولك.").font(F.plex(14)).foregroundStyle(c.muted)
+            Text(tr("أصوات هادئة مع الاستماع")).font(F.amiri(24)).foregroundStyle(c.text)
+            Text(tr("تعمل مع التلاوة وتساعد على التركيز وعزل الضوضاء حولك.")).font(F.plex(14)).foregroundStyle(c.muted)
             LazyVGrid(columns: [GridItem(.flexible(), spacing: 10), GridItem(.flexible(), spacing: 10)], spacing: 10) {
                 ForEach(Ambient.kinds, id: \.key) { k in
                     let on = amb.current == k.key
@@ -246,10 +246,10 @@ struct AmbientSheet: View {
                     }.buttonStyle(Press())
                 }
             }
-            HStack { Ico(name: "speaker.wave.2", size: 20).foregroundStyle(c.gold); Text("مستوى الصوت").font(F.plex(14, .medium)); Slider(value: $amb.volume, in: 5...100).tint(c.gold) }
-            if !amb.current.isEmpty { GhostButton(title: "إيقاف الأصوات", icon: "stop.fill") { amb.stop(); dismiss() } }
+            HStack { Ico(name: "speaker.wave.2", size: 20).foregroundStyle(c.gold); Text(tr("مستوى الصوت")).font(F.plex(14, .medium)); Slider(value: $amb.volume, in: 5...100).tint(c.gold) }
+            if !amb.current.isEmpty { GhostButton(title: tr("إيقاف الأصوات"), icon: "stop.fill") { amb.stop(); dismiss() } }
             Spacer()
-        }.padding(22).background(c.bg2.ignoresSafeArea()).environment(\.layoutDirection, .rightToLeft)
+        }.padding(22).background(c.bg2.ignoresSafeArea()).environment(\.layoutDirection, L.dir)
     }
 }
 
@@ -262,8 +262,8 @@ enum Adhan {
     static var voices: [Voice] {
         let site = (Repo.shared.data?.adhans ?? []).filter { !$0.url.isEmpty }.map { Voice(id: $0.id, name: $0.name, muezzin: $0.muezzin, url: $0.url, fajr: $0.fajr) }
         if !site.isEmpty { return site }
-        return [Voice(id: "makkah", name: "أذان الحرم المكي", muezzin: "الشيخ هاشم السقاف", url: Repo.shared.data?.site.j["adhanUrl"].str.isEmpty == false ? Repo.shared.data!.site.j["adhanUrl"].str : "/Makaah Azan.mp3", fajr: ""),
-                Voice(id: "madinah", name: "أذان الحرم النبوي", muezzin: "الشيخ محمد قصاص", url: "/wp-content/themes/bawazir-library-premium-v2/assets/adhan/madinah-qassas.mp3", fajr: "/wp-content/themes/bawazir-library-premium-v2/assets/adhan/madinah-qassas-fajr.mp3")]
+        return [Voice(id: "makkah", name: tr("أذان الحرم المكي"), muezzin: tr("الشيخ هاشم السقاف"), url: Repo.shared.data?.site.j["adhanUrl"].str.isEmpty == false ? Repo.shared.data!.site.j["adhanUrl"].str : "/Makaah Azan.mp3", fajr: ""),
+                Voice(id: "madinah", name: tr("أذان الحرم النبوي"), muezzin: tr("الشيخ محمد قصاص"), url: "/wp-content/themes/bawazir-library-premium-v2/assets/adhan/madinah-qassas.mp3", fajr: "/wp-content/themes/bawazir-library-premium-v2/assets/adhan/madinah-qassas-fajr.mp3")]
     }
     static var voiceId: String { let v = Store.shared.str("adhanVoice", "makkah"); return voices.contains { $0.id == v } ? v : (voices.first?.id ?? "makkah") }
     static var voice: Voice? { voices.first { $0.id == voiceId } }
@@ -338,30 +338,30 @@ struct AdhanScreen: View {
     @State private var pulse = false
     private var test: Bool { key == "test" }
     private var name: String {
-        if test { return "الأذان" }
-        if key == "dhuhr" && Calendar.current.component(.weekday, from: Date()) == 6 { return "الجمعة" }
+        if test { return tr("الأذان") }
+        if key == "dhuhr" && Calendar.current.component(.weekday, from: Date()) == 6 { return tr("الجمعة") }
         return prayers.forDay().first { $0.key == key }?.name ?? ""
     }
     var body: some View {
         ZStack(alignment: .topLeading) {
             RadialGradient(colors: [c.gold.opacity(0.14), c.bg], center: .center, startRadius: 10, endRadius: 600).ignoresSafeArea()
-            Button { ap.stop(); dismiss() } label: { Ico(name: "xmark", size: 21.6).foregroundStyle(c.text).frame(width: 44, height: 44) }.padding(12).accessibilityLabel("إغلاق")
+            Button { ap.stop(); dismiss() } label: { Ico(name: "xmark", size: 21.6).foregroundStyle(c.text).frame(width: 44, height: 44) }.padding(12).accessibilityLabel(tr("إغلاق"))
             ScrollView {
                 VStack(spacing: 6) {
-                    Text(test ? "تجربة" : "حان الآن موعد صلاة").font(F.plex(18)).foregroundStyle(c.muted)
+                    Text(test ? tr("تجربة") : tr("حان الآن موعد صلاة")).font(F.plex(18)).foregroundStyle(c.muted)
                     Text(name).font(F.amiri(56)).foregroundStyle(c.gold)
                     Text(prayers.place).font(F.plex(15)).foregroundStyle(c.muted).padding(.bottom, 30)
                     Button { if ap.playing { ap.stop() } else { ap.play(fajr: key == "fajr") } } label: {
                         Ico(name: ap.playing ? "pause.fill" : "play.fill", size: 52.8).foregroundStyle(c.onGold).frame(width: 120, height: 120).background(Circle().fill(c.goldGradient))
                             .scaleEffect(ap.playing && pulse ? 1.08 : 1)
-                    }.buttonStyle(.plain).accessibilityLabel(ap.playing ? "إيقاف الأذان" : "تشغيل الأذان")
-                    Text(ap.playing ? "إيقاف الأذان" : "تشغيل الأذان").font(F.plex(18, .semibold)).foregroundStyle(c.text).padding(.top, 20)
+                    }.buttonStyle(.plain).accessibilityLabel(ap.playing ? tr("إيقاف الأذان") : tr("تشغيل الأذان"))
+                    Text(ap.playing ? tr("إيقاف الأذان") : tr("تشغيل الأذان")).font(F.plex(18, .semibold)).foregroundStyle(c.text).padding(.top, 20)
                     if let v = Adhan.voice { Text("\(v.name) · \(v.muezzin)").font(F.plex(14)).foregroundStyle(c.faint).padding(.top, 4) }
-                    Hadith(words: "«إذا سَمِعتُمُ النِّداءَ، فقولوا مِثلَ ما يقولُ المُؤَذِّنُ»").padding(.top, 26)
+                    Hadith(words: tr("«إذا سَمِعتُمُ النِّداءَ، فقولوا مِثلَ ما يقولُ المُؤَذِّنُ»")).padding(.top, 26)
                 }.padding(24).frame(maxWidth: 440).frame(maxWidth: .infinity).padding(.top, 70)
             }
         }
-        .environment(\.layoutDirection, .rightToLeft)
+        .environment(\.layoutDirection, L.dir)
         .onAppear { withAnimation(.easeInOut(duration: 0.9).repeatForever()) { pulse = true } }
     }
 }
@@ -371,10 +371,10 @@ struct Hadith: View {
     @Environment(\.pal) private var c
     var body: some View {
         VStack(spacing: 6) {
-            (Text("قال رسول الله ﷺ: ").foregroundColor(c.gold) + Text(words).foregroundColor(c.text)).font(F.amiri(20, bold: false)).multilineTextAlignment(.center).lineSpacing(10)
+            (Text(tr("قال رسول الله ﷺ: ")).foregroundColor(c.gold) + Text(words).foregroundColor(c.text)).font(F.amiri(20, bold: false)).multilineTextAlignment(.center).lineSpacing(10)
                 .padding(.horizontal, 20).padding(.vertical, 18).frame(maxWidth: .infinity)
                 .background(RoundedRectangle(cornerRadius: 24).fill(c.gold.opacity(0.09))).overlay(RoundedRectangle(cornerRadius: 24).stroke(c.gold.opacity(0.35)))
-            Text("متفق عليه").font(F.plex(13)).foregroundStyle(c.muted)
+            Text(tr("متفق عليه")).font(F.plex(13)).foregroundStyle(c.muted)
         }
     }
 }

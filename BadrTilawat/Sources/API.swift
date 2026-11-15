@@ -14,7 +14,7 @@ final class Repo: ObservableObject {
     @Published private(set) var data: SiteData?
     @Published private(set) var offline = false
     /// the screen shown now («يتصفح» in the dashboard)
-    var page = "الرئيسية"
+    var page = tr("الرئيسية")
 
     let session: URLSession = {
         let c = URLSessionConfiguration.default
@@ -76,7 +76,7 @@ final class Repo: ObservableObject {
     static func withSheikh(_ n: String) -> String {
         let t = n.trimmingCharacters(in: .whitespaces)
         if t.isEmpty || t.range(of: "^(الشيخ|الإمام|القارئ|د\\.|الدكتور)", options: .regularExpression) != nil { return t }
-        return "الشيخ " + t
+        return tr("الشيخ ") + t
     }
 
     // MARK: Quran text
@@ -110,7 +110,7 @@ final class Repo: ObservableObject {
             var f: [String: String] = ["type": type, "device": "mobile", "visitor": Store.shared.visitorId, "src": "app",
                                        "appVer": "ios-" + Repo.version, "appCode": "\(Repo.build)", "model": "iPhone", "android": "",
                                        "timezone": TimeZone.current.identifier, "pageLabel": self.page]
-            let place = Store.shared.str("place").components(separatedBy: "، ").filter { !$0.isEmpty }
+            let place = Store.shared.str("place").components(separatedBy: tr("، ")).filter { !$0.isEmpty }
             if place.count >= 2 { f["city"] = place.first; f["country"] = place.last } else if let c = place.first { f["country"] = c }
             let p = AudioPlayer.shared
             if let t = p.current { f["audioState"] = p.playing ? "playing" : "paused"; f["listeningTitle"] = t.title; f["listeningReciter"] = self.reciter(t.reciterId)?.name ?? "" } else { f["audioState"] = "idle" }

@@ -60,11 +60,19 @@ jobs:
           xcrun simctl install "$UDID" simbuild/Build/Products/Release-iphonesimulator/BadrTilawat.app
           xcrun simctl privacy "$UDID" grant all com.bawazirquran.app || true
           : > shots/runs.txt
-          for r in home recitations quran adhkar community library prayer drawer readIndex read maker listen surah mushaf watch clip reciter player search wird ambient adhan widgets; do
+          for r in home recitations quran adhkar community library prayer drawer readIndex read maker listen surah mushaf watch clip reciter player search wird ambient adhan widgets live liveMd imams imamsMd imamAlerts lang; do
             SIMCTL_CHILD_BZ_ROUTE=$r xcrun simctl launch --terminate-running-process "$UDID" com.bawazirquran.app >/dev/null 2>&1
             sleep 14
             if xcrun simctl spawn "$UDID" launchctl list | grep -q UIKitApplication:com.bawazirquran.app; then echo "$r ok" >> shots/runs.txt; else echo "$r CRASHED" >> shots/runs.txt; fi
             xcrun simctl io "$UDID" screenshot "shots/$r.png" >/dev/null 2>&1 || true
+          done
+          # the same screens in other languages (English, Urdu)
+          for x in en:home en:live en:imams en:surah en:drawer en:recitations en:prayer ur:home ur:imams; do
+            L=${x%%:*}; r=${x#*:}
+            SIMCTL_CHILD_BZ_LANG=$L SIMCTL_CHILD_BZ_ROUTE=$r xcrun simctl launch --terminate-running-process "$UDID" com.bawazirquran.app >/dev/null 2>&1
+            sleep 14
+            if xcrun simctl spawn "$UDID" launchctl list | grep -q UIKitApplication:com.bawazirquran.app; then echo "$L-$r ok" >> shots/runs.txt; else echo "$L-$r CRASHED" >> shots/runs.txt; fi
+            xcrun simctl io "$UDID" screenshot "shots/$L-$r.png" >/dev/null 2>&1 || true
           done
           xcrun simctl terminate "$UDID" com.bawazirquran.app || true
           find ~/Library/Logs/DiagnosticReports -name "BadrTilawat*" -exec cp {} shots/ \; 2>/dev/null || true

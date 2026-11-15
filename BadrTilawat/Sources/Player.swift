@@ -238,11 +238,11 @@ final class AyahPlayer: ObservableObject {
     func play(_ rv: String, _ s: Int, _ a: Int, repeat r: Int = 1, then: (() -> Void)? = nil) {
         AudioPlayer.shared.pause()
         let main = url(rv, s, a)
-        guard let u = main ?? url("yasser", s, a) else { status = "تعذّر تحميل الصوت"; return }
+        guard let u = main ?? url("yasser", s, a) else { status = tr("تعذّر تحميل الصوت"); return }
         try? AVAudioSession.sharedInstance().setActive(true)
         player.replaceCurrentItem(with: AVPlayerItem(url: u)); player.play()
         key = "\(s):\(a)|\(rv)"; playing = true; repeatN = r; left = r == 0 ? Int.max : r; self.then = then
-        status = main == nil ? "هذه الآية غير متاحة بهذا الصوت — تُشغَّل بصوت الشيخ ياسر الدوسري" : (r == 0 ? "تكرار مستمر" : label(rv, s, a))
+        status = main == nil ? tr("هذه الآية غير متاحة بهذا الصوت — تُشغَّل بصوت الشيخ ياسر الدوسري") : (r == 0 ? tr("تكرار مستمر") : label(rv, s, a))
         Repo.shared.event("ayah", ["s": "\(s)", "a": "\(a)"])
     }
     func stop() { player.pause(); playing = false; key = nil; then = nil }

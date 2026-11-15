@@ -94,7 +94,7 @@ final class MakerContext: @unchecked Sendable {
     }
 
     private func drawText(_ c: CGContext, _ W: CGFloat, _ H: CGFloat, _ f: MFrame, _ layer: MLayer, _ th: Th, _ o: MakerOpts, _ u: CGFloat) {
-        let text = layer.items.map { "\($0.text) ﴿\($0.n.ar)﴾" }.joined(separator: " ")
+        let text = layer.items.map { "\($0.text) ﴿\($0.n.qar)﴾" }.joined(separator: " ")
         let L = layout(text, W, H, u, o)
         let tafsirText = o.tafsir.isEmpty ? "" : layer.items.compactMap { tafsir[$0.n] }.joined(separator: " • ")
         let scenic = MAKER_SCENIC.contains(o.tpl)

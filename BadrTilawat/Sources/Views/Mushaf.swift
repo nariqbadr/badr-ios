@@ -125,8 +125,8 @@ struct MushafView: View {
             HStack(spacing: 6) {
                 Button { jump = true } label: {
                     HStack(spacing: 0) {
-                        Text("سورة \(Quran.surahs[fs - 1])").font(F.plex(14, .semibold)).foregroundStyle(c.text).lineLimit(1)
-                        Text(" · ص \(page.ar) · ج \(MushafData.juzOf(fg).ar)").font(F.plex(12.5, .medium)).foregroundStyle(c.muted).lineLimit(1)
+                        Text(tr("سورة {0}", Quran.surahs[fs - 1])).font(F.plex(14, .semibold)).foregroundStyle(c.text).lineLimit(1)
+                        Text(tr(" · ص {0} · ج {1}", page.ar, MushafData.juzOf(fg).ar)).font(F.plex(12.5, .medium)).foregroundStyle(c.muted).lineLimit(1)
                         Spacer(); SiteIcon(name: "chev-d", size: 20, color: c.gold)
                     }.padding(.horizontal, 14).padding(.vertical, 9).background(Capsule().fill(c.surface.opacity(0.6))).overlay(Capsule().stroke(c.line))
                 }.buttonStyle(.plain)
@@ -134,7 +134,7 @@ struct MushafView: View {
                     if ma.current > 0 { if ayah.playing { ma.stop() } else { ma.play(ma.current, rv) } } else { player.pause(); ma.play(MushafData.firstG(page), rv) }
                 }
                 Chip(text: nil, icon: "bookmark", on: marks.contains(page)) {
-                    if let i = marks.firstIndex(of: page) { marks.remove(at: i); ui.say("أُزيلت العلامة") } else { marks.append(page); ui.say("حُفظت علامة على هذه الصفحة") }
+                    if let i = marks.firstIndex(of: page) { marks.remove(at: i); ui.say(tr("أُزيلت العلامة")) } else { marks.append(page); ui.say(tr("حُفظت علامة على هذه الصفحة")) }
                     UserDefaults.standard.set(marks.sorted().map(String.init).joined(separator: ","), forKey: "mushafMarks")
                 }
                 Chip(text: nil, icon: "scroll") { tafsir = true }
@@ -142,7 +142,7 @@ struct MushafView: View {
             // the reciter, always in sight
             HStack {
                 let (rs, ra) = ma.current > 0 ? MushafData.sa(ma.current) : (fs, 1)
-                ReciterButton(opts: ayah.options(rs, ra).map { RecChoice(value: $0.value, label: $0.label, img: repo.recImg($0.value, $0.label)) }, value: rv, label: "بصوت", title: "القارئ في المصحف") { v in
+                ReciterButton(opts: ayah.options(rs, ra).map { RecChoice(value: $0.value, label: $0.label, img: repo.recImg($0.value, $0.label)) }, value: rv, label: tr("بصوت"), title: tr("القارئ في المصحف")) { v in
                     store.ayahReciter = v; if ma.current > 0 { ma.play(ma.current, v) }
                 }
                 Spacer()
@@ -153,7 +153,7 @@ struct MushafView: View {
             }
             if !marks.isEmpty {
                 ScrollView(.horizontal, showsIndicators: false) {
-                    HStack(spacing: 6) { ForEach(marks.sorted(), id: \.self) { m in Pill(title: "صفحة \(m.ar)", on: m == page, icon: "bookmark") { withAnimation { page = m } } } }.padding(.horizontal, 12).padding(.vertical, 2)
+                    HStack(spacing: 6) { ForEach(marks.sorted(), id: \.self) { m in Pill(title: tr("صفحة {0}", m.ar), on: m == page, icon: "bookmark") { withAnimation { page = m } } } }.padding(.horizontal, 12).padding(.vertical, 2)
                 }
             }
             // pages: the next page is to the left, as in a printed mushaf
@@ -167,16 +167,16 @@ struct MushafView: View {
             .tabViewStyle(.page(indexDisplayMode: .never))
             .environment(\.layoutDirection, .leftToRight)
             HStack(spacing: 4) {
-                Button("أ−") { size = max(1, size - 0.2) }.disabled(size <= 1).foregroundStyle(c.gold).frame(width: 44, height: 32)
-                Text("حجم الخط").font(F.plex(11)).foregroundStyle(c.faint)
-                Button("أ+") { size = min(2.6, size + 0.2) }.foregroundStyle(c.gold).frame(width: 44, height: 32)
+                Button(tr("أ−")) { size = max(1, size - 0.2) }.disabled(size <= 1).foregroundStyle(c.gold).frame(width: 44, height: 32)
+                Text(tr("حجم الخط")).font(F.plex(11)).foregroundStyle(c.faint)
+                Button(tr("أ+")) { size = min(2.6, size + 0.2) }.foregroundStyle(c.gold).frame(width: 44, height: 32)
             }.font(F.plex(15, .bold)).padding(.vertical, 2)
         }
         .bzSheet(item: Binding(get: { menu.map(IntBox.init(v:)) }, set: { menu = $0?.v })) { b in
             AyahMenu(g: b.v, page: page, seekMs: player.playing && ma.current == 0 ? trackStart(b.v) : nil,
                      onPlay: { menu = nil; player.pause(); ma.play(b.v, rv) },
                      onTrack: { ms in menu = nil; player.seek(max(0, Double(ms - 80) / 1000)); lastFollow = 0 },
-                     onMark: { p in if !marks.contains(p) { marks.append(p) }; UserDefaults.standard.set(marks.sorted().map(String.init).joined(separator: ","), forKey: "mushafMarks"); ui.say("حُفظت علامة على هذه الصفحة"); menu = nil })
+                     onMark: { p in if !marks.contains(p) { marks.append(p) }; UserDefaults.standard.set(marks.sorted().map(String.init).joined(separator: ","), forKey: "mushafMarks"); ui.say(tr("حُفظت علامة على هذه الصفحة")); menu = nil })
                 .presentationDetents([.medium, .large])
         }
         .bzSheet(isPresented: $jump) { MushafJump(page: page) { p in jump = false; page = p }.presentationDetents([.large]) }
@@ -232,7 +232,7 @@ struct MushafPage: View {
             HStack {
                 Text(Quran.surahs[fs - 1]).font(F.amiri(15)).foregroundStyle(c.gold)
                 Spacer()
-                Text("الجزء \(MushafData.juzOf(fg).ar) · الحزب \(MushafData.hizbOf(fg).ar)").font(F.plex(11)).foregroundStyle(c.muted)
+                Text(tr("الجزء {0} · الحزب {1}", MushafData.juzOf(fg).ar, MushafData.hizbOf(fg).ar)).font(F.plex(11)).foregroundStyle(c.muted)
             }.padding(.bottom, 4)
             GeometryReader { geo in
                 let widths = lines.map { l -> CGFloat in if case .words(let s) = l { return MushafPage.width(s) } else { return 0 } }
@@ -303,7 +303,7 @@ struct MushafPage: View {
     private func title(_ s: Int, _ font: CGFloat) -> some View {
         HStack(spacing: 12) {
             LinearGradient(colors: [c.gold.opacity(0.7), .clear], startPoint: .leading, endPoint: .trailing).frame(height: 1)
-            Text("سورة \(Quran.surahs[s - 1])").font(F.amiri(font * 0.82)).foregroundStyle(c.gold).lineLimit(1).fixedSize()
+            Text(tr("سورة {0}", Quran.surahs[s - 1])).font(F.amiri(font * 0.82)).foregroundStyle(c.gold).lineLimit(1).fixedSize()
             LinearGradient(colors: [.clear, c.gold.opacity(0.7)], startPoint: .leading, endPoint: .trailing).frame(height: 1)
         }
     }
@@ -334,28 +334,28 @@ struct AyahMenu: View {
     @State private var tafsir = false
     var body: some View {
         let (s, a) = MushafData.sa(g), text = MushafData.text(g)
-        let cite = "﴿\(text)﴾ [سورة \(Quran.surahs[s - 1]): \(a)]"
+        let cite = tr("﴿{0}﴾ [سورة {1}: {2}]", text, Quran.surahs[s - 1], a)
         ScrollView {
             VStack(alignment: .leading, spacing: 8) {
-                SheetHead(title: "سورة \(Quran.surahs[s - 1]) — الآية \(a.ar)")
+                SheetHead(title: tr("سورة {0} — الآية {1}", Quran.surahs[s - 1], a.ar))
                 Text("﴿\(text)﴾").font(.custom(MushafData.font, size: 22)).foregroundStyle(c.text).lineSpacing(16).multilineTextAlignment(.center).frame(maxWidth: .infinity).padding(.horizontal, 20)
                 VStack(spacing: 8) {
                     if let ms = seekMs {
-                        GoldButton(title: "أكمل التلاوة من هنا", icon: "play") { onTrack(ms) }.frame(maxWidth: .infinity)
-                        Chip(text: "استمع لهذه الآية بصوت قارئ المصحف", icon: "play") { onPlay() }
-                    } else { GoldButton(title: "استمع من هنا", icon: "play") { onPlay() } }
+                        GoldButton(title: tr("أكمل التلاوة من هنا"), icon: "play") { onTrack(ms) }.frame(maxWidth: .infinity)
+                        Chip(text: tr("استمع لهذه الآية بصوت قارئ المصحف"), icon: "play") { onPlay() }
+                    } else { GoldButton(title: tr("استمع من هنا"), icon: "play") { onPlay() } }
                     HStack(spacing: 8) {
-                        Chip(text: "التفسير", icon: "scroll") { tafsir = true }.frame(maxWidth: .infinity)
-                        Chip(text: "نسخ", icon: "copy") { UIPasteboard.general.string = cite; ui.say("نُسخت الآية") }.frame(maxWidth: .infinity)
+                        Chip(text: tr("التفسير"), icon: "scroll") { tafsir = true }.frame(maxWidth: .infinity)
+                        Chip(text: tr("نسخ"), icon: "copy") { UIPasteboard.general.string = cite; ui.say(tr("نُسخت الآية")) }.frame(maxWidth: .infinity)
                     }
                     HStack(spacing: 8) {
-                        Chip(text: "مشاركة", icon: "share") { share(cite) }.frame(maxWidth: .infinity)
-                        Chip(text: "علامة على الصفحة", icon: "bookmark") { onMark(page) }.frame(maxWidth: .infinity)
+                        Chip(text: tr("مشاركة"), icon: "share") { share(cite) }.frame(maxWidth: .infinity)
+                        Chip(text: tr("علامة على الصفحة"), icon: "bookmark") { onMark(page) }.frame(maxWidth: .infinity)
                     }
                 }.padding(20)
             }
         }
-        .background(c.bg2.ignoresSafeArea()).environment(\.layoutDirection, .rightToLeft)
+        .background(c.bg2.ignoresSafeArea()).environment(\.layoutDirection, L.dir)
         .onAppear { UserDefaults.standard.set(g, forKey: "mushafAyah") }
         .bzSheet(isPresented: $tafsir) { TafsirSheet(s: s, a: a, text: text).presentationDetents([.medium, .large]) }
     }
@@ -369,16 +369,16 @@ struct MushafJump: View {
     @State private var num = ""
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
-            SheetHead(title: "انتقل إلى")
-            Seg(items: ["السورة", "الجزء", "الصفحة"], selected: tab) { tab = $0 }.padding(.horizontal, 20)
+            SheetHead(title: tr("انتقل إلى"))
+            Seg(items: [tr("السورة"), tr("الجزء"), tr("الصفحة")], selected: tab) { tab = $0 }.padding(.horizontal, 20)
             switch tab {
             case 0:
                 List(0..<114, id: \.self) { i in
                     Button { go(Quran.surahPage[i]) } label: {
                         HStack(spacing: 12) {
                             ZStack { Canvas { ctx, s in ctx.stroke(star8(CGPoint(x: s.width / 2, y: s.height / 2), s.width / 2 - 1), with: .color(c.gold.opacity(0.6)), lineWidth: 1) }; Text((i + 1).ar).font(F.plex(12, .bold)).foregroundStyle(c.gold) }.frame(width: 38, height: 38)
-                            Text("سورة \(Quran.surahs[i])").font(F.amiri(19)).foregroundStyle(c.text)
-                            Spacer(); Text("ص \(Quran.surahPage[i].ar)").font(F.plex(13)).foregroundStyle(c.muted)
+                            Text(tr("سورة {0}", Quran.surahs[i])).font(F.amiri(19)).foregroundStyle(c.text)
+                            Spacer(); Text(tr("ص {0}", Quran.surahPage[i].ar)).font(F.plex(13)).foregroundStyle(c.muted)
                         }
                     }.listRowBackground(Color.clear)
                 }.listStyle(.plain).scrollContentBackground(.hidden)
@@ -396,14 +396,14 @@ struct MushafJump: View {
                 }
             default:
                 HStack(spacing: 10) {
-                    TextField("رقم الصفحة (١–٦٠٤)", text: Binding(get: { num }, set: { num = String($0.filter(\.isNumber).prefix(3)) })).keyboardType(.numberPad).font(F.plex(15))
+                    TextField(tr("رقم الصفحة (١–٦٠٤)"), text: Binding(get: { num }, set: { num = String($0.filter(\.isNumber).prefix(3)) })).keyboardType(.numberPad).font(F.plex(15))
                         .padding(12).background(RoundedRectangle(cornerRadius: 18).fill(c.surface.opacity(0.6))).overlay(RoundedRectangle(cornerRadius: 18).stroke(c.line))
-                    GoldButton(title: "انتقل") { if let p = Int(num), (1...604).contains(p) { go(p) } }
+                    GoldButton(title: tr("انتقل")) { if let p = Int(num), (1...604).contains(p) { go(p) } }
                 }.padding(20)
                 Spacer()
             }
         }
-        .background(c.bg2.ignoresSafeArea()).environment(\.layoutDirection, .rightToLeft)
+        .background(c.bg2.ignoresSafeArea()).environment(\.layoutDirection, L.dir)
     }
 }
 
@@ -412,27 +412,27 @@ struct PageTafsirSheet: View {
     let page: Int
     @EnvironmentObject var repo: Repo
     @Environment(\.pal) private var c
-    @AppStorage("tafsirEd") private var ed = "ar.muyassar"
+    @AppStorage("tafsirEd") private var ed = L.quran[L.code]?.0 ?? "ar.muyassar"
     @State private var rows: [(Int, Int, String, String)]?
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 10) {
-                SheetHead(title: "تفسير الصفحة \(page.ar)")
+                SheetHead(title: tr("تفسير الصفحة {0}", page.ar))
                 Seg(items: TafsirSheet.editions.map(\.1), selected: TafsirSheet.editions.firstIndex { $0.0 == ed } ?? 0) { ed = TafsirSheet.editions[$0].0 }.padding(.horizontal, 20)
                 if let rows {
-                    if rows.isEmpty { Text("تعذّر تحميل التفسير الآن.").font(F.plex(14)).foregroundStyle(c.muted).padding(20) }
+                    if rows.isEmpty { Text(tr("تعذّر تحميل التفسير الآن.")).font(F.plex(14)).foregroundStyle(c.muted).padding(20) }
                     ForEach(Array(rows.enumerated()), id: \.offset) { _, r in
                         Panel(pad: 14, lattice: false) {
                             Text("﴿\(r.2)﴾").font(.custom(MushafData.font, size: 19)).foregroundStyle(c.text).lineSpacing(12)
                             Text("\(Quran.surahs[r.0 - 1]) \(r.1.ar)").font(F.plex(12.5, .medium)).foregroundStyle(c.gold)
-                            Text(r.3).font(ed == "en.sahih" ? F.plex(16) : F.amiri(17, bold: false)).foregroundStyle(c.text).lineSpacing(8).padding(.top, 6)
-                                .environment(\.layoutDirection, ed == "en.sahih" ? .leftToRight : .rightToLeft).frame(maxWidth: .infinity, alignment: .leading)
+                            Text(r.3).font(!ed.hasPrefix("ar.") ? F.plex(16) : F.amiri(17, bold: false)).foregroundStyle(c.text).lineSpacing(8).padding(.top, 6)
+                                .environment(\.layoutDirection, !ed.hasPrefix("ar.") ? (["ur.jalandhry", "fa.khorramdel"].contains(ed) ? .rightToLeft : .leftToRight) : .rightToLeft).frame(maxWidth: .infinity, alignment: .leading)
                         }.padding(.horizontal, 20).padding(.vertical, 5)
                     }
                 } else { ProgressView().tint(c.gold).frame(maxWidth: .infinity).padding(40) }
             }.padding(.bottom, 20)
         }
-        .background(c.bg2.ignoresSafeArea()).environment(\.layoutDirection, .rightToLeft)
+        .background(c.bg2.ignoresSafeArea()).environment(\.layoutDirection, L.dir)
         .task(id: ed) {
             rows = nil
             let gs = MushafData.ayahsOn(page)
@@ -445,7 +445,7 @@ struct PageTafsirSheet: View {
 
 /// One button with the chosen reciter's photo; it opens a sheet of every reciter.
 struct ReciterButton: View {
-    let opts: [RecChoice]; let value: String; var label: String? = nil; var title = "اختر القارئ"; let pick: (String) -> Void
+    let opts: [RecChoice]; let value: String; var label: String? = nil; var title = tr("اختر القارئ"); let pick: (String) -> Void
     @Environment(\.pal) private var c
     @State private var open = false
     @State private var q = ""
@@ -465,7 +465,7 @@ struct ReciterButton: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: 6) {
                     SheetHead(title: title)
-                    if opts.count > 8 { SearchField(text: $q, hint: "ابحث باسم القارئ").padding(.horizontal, 16) }
+                    if opts.count > 8 { SearchField(text: $q, hint: tr("ابحث باسم القارئ")).padding(.horizontal, 16) }
                     let shown = opts.filter { q.isEmpty || $0.label.contains(q.trimmingCharacters(in: .whitespaces)) }
                     LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 6), count: 4), spacing: 6) {
                         ForEach(shown, id: \.value) { o in
@@ -478,7 +478,7 @@ struct ReciterButton: View {
                         }
                     }.padding(.horizontal, 12)
                 }.padding(.bottom, 20)
-            }.background(c.bg2.ignoresSafeArea()).environment(\.layoutDirection, .rightToLeft).presentationDetents([.medium, .large])
+            }.background(c.bg2.ignoresSafeArea()).environment(\.layoutDirection, L.dir).presentationDetents([.medium, .large])
         }
     }
 }

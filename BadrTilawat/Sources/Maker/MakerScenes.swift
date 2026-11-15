@@ -11,10 +11,10 @@ struct Th { let text: UIColor, accent: UIColor, soft: UIColor, shadow: UIColor? 
 func rgba(_ r: Int, _ g: Int, _ b: Int, _ a: Double) -> UIColor { UIColor(red: CGFloat(r) / 255, green: CGFloat(g) / 255, blue: CGFloat(b) / 255, alpha: CGFloat(min(1, max(0, a)))) }
 func hex(_ s: String) -> UIColor { ClipEngine.color(s) }
 
-let MAKER_TEMPLATES: [(String, String)] = [("emerald", "زمردي ذهبي"), ("night", "ليل كحلي"), ("parchment", "رقّ قديم"), ("black", "أسود بسيط"), ("dawn", "فجر"), ("kaaba", "الكعبة المشرفة"),
-    ("nabawi", "المسجد النبوي"), ("ramadan", "رمضان"), ("eid", "عيد مبارك"), ("sky", "سماء وغيوم (متحرك)"), ("sea", "بحر عند الغروب (متحرك)"),
-    ("stars", "ليل ونجوم (متحرك)"), ("gray", "رمادي هادئ"), ("mist", "رمادي فاتح"), ("babyblue", "سماء زرقاء"), ("nightblue", "ليل أزرق"),
-    ("olive", "ورق زيتوني"), ("geo", "زخرفة هندسية"), ("video", "فيديو متحرك"), ("photo", "صورة خلفية")]
+let MAKER_TEMPLATES: [(String, String)] = [("emerald", tr("زمردي ذهبي")), ("night", tr("ليل كحلي")), ("parchment", tr("رقّ قديم")), ("black", tr("أسود بسيط")), ("dawn", tr("فجر")), ("kaaba", tr("الكعبة المشرفة")),
+    ("nabawi", tr("المسجد النبوي")), ("ramadan", tr("رمضان")), ("eid", tr("عيد مبارك")), ("sky", tr("سماء وغيوم (متحرك)")), ("sea", tr("بحر عند الغروب (متحرك)")),
+    ("stars", tr("ليل ونجوم (متحرك)")), ("gray", tr("رمادي هادئ")), ("mist", tr("رمادي فاتح")), ("babyblue", tr("سماء زرقاء")), ("nightblue", tr("ليل أزرق")),
+    ("olive", tr("ورق زيتوني")), ("geo", tr("زخرفة هندسية")), ("video", tr("فيديو متحرك")), ("photo", tr("صورة خلفية"))]
 /** light designs: dark text, and dark dust / progress bar on them */
 let MAKER_LIGHT: Set<String> = ["parchment", "mist", "babyblue"]
 let MAKER_ANIMATED: Set<String> = ["sky", "sea", "stars", "video"]
@@ -200,8 +200,8 @@ enum MakerBackgrounds {
             for i in 0..<160 { c.saveGState(); c.translateBy(x: R.next() * W, y: R.next() * H); c.rotate(by: R.next() * 6.28); c.setFillColor(cols[i % 4].withAlphaComponent(0.25 + R.next() * 0.45).cgColor); c.fill(CGRect(x: -4 * u, y: -1.5 * u, width: 8 * u, height: 3 * u)); c.restoreGState() }
             strokePath(c, rr(rectP(50 * u, 50 * u, W - 50 * u, H - 50 * u), 30 * u), rgba(255, 216, 138, 0.8), 3 * u)
             UIGraphicsPushContext(c)
-            drawCenteredText("عيدكم مبارك", W / 2, H - (H > W ? 290 : 190) * u, ClipEngine.font("amiriB", 46 * u), hex("#ffd88a"))
-            drawCenteredText("تقبّل الله منا ومنكم صالح الأعمال", W / 2, H - (H > W ? 240 : 145) * u, ClipEngine.font("plex", 26 * u), rgba(255, 248, 232, 0.85))
+            drawCenteredText(tr("عيدكم مبارك"), W / 2, H - (H > W ? 290 : 190) * u, ClipEngine.font("amiriB", 46 * u), hex("#ffd88a"))
+            drawCenteredText(tr("تقبّل الله منا ومنكم صالح الأعمال"), W / 2, H - (H > W ? 240 : 145) * u, ClipEngine.font("plex", 26 * u), rgba(255, 248, 232, 0.85))
             UIGraphicsPopContext()
         case "sky": fillLin(c, W, H, 0, 0, 0, H, [(0, hex("#2c6fb3")), (0.55, hex("#7fb3de")), (1, hex("#f2d9b8"))])
         case "sea":
@@ -310,7 +310,7 @@ enum MakerBackgrounds {
             c.restoreGState()
         }
         UIGraphicsPushContext(c)
-        drawCenteredText("رمضان كريم", W / 2, H - (H > W ? 110 : 70) * u, ClipEngine.font("amiriB", 34 * u), rgba(242, 196, 107, 0.9))
+        drawCenteredText(tr("رمضان كريم"), W / 2, H - (H > W ? 110 : 70) * u, ClipEngine.font("amiriB", 34 * u), rgba(242, 196, 107, 0.9))
         UIGraphicsPopContext()
     }
 }

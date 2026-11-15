@@ -274,7 +274,7 @@ struct PlayCircle: View {
                     SiteIcon(name: playing ? "pause" : "play", size: size * 0.52, color: c.onGold).id(playing).transition(.scale(scale: 0.6).combined(with: .opacity))
                     if loading { ProgressView().tint(c.onGold) }
                 }.animation(.easeOut(duration: 0.18), value: playing)
-            }.buttonStyle(Press(scale: 0.9)).accessibilityLabel(playing ? "إيقاف مؤقت" : "تشغيل")
+            }.buttonStyle(Press(scale: 0.9)).accessibilityLabel(playing ? tr("إيقاف مؤقت") : tr("تشغيل"))
         }.frame(width: rosette ? size * 1.5 : size + 14, height: rosette ? size * 1.5 : size + 14)
     }
 }
@@ -359,7 +359,7 @@ struct TrackRow: View {
         let cur = player.current?.id == t.id
         let r = Repo.shared.reciter(t.reciterId)
         let detail = titleDetail(t)
-        let meta = [t.durationText, relAgo(t), count > 0 ? "\(count.ar) استماع" : ""].filter { !$0.isEmpty }.joined(separator: "  ·  ")
+        let meta = [t.durationText, relAgo(t), count > 0 ? tr("{0} استماع", count.ar) : ""].filter { !$0.isEmpty }.joined(separator: "  ·  ")
         HStack(spacing: 0) {
             if rank > 0 { Text(rank.ar).font(F.amiri(22)).foregroundStyle(rank <= 3 ? c.gold : c.faint).frame(width: 26) }
             ZStack(alignment: .bottomLeading) {
@@ -384,8 +384,8 @@ struct TrackRow: View {
             Button { play(cur) } label: {
                 SiteIcon(name: cur && player.playing ? "pause" : "play", size: 17, color: cur ? c.onGold : c.gold)
                     .frame(width: 40, height: 40).background(Circle().fill(cur ? c.gold : .clear)).overlay(Circle().stroke(cur ? c.gold : c.line, lineWidth: 1.5))
-            }.buttonStyle(Press()).padding(.leading, 6).accessibilityLabel(cur && player.playing ? "إيقاف مؤقت" : "تشغيل")
-            Button { ui.menuFor = t } label: { SiteIcon(name: "dots", size: 22, color: c.muted).frame(width: 36, height: 36) }.buttonStyle(.plain).accessibilityLabel("خيارات أخرى")
+            }.buttonStyle(Press()).padding(.leading, 6).accessibilityLabel(cur && player.playing ? tr("إيقاف مؤقت") : tr("تشغيل"))
+            Button { ui.menuFor = t } label: { SiteIcon(name: "dots", size: 22, color: c.muted).frame(width: 36, height: 36) }.buttonStyle(.plain).accessibilityLabel(tr("خيارات أخرى"))
         }
         .padding(.horizontal, 8).padding(.vertical, 9)
         .background(RoundedRectangle(cornerRadius: 18).fill(cur ? c.gold.opacity(0.09) : .clear))
@@ -416,12 +416,12 @@ struct TrackCard: View {
                     HStack {
                         if !t.durationText.isEmpty { Text(t.durationText).font(F.plex(11.5, .semibold)).foregroundStyle(.white).padding(.horizontal, 8).padding(.vertical, 2).background(Capsule().fill(.black.opacity(0.55))) }
                         Spacer()
-                        if isNewTrack(t) { Text("جديد").font(F.plex(11, .bold)).foregroundStyle(c.onGold).padding(.horizontal, 8).padding(.vertical, 2).background(Capsule().fill(c.goldBrush)) }
+                        if isNewTrack(t) { Text(tr("جديد")).font(F.plex(11, .bold)).foregroundStyle(c.onGold).padding(.horizontal, 8).padding(.vertical, 2).background(Capsule().fill(c.goldBrush)) }
                     }.padding(9)
                     Spacer()
                     HStack(alignment: .bottom) {
                         VStack(alignment: .leading, spacing: 0) {
-                            if k { Text("تلاوة من").font(F.plex(11.5, .semibold)).foregroundStyle(.white.opacity(0.8)) }
+                            if k { Text(tr("تلاوة من")).font(F.plex(11.5, .semibold)).foregroundStyle(.white.opacity(0.8)) }
                             Text(k ? String(title.dropFirst(9)) : title).font(F.amiri(19)).foregroundStyle(.white).lineLimit(2)
                         }
                         Spacer(minLength: 6)
@@ -433,11 +433,11 @@ struct TrackCard: View {
             .clipShape(RoundedRectangle(cornerRadius: 18)).overlay(RoundedRectangle(cornerRadius: 18).stroke(cur ? c.gold : .clear, lineWidth: 2))
             HStack(alignment: .top, spacing: 0) {
                 VStack(alignment: .leading, spacing: 0) {
-                    Text(r?.name ?? "").font(F.plex(13, .semibold)).foregroundStyle(c.text).lineLimit(1)
+                    Text(nm(r?.name)).font(F.plex(13, .semibold)).foregroundStyle(c.text).lineLimit(1)
                     if !detail.isEmpty { Text(detail).font(F.plex(11.5)).foregroundStyle(c.gold.opacity(0.78)).lineLimit(2) }
                     Text(relAgo(t)).font(F.plex(11.5)).foregroundStyle(c.faint)
                 }.padding(.top, 7).frame(maxWidth: .infinity, alignment: .leading)
-                Button { ui.menuFor = t } label: { SiteIcon(name: "dots", size: 18, color: c.muted).frame(width: 32, height: 32) }.buttonStyle(.plain).accessibilityLabel("خيارات أخرى")
+                Button { ui.menuFor = t } label: { SiteIcon(name: "dots", size: 18, color: c.muted).frame(width: 32, height: 32) }.buttonStyle(.plain).accessibilityLabel(tr("خيارات أخرى"))
             }
         }
         .contentShape(Rectangle())
@@ -468,7 +468,7 @@ struct SheetHead: View {
     @Environment(\.dismiss) private var dismiss
     var body: some View {
         VStack(alignment: .leading, spacing: 2) {
-            HStack { Text(title).font(F.amiri(22)).foregroundStyle(c.text); Spacer(); Button { dismiss() } label: { SiteIcon(name: "close", size: 22, color: c.muted).frame(width: 40, height: 40) }.accessibilityLabel("إغلاق") }
+            HStack { Text(title).font(F.amiri(22)).foregroundStyle(c.text); Spacer(); Button { dismiss() } label: { SiteIcon(name: "close", size: 22, color: c.muted).frame(width: 40, height: 40) }.accessibilityLabel(tr("إغلاق")) }
             Ornament(width: 120).padding(.bottom, 8)
         }.padding(.leading, 22).padding(.trailing, 10).padding(.top, 14)
     }

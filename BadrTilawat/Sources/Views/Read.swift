@@ -14,7 +14,7 @@ extension Repo {
             out.append(RSrc(kind: "track", id: id, label: "\(r?.name ?? "") — \(t.title)", from: v[1], to: v[2], name: r?.name ?? "", title: t.title, img: t.image.isEmpty ? (r?.image ?? "") : t.image))
         }
         for r in d.surahReciters where (d.readableSr[r.id] ?? []).contains(sn) {
-            out.append(RSrc(kind: "sr", id: r.id, label: r.name, name: r.name, title: "المصحف المرتّل", img: quranRec(r.id).map { quranImage($0) } ?? ""))
+            out.append(RSrc(kind: "sr", id: r.id, label: r.name, name: r.name, title: tr("المصحف المرتّل"), img: quranRec(r.id).map { quranImage($0) } ?? ""))
         }
         return out
     }
@@ -23,7 +23,7 @@ extension Repo {
         return Array(Set(d.readableTracks.values.filter { $0.count >= 3 }.map { $0[0] } + d.readableSr.values.flatMap { $0 })).sorted()
     }
 }
-func rangeText(_ a: Int, _ b: Int) -> String { a == b ? "الآية \(a.ar)" : "الآيات \(a.ar) – \(b.ar)" }
+func rangeText(_ a: Int, _ b: Int) -> String { a == b ? tr("الآية {0}", a.ar) : tr("الآيات {0} – {1}", a.ar, b.ar) }
 func noSheikh(_ n: String) -> String { n.replacingOccurrences(of: "^\\s*الشيخ\\s+", with: "", options: .regularExpression) }
 
 /// A menu shown as a small labelled field.
@@ -67,18 +67,18 @@ struct ReadIndexView: View {
                         HStack(spacing: 12) {
                             Ico(name: "play.circle.fill", size: 38.4).foregroundStyle(c.onGold)
                             VStack(alignment: .leading, spacing: 2) {
-                                Text("تابع من حيث توقفت").font(F.plex(12, .medium)); Text(p[1]).font(F.plex(15, .bold)); Text(p[2]).font(F.plex(12)).opacity(0.8).lineLimit(1)
+                                Text(tr("تابع من حيث توقفت")).font(F.plex(12, .medium)); Text(p[1]).font(F.plex(15, .bold)); Text(p[2]).font(F.plex(12)).opacity(0.8).lineLimit(1)
                             }.foregroundStyle(c.onGold)
                             Spacer(); Ico(name: "chevron.left", size: 20).foregroundStyle(c.onGold)
                         }.padding(16).background(RoundedRectangle(cornerRadius: 20).fill(c.goldGradient))
                     }.buttonStyle(Press()).padding(.horizontal, 16)
                 }
                 if !own.isEmpty {
-                    head("من تلاوات الموقع", "\(own.count.ar) تلاوة تضيء كلمةً كلمة مع الصوت")
+                    head(tr("من تلاوات الموقع"), tr("{0} تلاوة تضيء كلمةً كلمة مع الصوت", own.count.ar))
                     if whos.count > 1 {
                         ScrollView(.horizontal, showsIndicators: false) {
                             HStack(spacing: 10) {
-                                avatarChip(nil, "الكل", who.isEmpty) { who = "" }
+                                avatarChip(nil, tr("الكل"), who.isEmpty) { who = "" }
                                 ForEach(whos) { r in avatarChip(r.image, noSheikh(r.name), who == r.id) { who = r.id } }
                             }.padding(.horizontal, 16)
                         }
@@ -90,21 +90,21 @@ struct ReadIndexView: View {
                     }
                 }
                 if let cur {
-                    head("المصحف المرتّل", "\(noSheikh(cur.0.name)) — \(cur.1.count.ar) سورة")
+                    head(tr("المصحف المرتّل"), tr("{0} — {1} سورة", noSheikh(cur.0.name), cur.1.count.ar))
                     if srs.count > 1 {
                         ScrollView(.horizontal, showsIndicators: false) {
                             HStack(spacing: 8) {
                                 ForEach(srs, id: \.0.id) { r, l in
                                     let on = r.id == cur.0.id
                                     Button { rec = r.id } label: {
-                                        VStack(alignment: .leading, spacing: 1) { Text(noSheikh(r.name)).font(F.plex(13, .semibold)).foregroundStyle(c.text).lineLimit(1); Text(l.count >= 114 ? "المصحف كاملًا" : "\(l.count.ar) سورة").font(F.plex(11)).foregroundStyle(c.muted) }
+                                        VStack(alignment: .leading, spacing: 1) { Text(nm(noSheikh(r.name))).font(F.plex(13, .semibold)).foregroundStyle(c.text).lineLimit(1); Text(l.count >= 114 ? tr("المصحف كاملًا") : tr("{0} سورة", l.count.ar)).font(F.plex(11)).foregroundStyle(c.muted) }
                                             .padding(.horizontal, 14).padding(.vertical, 8).background(RoundedRectangle(cornerRadius: 16).fill(on ? c.gold.opacity(0.12) : c.surface)).overlay(RoundedRectangle(cornerRadius: 16).stroke(on ? c.gold : c.lineSoft))
                                     }.buttonStyle(.plain)
                                 }
                             }.padding(.horizontal, 16)
                         }
                     }
-                    SearchField(text: $q, hint: "ابحث باسم السورة أو رقمها").padding(.horizontal, 16)
+                    SearchField(text: $q, hint: tr("ابحث باسم السورة أو رقمها")).padding(.horizontal, 16)
                     let lastSn: Int? = {
                         let p = last.components(separatedBy: "|").first ?? ""
                         guard p.hasSuffix("/" + cur.0.id), let n = Int(p.components(separatedBy: "/").dropFirst().first ?? "") else { return nil }
@@ -117,16 +117,16 @@ struct ReadIndexView: View {
                                 VStack(spacing: 1) {
                                     Text(sn.ar).font(F.plex(11.5)).foregroundStyle(sn == lastSn ? c.gold : c.faint)
                                     Text(Quran.surahs[sn - 1]).font(F.amiri(18)).foregroundStyle(c.text).lineLimit(1).minimumScaleFactor(0.7)
-                                    Text("\(Quran.ayahs[sn - 1].ar) آية").font(F.plex(11)).foregroundStyle(c.muted)
+                                    Text(tr("{0} آية", Quran.ayahs[sn - 1].ar)).font(F.plex(11)).foregroundStyle(c.muted)
                                 }.frame(maxWidth: .infinity).padding(.vertical, 9).background(RoundedRectangle(cornerRadius: 14).fill(c.surface)).overlay(RoundedRectangle(cornerRadius: 14).stroke(sn == lastSn ? c.gold : c.lineSoft))
                             }.buttonStyle(Press())
                         }
                     }.padding(.horizontal, 16)
                 }
-                if own.isEmpty && cur == nil { Empty(text: "لا توجد تلاوات جاهزة للمتابعة بعد.", icon: "waveform") }
+                if own.isEmpty && cur == nil { Empty(text: tr("لا توجد تلاوات جاهزة للمتابعة بعد."), icon: "waveform") }
             }.padding(.vertical, 12).padding(.bottom, 20)
         }
-        .navigationTitle("اقرأ واستمع واحفظ").navigationBarTitleDisplayMode(.inline)
+        .navigationTitle(tr("اقرأ واستمع واحفظ")).navigationBarTitleDisplayMode(.inline)
     }
     private func head(_ t: String, _ k: String) -> some View {
         VStack(alignment: .leading, spacing: 2) { Text(t).font(F.amiri(22)).foregroundStyle(c.text); Text(k).font(F.plex(12)).foregroundStyle(c.gold) }.padding(.horizontal, 16).padding(.top, 6)
@@ -147,7 +147,7 @@ struct ReadIndexView: View {
                     RemoteImage(raw: t.image.isEmpty ? repo.reciter(t.reciterId)?.image : t.image)
                     LinearGradient(colors: [.clear, Color.black.opacity(0.15), Color.black.opacity(0.9)], startPoint: .top, endPoint: .bottom)
                     HStack(alignment: .bottom) {
-                        VStack(alignment: .leading, spacing: 1) { Text(rangeText(a, b)).font(F.plex(11.5, .semibold)).foregroundStyle(.white.opacity(0.8)); Text("سورة \(Quran.surahs[sn - 1])").font(F.amiri(18)).foregroundStyle(.white).lineLimit(2) }
+                        VStack(alignment: .leading, spacing: 1) { Text(rangeText(a, b)).font(F.plex(11.5, .semibold)).foregroundStyle(.white.opacity(0.8)); Text(tr("سورة {0}", Quran.surahs[sn - 1])).font(F.amiri(18)).foregroundStyle(.white).lineLimit(2) }
                         Spacer(minLength: 4)
                         Ico(name: "play.fill", size: 15.6).foregroundStyle(c.onGold).frame(width: 34, height: 34).background(Circle().fill(c.gold))
                     }.padding(10)
@@ -230,7 +230,7 @@ struct ReadView: View {
 
     var body: some View {
         if let src, sn > 0 { content(src) }
-        else { Empty(text: "تعذّر العثور على هذه التلاوة.", icon: "waveform").navigationTitle("اقرأ واستمع واحفظ") }
+        else { Empty(text: tr("تعذّر العثور على هذه التلاوة."), icon: "waveform").navigationTitle(tr("اقرأ واستمع واحفظ")) }
     }
 
     private func rangeIdx() -> (Int, Int) {
@@ -298,14 +298,14 @@ struct ReadView: View {
         let cur = idx, wc = wcur(cur)
         return VStack(spacing: 0) {
             VStack(alignment: .leading, spacing: 8) {
-                Text("سورة \(Quran.surahs[sn - 1])").font(F.amiri(28)).foregroundStyle(c.text)
+                Text(tr("سورة {0}", Quran.surahs[sn - 1])).font(F.amiri(28)).foregroundStyle(c.text)
                 HStack(spacing: 8) {
                     Button { whoOpen = true } label: {
                         HStack(spacing: 8) {
                             RemoteImage(raw: src.img).frame(width: 32, height: 32).clipShape(Circle())
                             VStack(alignment: .leading, spacing: 0) {
                                 Text(noSheikh(src.name)).font(F.plex(13, .semibold)).foregroundStyle(c.text).lineLimit(1)
-                                Text(src.kind == "track" ? rangeText(src.from, src.to) : "المصحف المرتّل").font(F.plex(11)).foregroundStyle(c.muted).lineLimit(1)
+                                Text(src.kind == "track" ? rangeText(src.from, src.to) : tr("المصحف المرتّل")).font(F.plex(11)).foregroundStyle(c.muted).lineLimit(1)
                             }
                             Ico(name: "chevron.down", size: 13.2).foregroundStyle(c.muted)
                         }.padding(.leading, 5).padding(.trailing, 10).padding(.vertical, 4).background(Capsule().fill(c.surface.opacity(0.6))).overlay(Capsule().stroke(c.line))
@@ -313,26 +313,26 @@ struct ReadView: View {
                     OptMenu(label: "", value: sn, opts: repo.readSurahs().map { ($0, "\($0.ar) \(Quran.surahs[$0 - 1])") }) { s in if s != sn { ui.path.removeLast(); ui.path.append(.read("\(s)", "")) } }
                 }
                 FlowLayout(spacing: 6) {
-                    Pill(title: playing ? "إيقاف" : "استمع", on: true) { playPause() }
-                    Pill(title: "تتبّع الكلمة", on: words) { words.toggle() }
-                    Pill(title: "تمرير تلقائي", on: follow) { follow.toggle() }
-                    Pill(title: "وضع الحفظ", on: hifz) { hifz.toggle(); rep = 0; round = 0 }
-                    Pill(title: "أ−", on: false) { size = max(0.7, size - 0.1) }
-                    Pill(title: "أ+", on: false) { size = min(1.8, size + 0.1) }
+                    Pill(title: playing ? tr("إيقاف") : tr("استمع"), on: true) { playPause() }
+                    Pill(title: tr("تتبّع الكلمة"), on: words) { words.toggle() }
+                    Pill(title: tr("تمرير تلقائي"), on: follow) { follow.toggle() }
+                    Pill(title: tr("وضع الحفظ"), on: hifz) { hifz.toggle(); rep = 0; round = 0 }
+                    Pill(title: tr("أ−"), on: false) { size = max(0.7, size - 0.1) }
+                    Pill(title: tr("أ+"), on: false) { size = min(1.8, size + 0.1) }
                 }
                 if hifz, let its = items {
                     let ns = its.map { ($0.n, $0.n.ar) }
                     VStack(alignment: .leading, spacing: 6) {
                         FlowLayout(spacing: 6) {
-                            OptMenu(label: "من", value: from, opts: ns) { from = $0; rep = 0; round = 0 }
-                            OptMenu(label: "إلى", value: to, opts: ns) { to = $0; rep = 0; round = 0 }
-                            OptMenu(label: "تكرار كل آية", value: repA, opts: [(1, "مرة"), (2, "مرتين"), (3, "٣ مرات"), (5, "٥ مرات"), (10, "١٠ مرات")]) { repA = $0; rep = 0 }
-                            OptMenu(label: "تكرار المقطع", value: repR, opts: [(1, "مرة"), (2, "مرتين"), (3, "٣ مرات"), (0, "بلا توقف")]) { repR = $0; round = 0 }
-                            OptMenu(label: "إخفاء الكلمات", value: hide, opts: [("none", "إظهار الكل"), ("until", "إخفاء حتى تُقرأ"), ("first", "أول كلمة فقط"), ("all", "إخفاء الكل (المس للإظهار)"), ("grow", "إخفاء يزيد مع كل تكرار")]) { hide = $0; peek = [] }
+                            OptMenu(label: tr("من"), value: from, opts: ns) { from = $0; rep = 0; round = 0 }
+                            OptMenu(label: tr("إلى"), value: to, opts: ns) { to = $0; rep = 0; round = 0 }
+                            OptMenu(label: tr("تكرار كل آية"), value: repA, opts: [(1, tr("مرة")), (2, tr("مرتين")), (3, tr("٣ مرات")), (5, tr("٥ مرات")), (10, tr("١٠ مرات"))]) { repA = $0; rep = 0 }
+                            OptMenu(label: tr("تكرار المقطع"), value: repR, opts: [(1, tr("مرة")), (2, tr("مرتين")), (3, tr("٣ مرات")), (0, tr("بلا توقف"))]) { repR = $0; round = 0 }
+                            OptMenu(label: tr("إخفاء الكلمات"), value: hide, opts: [("none", tr("إظهار الكل")), ("until", tr("إخفاء حتى تُقرأ")), ("first", tr("أول كلمة فقط")), ("all", tr("إخفاء الكل (المس للإظهار)")), ("grow", tr("إخفاء يزيد مع كل تكرار"))]) { hide = $0; peek = [] }
                         }
                         let (x, y) = rangeIdx()
                         if let it = its[safe: hcur], (x...y).contains(hcur) {
-                            Text("الآية \(it.n.ar) — التكرار \((rep + 1).ar) من \(repA.ar)" + (repR != 1 ? " · الجولة \((round + 1).ar)\(repR != 0 ? " من \(repR.ar)" : "")" : "")).font(F.plex(12.5, .medium)).foregroundStyle(c.gold)
+                            Text(tr("الآية {0} — التكرار {1} من {2}", it.n.ar, (rep + 1).ar, repA.ar) + (repR != 1 ? tr(" · الجولة {0}{1}", (round + 1).ar, repR != 0 ? " من \(repR.ar)" : "") : "")).font(F.plex(12.5, .medium)).foregroundStyle(c.gold)
                         }
                     }.padding(10).frame(maxWidth: .infinity, alignment: .leading).background(RoundedRectangle(cornerRadius: 16).fill(c.surface2))
                 }
@@ -345,11 +345,11 @@ struct ReadView: View {
                                  if hide == "all" && k >= 0 { let key = i << 20 | k; if peek.contains(key) { peek.remove(key) } else { peek.insert(key) }; return }
                                  rep = 0; seekAyah(i, play: true)
                              }, onUser: { lastUser = Date() })
-                } else if failed { Text("تعذّر تحميل التلاوة الآن. حاول مرة أخرى.").font(F.plex(14)).foregroundStyle(c.muted) }
+                } else if failed { Text(tr("تعذّر تحميل التلاوة الآن. حاول مرة أخرى.")).font(F.plex(14)).foregroundStyle(c.muted) }
                 else { ProgressView().tint(c.gold) }
             }.frame(maxWidth: .infinity, maxHeight: .infinity)
         }
-        .navigationTitle("اقرأ واستمع واحفظ").navigationBarTitleDisplayMode(.inline)
+        .navigationTitle(tr("اقرأ واستمع واحفظ")).navigationBarTitleDisplayMode(.inline)
         .task(id: src) { await load(src) }
         .task(id: tid) {
             while !Task.isCancelled {
@@ -372,16 +372,16 @@ struct ReadView: View {
         }
         .onChange(of: cur) { i in
             guard let it = items?[safe: i] else { return }
-            if mine { player.nowLabel = (tid, "سورة \(Quran.surahs[sn - 1]) · الآية \(it.n.ar)") }
+            if mine { player.nowLabel = (tid, tr("سورة {0} · الآية {1}", Quran.surahs[sn - 1], it.n.ar)) }
             if playing && i != logged {
                 logged = i
-                Store.shared.set("readLast", "\(path)|سورة \(Quran.surahs[sn - 1]) — الآية \(it.n.ar)|\(src.name.isEmpty ? src.label : src.name)")
+                Store.shared.set("readLast", tr("{0}|سورة {1} — الآية {2}|{3}", path, Quran.surahs[sn - 1], it.n.ar, src.name.isEmpty ? src.label : src.name))
                 repo.event("ayah", ["s": "\(sn)", "a": "\(it.n)"])
             }
         }
         .onDisappear { if player.nowLabel?.0 == tid { player.nowLabel = nil } }
         .bzSheet(isPresented: $whoOpen) {
-            MenuSheet(title: "اختر التلاوة") {
+            MenuSheet(title: tr("اختر التلاوة")) {
                 ForEach(repo.readSources(sn), id: \.self) { x in
                     let on = x.kind == src.kind && x.id == src.id
                     Button {
@@ -392,7 +392,7 @@ struct ReadView: View {
                             RemoteImage(raw: x.img).frame(width: 46, height: 46).clipShape(Circle())
                             VStack(alignment: .leading, spacing: 2) {
                                 Text(x.name).font(F.plex(14.5, .bold)).foregroundStyle(c.text).lineLimit(1)
-                                Text(x.kind == "track" ? "\(x.title) · \(rangeText(x.from, x.to))" : "المصحف المرتّل — السورة كاملة").font(F.plex(12)).foregroundStyle(c.muted).lineLimit(2)
+                                Text(x.kind == "track" ? "\(x.title) · \(rangeText(x.from, x.to))" : tr("المصحف المرتّل — السورة كاملة")).font(F.plex(12)).foregroundStyle(c.muted).lineLimit(2)
                             }
                             Spacer(); if on { Ico(name: "checkmark", size: 20).foregroundStyle(c.gold) }
                         }.padding(10).background(RoundedRectangle(cornerRadius: 14).fill(c.surface)).overlay(RoundedRectangle(cornerRadius: 14).stroke(on ? c.gold : c.lineSoft))
@@ -449,7 +449,7 @@ struct ReadText: UIViewRepresentable {
         let gold = UIColor(pal.gold), text = UIColor(pal.text), muted = UIColor(pal.muted), hl = UIColor(pal.gold.opacity(0.14)), hid = UIColor(pal.surface3)
         if sn != 1 && sn != 9 && items.first?.n == 1 {
             let bp = NSMutableParagraphStyle(); bp.alignment = .center; bp.baseWritingDirection = .rightToLeft; bp.paragraphSpacing = 10
-            out.append(NSAttributedString(string: "بِسْمِ ٱللَّهِ ٱلرَّحْمَٰنِ ٱلرَّحِيمِ\n", attributes: [.font: UIFont(name: "AmiriQuran-Regular", size: 24 * size) ?? font, .foregroundColor: gold, .paragraphStyle: bp]))
+            out.append(NSAttributedString(string: tr("بِسْمِ ٱللَّهِ ٱلرَّحْمَٰنِ ٱلرَّحِيمِ\n"), attributes: [.font: UIFont(name: "AmiriQuran-Regular", size: 24 * size) ?? font, .foregroundColor: gold, .paragraphStyle: bp]))
         }
         var offs: [Int] = []
         for (i, it) in items.enumerated() {

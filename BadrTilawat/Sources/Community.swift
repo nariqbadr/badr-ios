@@ -59,30 +59,30 @@ final class Community: ObservableObject {
     private var csrf = ""
 
     static let badges: [(String, String, String)] = [("owner", "مالك الموقع", "crown.fill"), ("admin", "إدارة الموقع", "shield.fill"), ("mod", "مشرف", "shield.lefthalf.filled"),
-        ("official", "حساب رسمي", "checkmark.seal.fill"), ("verified", "حساب موثّق", "checkmark.seal.fill"), ("reciter", "قارئ", "mic.fill"),
-        ("teacher", "معلّم ومحفّظ", "book.fill"), ("supporter", "داعم للموقع", "heart.fill"), ("founder", "عضو مؤسس", "star.fill")]
+        ("official", tr("حساب رسمي"), "checkmark.seal.fill"), ("verified", tr("حساب موثّق"), "checkmark.seal.fill"), ("reciter", tr("قارئ"), "mic.fill"),
+        ("teacher", tr("معلّم ومحفّظ"), "book.fill"), ("supporter", tr("داعم للموقع"), "heart.fill"), ("founder", tr("عضو مؤسس"), "star.fill")]
 
     static let errors: [String: String] = [
-        "c_login_required": "سجّل الدخول أولًا.", "csrf": "انتهت الجلسة — حاول مرة أخرى.", "c_disabled": "المجتمع متوقف حاليًا.", "c_signup_closed": "التسجيل مغلق حاليًا.",
-        "c_name_required": "اكتب اسمك.", "c_bad_handle": "اسم المستخدم من 3 إلى 20 حرفًا إنجليزيًا أو أرقام أو _ فقط.",
-        "c_handle_taken": "اسم المستخدم هذا مسجّل مسبقًا. إن كان حسابك فسجّل الدخول، وإلا فاختر اسمًا آخر.", "c_handle_staff": "اسم المستخدم هذا مسجّل مسبقًا.",
-        "password_too_short": "كلمة المرور 8 أحرف على الأقل.", "c_bad_email": "البريد غير صحيح.", "c_email_taken": "هذا البريد مسجّل بحساب آخر.",
-        "c_email_required": "اكتب بريدك الإلكتروني — نحتاجه لإرسال رمز استعادة الحساب إن نسيت كلمة المرور.", "mail_not_ready": "إرسال البريد غير مفعّل في الموقع بعد — تواصل مع إدارة الموقع.", "mail_failed": "تعذّر إرسال البريد الآن — حاول بعد قليل.",
-        "too_many": "محاولات كثيرة — انتظر قليلًا ثم حاول مجددًا.", "bad_code": "رمز التحقق غير صحيح.", "code_expired": "انتهت صلاحية الرمز — اطلب رمزًا جديدًا.",
-        "invalid_login": "اسم المستخدم أو كلمة المرور غير صحيحة.", "locked": "محاولات كثيرة — انتظر ربع ساعة.", "c_suspended": "هذا الحساب موقوف.",
-        "c_slow_down": "أنت تنشر بسرعة — انتظر قليلًا.", "c_too_long": "المنشور أطول من المسموح.", "c_empty": "اكتب شيئًا أو أضف صورة.",
-        "c_post_gone": "هذا المنشور لم يعد موجودًا.", "c_limited": "حسابك مقيّد مؤقتًا من الإدارة.", "c_cant_limit": "لا يمكن تقييد هذا الحساب.", "forbidden": "ليس لديك صلاحية لهذا الإجراء.", "file_too_large": "الملف أكبر من المسموح.", "type_not_allowed": "نوع الملف غير مدعوم.", "network": "تعذّر الاتصال — تحقق من الإنترنت.",
+        "c_login_required": tr("سجّل الدخول أولًا."), "csrf": tr("انتهت الجلسة — حاول مرة أخرى."), "c_disabled": tr("المجتمع متوقف حاليًا."), "c_signup_closed": tr("التسجيل مغلق حاليًا."),
+        "c_name_required": tr("اكتب اسمك."), "c_bad_handle": tr("اسم المستخدم من 3 إلى 20 حرفًا إنجليزيًا أو أرقام أو _ فقط."),
+        "c_handle_taken": tr("اسم المستخدم هذا مسجّل مسبقًا. إن كان حسابك فسجّل الدخول، وإلا فاختر اسمًا آخر."), "c_handle_staff": tr("اسم المستخدم هذا مسجّل مسبقًا."),
+        "password_too_short": tr("كلمة المرور 8 أحرف على الأقل."), "c_bad_email": tr("البريد غير صحيح."), "c_email_taken": tr("هذا البريد مسجّل بحساب آخر."),
+        "c_email_required": tr("اكتب بريدك الإلكتروني — نحتاجه لإرسال رمز استعادة الحساب إن نسيت كلمة المرور."), "mail_not_ready": tr("إرسال البريد غير مفعّل في الموقع بعد — تواصل مع إدارة الموقع."), "mail_failed": tr("تعذّر إرسال البريد الآن — حاول بعد قليل."),
+        "too_many": tr("محاولات كثيرة — انتظر قليلًا ثم حاول مجددًا."), "bad_code": tr("رمز التحقق غير صحيح."), "code_expired": tr("انتهت صلاحية الرمز — اطلب رمزًا جديدًا."),
+        "invalid_login": tr("اسم المستخدم أو كلمة المرور غير صحيحة."), "locked": tr("محاولات كثيرة — انتظر ربع ساعة."), "c_suspended": tr("هذا الحساب موقوف."),
+        "c_slow_down": tr("أنت تنشر بسرعة — انتظر قليلًا."), "c_too_long": tr("المنشور أطول من المسموح."), "c_empty": tr("اكتب شيئًا أو أضف صورة."),
+        "c_post_gone": tr("هذا المنشور لم يعد موجودًا."), "c_limited": tr("حسابك مقيّد مؤقتًا من الإدارة."), "c_cant_limit": tr("لا يمكن تقييد هذا الحساب."), "forbidden": tr("ليس لديك صلاحية لهذا الإجراء."), "file_too_large": tr("الملف أكبر من المسموح."), "type_not_allowed": tr("نوع الملف غير مدعوم."), "network": tr("تعذّر الاتصال — تحقق من الإنترنت."),
     ]
     static func limitDate(_ t: Int) -> String {
-        let f = DateFormatter(); f.locale = Locale(identifier: "ar"); f.dateFormat = "d MMMM 'في' h:mm a"
+        let f = DateFormatter(); f.locale = L.locale; f.dateFormat = tr("d MMMM 'في' h:mm a")
         return f.string(from: Date(timeIntervalSince1970: Double(t)))
     }
     static func limitMsg(_ until: Int, _ note: String) -> String {
-        "حسابك مقيّد مؤقتًا من الإدارة حتى \(limitDate(until))" + (note.isEmpty ? "" : " — \(note)") + ". يمكنك التصفح والقراءة فقط."
+        tr("حسابك مقيّد مؤقتًا من الإدارة حتى {0}", limitDate(until)) + (note.isEmpty ? "" : " — \(note)") + tr(". يمكنك التصفح والقراءة فقط.")
     }
     static func msg(_ e: Error) -> String {
         if let c = e as? CmError, c.code == "c_limited", let d = c.data, d["until"].int > 0 { return limitMsg(d["until"].int, d["note"].str) }
-        return (e as? CmError).flatMap { errors[$0.code] } ?? "حدث خطأ — حاول مرة أخرى."
+        return (e as? CmError).flatMap { errors[$0.code] } ?? tr("حدث خطأ — حاول مرة أخرى.")
     }
 
     func api(_ action: String, query: [String: String] = [:], form: [String: String]? = nil, file: (name: String, mime: String, data: Data)? = nil, retry: Bool = true) async throws -> J {

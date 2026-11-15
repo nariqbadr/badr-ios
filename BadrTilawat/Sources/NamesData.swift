@@ -1,0 +1,36 @@
+/// Common words of Arabic names in Latin letters (the same list as the site and the Android app).
+enum NamesData {
+    static let words: [String: String] = [
+        "الشيخ": "Sheikh", "بن": "bin", "ابن": "ibn", "آل": "Al", "أبو": "Abu", "ابو": "Abu",
+        "د.": "Dr.", "أ.د.": "Prof.", "عبدالله": "Abdullah", "عبدالرحمن": "Abdulrahman", "عبدالرحيم": "Abdulrahim", "عبدالملك": "Abdulmalik",
+        "عبدالعزيز": "Abdulaziz", "عبدالمحسن": "Abdulmohsen", "عبدالباسط": "Abdul Basit", "عبدالصمد": "Abdul Samad", "عبدالودود": "Abdulwadood", "عبدالكريم": "Abdulkarim",
+        "عبدالرشيد": "Abdulrashid", "عبدالولي": "Abdulwali", "عبدالباري": "Abdulbari", "عبدالهادي": "Abdulhadi", "عبدالمجيد": "Abdulmajid", "عبدالإله": "Abdulilah",
+        "عبدالمنعم": "Abdulmunim", "عبداللطيف": "Abdullatif", "محمد": "Muhammad", "أحمد": "Ahmad", "احمد": "Ahmad", "محمود": "Mahmoud",
+        "علي": "Ali", "عمر": "Omar", "عثمان": "Othman", "خالد": "Khalid", "سالم": "Salim", "سعود": "Saud",
+        "سعد": "Saad", "فهد": "Fahd", "فيصل": "Faisal", "ماهر": "Maher", "ياسر": "Yasser", "ناصر": "Nasser",
+        "بدر": "Badr", "سامر": "Samer", "هزاع": "Hazza", "مشاري": "Mishary", "راشد": "Rashid", "حمد": "Hamad",
+        "إبراهيم": "Ibrahim", "ابراهيم": "Ibrahim", "يوسف": "Yousef", "صالح": "Salih", "صلاح": "Salah", "حسن": "Hassan",
+        "حسين": "Hussain", "إدريس": "Idris", "ادريس": "Idris", "أبكر": "Abkar", "هاني": "Hani", "هيثم": "Haitham",
+        "منصور": "Mansour", "ضياء": "Diaa", "الدين": "Al-Din", "عبادة": "Obada", "جابر": "Jaber", "باوزير": "Bawazir",
+        "أيوب": "Ayyub", "ايوب": "Ayyub", "صديق": "Siddiq", "خليل": "Khalil", "رعد": "Raad", "وديع": "Wadee",
+        "بندر": "Bandar", "توفيق": "Tawfiq", "أسامة": "Usama", "اسامة": "Usama", "الوليد": "Al-Waleed", "وليد": "Waleed",
+        "طارق": "Tariq", "زكريا": "Zakariya", "يحيى": "Yahya", "موسى": "Musa", "عيسى": "Isa", "هشام": "Hisham",
+        "عادل": "Adel", "ماجد": "Majid", "نايف": "Naif", "تركي": "Turki", "سلمان": "Salman", "سليمان": "Sulaiman",
+        "مصطفى": "Mustafa", "إسماعيل": "Ismail", "اسماعيل": "Ismail", "شريف": "Sharif", "أنس": "Anas", "انس": "Anas",
+        "معاذ": "Muadh", "حاتم": "Hatem", "نبيل": "Nabil", "جمال": "Jamal", "كمال": "Kamal", "رامي": "Rami",
+        "فارس": "Fares", "مبارك": "Mubarak", "عامر": "Amer", "عمار": "Ammar", "ياسين": "Yaseen", "إسلام": "Islam",
+        "عبدالرزاق": "Abdulrazzaq", "العفاسي": "Alafasy", "الدوسري": "Al-Dosari", "الغامدي": "Al-Ghamdi", "الشريم": "Al-Shuraim", "السديس": "Al-Sudais",
+        "القحطاني": "Al-Qahtani", "العجمي": "Al-Ajmi", "الحذيفي": "Al-Hudhaifi", "المنشاوي": "Al-Minshawi", "الحصري": "Al-Husary", "الطبلاوي": "Al-Tablawi",
+        "البنا": "Al-Banna", "الشاطري": "Al-Shatri", "الجهني": "Al-Juhany", "المعيقلي": "Al-Muaiqly", "القطامي": "Al-Qatami", "البلوشي": "Al-Balushi",
+        "الخلف": "Al-Khalaf", "التركي": "Al-Turki", "الشهري": "Al-Shahri", "الزهراني": "Al-Zahrani", "العمري": "Al-Omari", "الحربي": "Al-Harbi",
+        "المطيري": "Al-Mutairi", "العتيبي": "Al-Otaibi", "الشمري": "Al-Shammari", "الكردي": "Al-Kurdi", "الكلباني": "Al-Kalbani", "اللحيدان": "Al-Luhaidan",
+        "المحيسني": "Al-Muhaisni", "الراجح": "Al-Rajeh", "الخضير": "Al-Khudair", "المالكي": "Al-Maliki", "اليمني": "Al-Yamani", "الصايغ": "Al-Sayegh",
+        "البدير": "Al-Budair", "القاسم": "Al-Qasim", "الثبيتي": "Al-Thubaiti", "خياط": "Khayyat", "بليلة": "Baleela", "غزاوي": "Ghazzawi",
+        "الشمسان": "Al-Shamsan", "المهنا": "Al-Muhanna", "البعيجان": "Al-Buayjan", "القرافي": "Al-Qarafi", "المغامسي": "Al-Maghamsi", "برهجي": "Barhaji",
+        "الفقيه": "Al-Faqih", "مسعد": "Mossad", "الحمدان": "Al-Hamdan", "الرفاعي": "Al-Rifai", "النعيمي": "Al-Nuaimi", "الأحمد": "Al-Ahmad",
+        "الجبري": "Al-Jabri", "العريفي": "Al-Arifi", "الشثري": "Al-Shathri", "حمزة": "Hamza", "طاهر": "Taher", "طالب": "Talib",
+        "لؤي": "Luay", "شيرزاد": "Shirzad", "عباد": "Abbad", "حميد": "Hamid", "السالمي": "Al-Salmi", "العثمان": "Al-Othman",
+        "الأركاني": "Al-Arkani", "نادر": "Nader", "رشيد": "Rashid", "عبيد": "Obaid", "سهل": "Sahl", "ياسين": "Yaseen",
+        "الجنيد": "Al-Junaid", "المزروعي": "Al-Mazrouei", "الدغريري": "Al-Daghriri"
+    ]
+}

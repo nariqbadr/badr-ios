@@ -1,8 +1,8 @@
 import Foundation
 
 struct Reciter: Identifiable, Hashable {
-    let id: String, name: String, image: String, bio: String, featured: Bool, order: Int
-    init(_ j: J) { id = j["id"].str; name = j["name"].str; image = j["image"].str; bio = j["bio"].str; featured = j["featured"].bool(); order = j["order"].int }
+    let id: String, name: String, nameEn: String, image: String, bio: String, featured: Bool, order: Int
+    init(_ j: J) { id = j["id"].str; name = j["name"].str; nameEn = j["nameEn"].str; image = j["image"].str; bio = j["bio"].str; featured = j["featured"].bool(); order = j["order"].int }
 }
 
 struct Track: Identifiable, Hashable {
@@ -145,8 +145,8 @@ enum Fmt {
         if sec <= 0 { return "" }
         return sec >= 3600 ? String(format: "%d:%02d:%02d", sec / 3600, sec % 3600 / 60, sec % 60) : String(format: "%d:%02d", sec / 60, sec % 60)
     }
-    static func time(_ d: Date) -> String { let f = DateFormatter(); f.locale = Locale(identifier: "ar"); f.dateFormat = "h:mm a"; return f.string(from: d) }
-    static func date(_ d: Date) -> String { let f = DateFormatter(); f.locale = Locale(identifier: "ar"); f.dateStyle = .medium; return f.string(from: d) }
+    static func time(_ d: Date) -> String { let f = DateFormatter(); f.locale = L.locale; f.dateFormat = "h:mm a"; return f.string(from: d) }
+    static func date(_ d: Date) -> String { let f = DateFormatter(); f.locale = L.locale; f.dateStyle = .medium; return f.string(from: d) }
     static func ago(_ d: Date) -> String {
         let s = Int(Date().timeIntervalSince(d))
         if s < 60 { return "الآن" }; if s < 3600 { return "قبل \((s / 60).ar) د" }; if s < 86400 { return "قبل \((s / 3600).ar) س" }

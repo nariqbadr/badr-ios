@@ -26,7 +26,7 @@ enum WidgetBridge {
         let p = Prayers.shared, cal = Calendar.current
         var out: [Prayer] = []
         for k in 0..<3 { if let day = cal.date(byAdding: .day, value: k, to: Date()) {
-            for x in p.forDay(day) { out.append(Prayer(key: x.key, name: x.key == "dhuhr" && cal.component(.weekday, from: x.time) == 6 ? "الجمعة" : x.name, at: x.time.timeIntervalSince1970)) }
+            for x in p.forDay(day) { out.append(Prayer(key: x.key, name: x.key == "dhuhr" && cal.component(.weekday, from: x.time) == 6 ? tr("الجمعة") : x.name, at: x.time.timeIntervalSince1970)) }
         } }
         put("w_prayers", out); d?.set(p.place, forKey: "w_place")
         WidgetCenter.shared.reloadTimelines(ofKind: "prayer")

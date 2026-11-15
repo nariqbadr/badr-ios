@@ -99,11 +99,11 @@ struct PostEmbed: View {
                 Text(text.map { "﴿\($0)﴾" } ?? "…").font(F.quran(compact ? 18 : 21)).foregroundStyle(c.text).lineSpacing(compact ? 14 : 18).multilineTextAlignment(.center).lineLimit(compact ? 4 : nil).frame(maxWidth: .infinity)
                 HStack {
                     VStack(alignment: .leading, spacing: 0) {
-                        Text("سورة \(Quran.surahs[s - 1]) — الآية \(a.ar)").font(F.plex(14, .semibold)).foregroundStyle(c.gold)
-                        let l = ayah.label(rv, s, a); if !l.isEmpty { Text("بصوت \(l)").font(F.plex(11)).foregroundStyle(c.muted) }
+                        Text(tr("سورة {0} — الآية {1}", Quran.surahs[s - 1], a.ar)).font(F.plex(14, .semibold)).foregroundStyle(c.gold)
+                        let l = ayah.label(rv, s, a); if !l.isEmpty { Text(tr("بصوت {0}", l)).font(F.plex(11)).foregroundStyle(c.muted) }
                     }
                     Spacer()
-                    Button { if on { ayah.stop() } else { ayah.play(rv, s, a) } } label: { SiteIcon(name: on ? "pause" : "play", size: 20, color: c.onGold).frame(width: 38, height: 38).background(Circle().fill(c.goldBrush)) }.buttonStyle(.plain).accessibilityLabel("استمع للآية")
+                    Button { if on { ayah.stop() } else { ayah.play(rv, s, a) } } label: { SiteIcon(name: on ? "pause" : "play", size: 20, color: c.onGold).frame(width: 38, height: 38).background(Circle().fill(c.goldBrush)) }.buttonStyle(.plain).accessibilityLabel(tr("استمع للآية"))
                 }
             }
             .padding(14).background(RoundedRectangle(cornerRadius: 18).fill(c.gold.opacity(0.07))).overlay(RoundedRectangle(cornerRadius: 18).stroke(c.gold.opacity(0.35)))
@@ -113,9 +113,9 @@ struct PostEmbed: View {
             let r = repo.reciter(t.reciterId), cur = player.current?.id == t.id && player.playing
             HStack(spacing: 10) {
                 RemoteImage(raw: t.cover.isEmpty ? r?.image : t.cover).frame(width: 52, height: 52).clipShape(RoundedRectangle(cornerRadius: 14))
-                VStack(alignment: .leading, spacing: 1) { Text(t.title).font(F.plex(14, .semibold)).foregroundStyle(c.text).lineLimit(2); Text(r?.name ?? "").font(F.plex(12.5)).foregroundStyle(c.gold) }
+                VStack(alignment: .leading, spacing: 1) { Text(t.title).font(F.plex(14, .semibold)).foregroundStyle(c.text).lineLimit(2); Text(nm(r?.name)).font(F.plex(12.5)).foregroundStyle(c.gold) }
                 Spacer()
-                Button { if cur { player.toggle() } else { player.play(t, in: [t]) } } label: { SiteIcon(name: cur ? "pause" : "play", size: 20, color: c.onGold).frame(width: 38, height: 38).background(Circle().fill(c.goldBrush)) }.buttonStyle(.plain).accessibilityLabel("تشغيل")
+                Button { if cur { player.toggle() } else { player.play(t, in: [t]) } } label: { SiteIcon(name: cur ? "pause" : "play", size: 20, color: c.onGold).frame(width: 38, height: 38).background(Circle().fill(c.goldBrush)) }.buttonStyle(.plain).accessibilityLabel(tr("تشغيل"))
             }
             .padding(10).background(RoundedRectangle(cornerRadius: 18).fill(c.surface2)).overlay(RoundedRectangle(cornerRadius: 18).stroke(c.line)).padding(.top, 8)
         }
@@ -157,7 +157,7 @@ struct Lightbox: View {
         ZStack(alignment: .topLeading) {
             Color.black.ignoresSafeArea()
             TabView(selection: $i) { ForEach(urls.indices, id: \.self) { k in ZoomImage(raw: urls[k]).tag(k) } }.tabViewStyle(.page)
-            Button { dismiss() } label: { SiteIcon(name: "close", size: 26, color: .white).frame(width: 48, height: 48) }.padding(8).accessibilityLabel("إغلاق")
+            Button { dismiss() } label: { SiteIcon(name: "close", size: 26, color: .white).frame(width: 48, height: 48) }.padding(8).accessibilityLabel(tr("إغلاق"))
         }.onAppear { i = start }
     }
 }
@@ -174,7 +174,7 @@ struct VideoPostPlayer: View {
         ZStack {
             Color.black
             if let p { VideoPlayer(player: p) }
-            else { Button { AudioPlayer.shared.pause(); if let u = Repo.media(url) { let x = AVPlayer(url: u); p = x; x.play() } } label: { SiteIcon(name: "play", size: 34, color: c.onGold).frame(width: 60, height: 60).background(Circle().fill(c.goldBrush)) }.accessibilityLabel("تشغيل الفيديو") }
+            else { Button { AudioPlayer.shared.pause(); if let u = Repo.media(url) { let x = AVPlayer(url: u); p = x; x.play() } } label: { SiteIcon(name: "play", size: 34, color: c.onGold).frame(width: 60, height: 60).background(Circle().fill(c.goldBrush)) }.accessibilityLabel(tr("تشغيل الفيديو")) }
         }.onDisappear { p?.pause() }
     }
 }
@@ -195,33 +195,33 @@ struct PostCard: View {
     @State private var tick = 0
     var body: some View {
         VStack(spacing: 0) {
-            if p.gone { Text("هذا المنشور لم يعد متاحًا.").font(F.plex(14)).foregroundStyle(c.faint).padding(18).frame(maxWidth: .infinity, alignment: .leading) }
+            if p.gone { Text(tr("هذا المنشور لم يعد متاحًا.")).font(F.plex(14)).foregroundStyle(c.faint).padding(18).frame(maxWidth: .infinity, alignment: .leading) }
             else if let a = p.author { content(a) }
             Rectangle().fill(c.lineSoft).frame(height: 1)
         }
         .id(tick)
         .bzSheet(isPresented: $more) { moreSheet.presentationDetents([.medium, .large]) }
         .bzSheet(isPresented: $repostMenu) {
-            MenuSheet(title: "إعادة النشر") {
-                MenuRow(icon: "repost", title: p.reposted ? "تراجع عن إعادة النشر" : "إعادة نشر") { repostMenu = false; Task { if let e = await cm.repost(p) { ui.say(e) } else { ui.say(p.reposted ? "أُعيد النشر" : "أُلغيت إعادة النشر") }; tick += 1 } }
-                MenuRow(icon: "quote", title: "اقتباس") { repostMenu = false; ui.path.append(.compose("quote:\(p.id)")) }
+            MenuSheet(title: tr("إعادة النشر")) {
+                MenuRow(icon: "repost", title: p.reposted ? tr("تراجع عن إعادة النشر") : tr("إعادة نشر")) { repostMenu = false; Task { if let e = await cm.repost(p) { ui.say(e) } else { ui.say(p.reposted ? tr("أُعيد النشر") : tr("أُلغيت إعادة النشر")) }; tick += 1 } }
+                MenuRow(icon: "quote", title: tr("اقتباس")) { repostMenu = false; ui.path.append(.compose("quote:\(p.id)")) }
             }.presentationDetents([.height(240)])
         }
         .bzSheet(item: $limitFor) { LimitSheet(m: $0) }
-        .confirmationDialog("حذف المنشور؟", isPresented: $askDelete) { Button("حذف", role: .destructive) { Task { do { try await cm.delete(p); ui.say("حُذف المنشور"); tick += 1 } catch { ui.say(Community.msg(error)) } } } }
-        .confirmationDialog("لماذا تبلّغ عن هذا المنشور؟", isPresented: $askReport, titleVisibility: .visible) {
-            ForEach(REPORT_REASONS, id: \.self) { r in Button(r) { Task { do { try await cm.report(p, r); ui.say("شكرًا — وصل البلاغ للإدارة وسيُراجع خلال ٢٤ ساعة") } catch { ui.say(Community.msg(error)) } } } }
-            Button("إلغاء", role: .cancel) {}
+        .confirmationDialog(tr("حذف المنشور؟"), isPresented: $askDelete) { Button(tr("حذف"), role: .destructive) { Task { do { try await cm.delete(p); ui.say(tr("حُذف المنشور")); tick += 1 } catch { ui.say(Community.msg(error)) } } } }
+        .confirmationDialog(tr("لماذا تبلّغ عن هذا المنشور؟"), isPresented: $askReport, titleVisibility: .visible) {
+            ForEach(REPORT_REASONS, id: \.self) { r in Button(r) { Task { do { try await cm.report(p, r); ui.say(tr("شكرًا — وصل البلاغ للإدارة وسيُراجع خلال ٢٤ ساعة")) } catch { ui.say(Community.msg(error)) } } } }
+            Button(tr("إلغاء"), role: .cancel) {}
         }
-        .alert("حظر @\(blockAsk ?? "")؟", isPresented: Binding(get: { blockAsk != nil }, set: { if !$0 { blockAsk = nil } })) {
-            Button("حظر", role: .destructive) { if let h = blockAsk { Task { await setRel(h, "block", true) } } }
-            Button("إلغاء", role: .cancel) {}
+        .alert(tr("حظر @{0}؟", blockAsk ?? ""), isPresented: Binding(get: { blockAsk != nil }, set: { if !$0 { blockAsk = nil } })) {
+            Button(tr("حظر"), role: .destructive) { if let h = blockAsk { Task { await setRel(h, "block", true) } } }
+            Button(tr("إلغاء"), role: .cancel) {}
         } message: { Text(BLOCK_NOTE) }
     }
     @ViewBuilder private func content(_ a: Member) -> some View {
         VStack(alignment: .leading, spacing: 0) {
-            if let r = repostBy { HStack(spacing: 6) { SiteIcon(name: "repost", size: 15, color: c.muted); Text(cm.me?.handle == r.handle ? "أعدت النشر" : "أعاد نشرها \(r.name)").font(F.plex(12.5, .medium)).foregroundStyle(c.muted) }.padding(.leading, 34).padding(.bottom, 4) }
-            if p.pinned && !big { HStack(spacing: 6) { SiteIcon(name: "pin", size: 15, color: c.muted); Text("مثبّت").font(F.plex(12.5, .medium)).foregroundStyle(c.muted) }.padding(.leading, 34).padding(.bottom, 4) }
+            if let r = repostBy { HStack(spacing: 6) { SiteIcon(name: "repost", size: 15, color: c.muted); Text(cm.me?.handle == r.handle ? tr("أعدت النشر") : tr("أعاد نشرها {0}", r.name)).font(F.plex(12.5, .medium)).foregroundStyle(c.muted) }.padding(.leading, 34).padding(.bottom, 4) }
+            if p.pinned && !big { HStack(spacing: 6) { SiteIcon(name: "pin", size: 15, color: c.muted); Text(tr("مثبّت")).font(F.plex(12.5, .medium)).foregroundStyle(c.muted) }.padding(.leading, 34).padding(.bottom, 4) }
             HStack(alignment: .top, spacing: 10) {
                 Button { ui.path.append(.user(a.handle)) } label: { Avatar(m: a, size: big ? 52 : 46) }.buttonStyle(.plain)
                 VStack(alignment: .leading, spacing: 0) {
@@ -234,22 +234,22 @@ struct PostCard: View {
                             }
                         }.buttonStyle(.plain)
                         Spacer(minLength: 4)
-                        Button { more = true } label: { SiteIcon(name: "dots", size: 22, color: c.muted).frame(width: 30, height: 26) }.buttonStyle(.plain).accessibilityLabel("المزيد")
+                        Button { more = true } label: { SiteIcon(name: "dots", size: 22, color: c.muted).frame(width: 30, height: 26) }.buttonStyle(.plain).accessibilityLabel(tr("المزيد"))
                     }
                     if big { Text("\u{2066}@\(a.handle)\u{2069}").font(F.plex(12.5)).foregroundStyle(c.muted) }
-                    if !p.replyToHandle.isEmpty && !big { HStack(spacing: 0) { Text("ردًا على ").font(F.plex(12.5)).foregroundStyle(c.muted); Button { ui.path.append(.user(p.replyToHandle)) } label: { Text("\u{2066}@\(p.replyToHandle)\u{2069}").font(F.plex(12.5)).foregroundStyle(c.gold) }.buttonStyle(.plain) } }
+                    if !p.replyToHandle.isEmpty && !big { HStack(spacing: 0) { Text(tr("ردًا على ")).font(F.plex(12.5)).foregroundStyle(c.muted); Button { ui.path.append(.user(p.replyToHandle)) } label: { Text("\u{2066}@\(p.replyToHandle)\u{2069}").font(F.plex(12.5)).foregroundStyle(c.gold) }.buttonStyle(.plain) } }
                     if !p.text.isEmpty { RichText(t: p.text, size: big ? 18 : 16).padding(.top, 3) }
                     MediaGrid(media: p.media)
                     if !p.embed.isEmpty { PostEmbed(e: p.embed) }
                     if let q = p.quote { quoteBox(q) }
                     if p.replyRule != "all" && (big || !p.canReply) { HStack(spacing: 6) { SiteIcon(name: "reply", size: 14, color: c.gold); Text(RULE_NOTE[p.replyRule] ?? "").font(F.plex(12.5)).foregroundStyle(c.muted) }.padding(.top, 8) }
-                    if p.restricted { HStack(spacing: 6) { Ico(name: "shield", size: 14.4).foregroundStyle(c.gold); Text("ردّ من حساب مقيّد — يراه هو وصاحب المنشور فقط").font(F.plex(12.5)).foregroundStyle(c.muted) }.padding(.top, 8) }
-                    if big { Text(fullDate(p.created) + (p.views > 0 ? " · \(Community.num(p.views)) مشاهدة" : "")).font(F.plex(12.5)).foregroundStyle(c.muted).padding(.top, 10) }
+                    if p.restricted { HStack(spacing: 6) { Ico(name: "shield", size: 14.4).foregroundStyle(c.gold); Text(tr("ردّ من حساب مقيّد — يراه هو وصاحب المنشور فقط")).font(F.plex(12.5)).foregroundStyle(c.muted) }.padding(.top, 8) }
+                    if big { Text(fullDate(p.created) + (p.views > 0 ? tr(" · {0} مشاهدة", Community.num(p.views)) : "")).font(F.plex(12.5)).foregroundStyle(c.muted).padding(.top, 10) }
                     HStack {
                         act("reply", p.replies, false, c.gold) { reply() }.opacity(p.canReply ? 1 : 0.45)
                         Spacer(); act("repost", p.reposts + p.quotes, p.reposted, Color(hex: 0xFF30A46C)) { if cm.me == nil { ui.go(.community) } else { repostMenu = true } }
                         Spacer(); act(p.liked ? "heart-f" : "heart", p.likes, p.liked, Color(hex: 0xFFE5484D)) { Task { if cm.me == nil { ui.go(.community) } else if let e = await cm.like(p) { ui.say(e) }; tick += 1 } }
-                        Spacer(); act("share", 0, false, c.gold) { share((p.text.isEmpty ? "منشور في المجتمع" : String(p.text.prefix(120))) + "\n\(Repo.site)community/p/\(p.id)") }
+                        Spacer(); act("share", 0, false, c.gold) { share((p.text.isEmpty ? tr("منشور في المجتمع") : String(p.text.prefix(120))) + "\n\(Repo.site)community/p/\(p.id)") }
                     }.padding(.top, 8)
                 }
             }
@@ -260,11 +260,11 @@ struct PostCard: View {
     }
     private func quoteBox(_ q: Post) -> some View {
         VStack(alignment: .leading, spacing: 4) {
-            if q.gone || q.author == nil { Text("هذا المنشور لم يعد متاحًا.").font(F.plex(14)).foregroundStyle(c.faint) }
+            if q.gone || q.author == nil { Text(tr("هذا المنشور لم يعد متاحًا.")).font(F.plex(14)).foregroundStyle(c.faint) }
             else {
                 HStack(spacing: 6) { Avatar(m: q.author, size: 22); Text(q.author!.name).font(F.plex(13, .semibold)).foregroundStyle(c.text); BadgeIcons(m: q.author, max: 2, size: 14); Text(" \u{2066}@\(q.author!.handle)\u{2069} · \(Fmt.ago(q.created))").font(F.plex(11)).foregroundStyle(c.muted).lineLimit(1) }
                 if !q.text.isEmpty { Text(q.text).font(F.plex(14)).foregroundStyle(c.text).lineLimit(6) }
-                if let m = q.media.first { if m.type == "video" { Text("🎬 فيديو").font(F.plex(13)).foregroundStyle(c.muted) } else { RemoteImage(raw: m.url).frame(height: 140).clipShape(RoundedRectangle(cornerRadius: 14)) } }
+                if let m = q.media.first { if m.type == "video" { Text(tr("🎬 فيديو")).font(F.plex(13)).foregroundStyle(c.muted) } else { RemoteImage(raw: m.url).frame(height: 140).clipShape(RoundedRectangle(cornerRadius: 14)) } }
                 if q.embed.hasPrefix("ayah:") { PostEmbed(e: q.embed, compact: true) }
             }
         }
@@ -278,35 +278,35 @@ struct PostCard: View {
     }
     private func reply() {
         if cm.me == nil { ui.go(.community); return }
-        if !p.canReply { ui.say(RULE_NOTE[p.replyRule] ?? "لا يمكنك التفاعل مع هذا الحساب."); return }
+        if !p.canReply { ui.say(RULE_NOTE[p.replyRule] ?? tr("لا يمكنك التفاعل مع هذا الحساب.")); return }
         ui.path.append(.compose("reply:\(p.id)"))
     }
     private func setRel(_ h: String, _ kind: String, _ on: Bool) async {
         do { try await cm.rel(h, kind, on); ui.say(REL_DONE[kind].map { on ? $0.0 : $0.1 } ?? "") } catch { ui.say(Community.msg(error)) }
     }
     private var moreSheet: some View {
-        MenuSheet(title: "المنشور") {
-            MenuRow(icon: "link", title: "نسخ الرابط") { UIPasteboard.general.string = "\(Repo.site)community/p/\(p.id)"; ui.say("نُسخ الرابط"); more = false }
+        MenuSheet(title: tr("المنشور")) {
+            MenuRow(icon: "link", title: tr("نسخ الرابط")) { UIPasteboard.general.string = "\(Repo.site)community/p/\(p.id)"; ui.say(tr("نُسخ الرابط")); more = false }
             if cm.me?.canFeedPin == true && p.replyToHandle.isEmpty {
                 let on = cm.me?.feedPin != p.id
-                MenuRow(icon: "pin", title: on ? "تثبيت في أول المجتمع (للكل)" : "إلغاء التثبيت من أول المجتمع") { more = false; Task { do { try await cm.feedPin(p, on); ui.say(on ? "ثُبّت في أول المجتمع — اسحب للتحديث" : "أُلغي التثبيت من أول المجتمع") } catch { ui.say(Community.msg(error)) } } }
+                MenuRow(icon: "pin", title: on ? tr("تثبيت في أول المجتمع (للكل)") : tr("إلغاء التثبيت من أول المجتمع")) { more = false; Task { do { try await cm.feedPin(p, on); ui.say(on ? tr("ثُبّت في أول المجتمع — اسحب للتحديث") : tr("أُلغي التثبيت من أول المجتمع")) } catch { ui.say(Community.msg(error)) } } }
             }
             if p.mine {
                 let prof = p.pinned && !p.feedPinned
-                MenuRow(icon: "pin", title: prof ? "إلغاء التثبيت" : "تثبيت في ملفي") { more = false; Task { do { try await cm.pin(p, !prof); ui.say(prof ? "أُلغي التثبيت" : "ثُبّت في ملفك") } catch { ui.say(Community.msg(error)) } } }
-                MenuRow(icon: "trash", title: "حذف", tint: c.danger) { more = false; DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) { askDelete = true } }
+                MenuRow(icon: "pin", title: prof ? tr("إلغاء التثبيت") : tr("تثبيت في ملفي")) { more = false; Task { do { try await cm.pin(p, !prof); ui.say(prof ? tr("أُلغي التثبيت") : tr("ثُبّت في ملفك")) } catch { ui.say(Community.msg(error)) } } }
+                MenuRow(icon: "trash", title: tr("حذف"), tint: c.danger) { more = false; DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) { askDelete = true } }
             } else if cm.me != nil, let a = p.author {
-                MenuRow(icon: "speaker.slash", title: "كتم @\(a.handle)", sub: "لن تظهر لك منشوراته، دون أن يعلم") { more = false; Task { await setRel(a.handle, "mute", true) } }
-                MenuRow(icon: "nosign", title: "حظر @\(a.handle)", sub: "لن يرى منشوراتك ولن يتفاعل معك", tint: c.danger) { more = false; DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) { blockAsk = a.handle } }
-                if cm.me?.canLimit == true { MenuRow(icon: "shield", title: "تقييد @\(a.handle) (إدارة)", sub: "يتصفح ويقرأ فقط حتى تنتهي المدة") { more = false; DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) { limitFor = a } } }
+                MenuRow(icon: "speaker.slash", title: tr("كتم @{0}", a.handle), sub: tr("لن تظهر لك منشوراته، دون أن يعلم")) { more = false; Task { await setRel(a.handle, "mute", true) } }
+                MenuRow(icon: "nosign", title: tr("حظر @{0}", a.handle), sub: tr("لن يرى منشوراتك ولن يتفاعل معك"), tint: c.danger) { more = false; DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) { blockAsk = a.handle } }
+                if cm.me?.canLimit == true { MenuRow(icon: "shield", title: tr("تقييد @{0} (إدارة)", a.handle), sub: tr("يتصفح ويقرأ فقط حتى تنتهي المدة")) { more = false; DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) { limitFor = a } } }
             }
-            if !p.mine { MenuRow(icon: "flag", title: "إبلاغ عن المنشور") { more = false; DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) { askReport = true } } }
-            if let a = p.author { MenuRow(icon: "user", title: "ملف \(a.name)") { more = false; ui.path.append(.user(a.handle)) } }
+            if !p.mine { MenuRow(icon: "flag", title: tr("إبلاغ عن المنشور")) { more = false; DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) { askReport = true } } }
+            if let a = p.author { MenuRow(icon: "user", title: tr("ملف {0}", a.name)) { more = false; ui.path.append(.user(a.handle)) } }
         }
     }
 }
-let RULE_NOTE = ["follow": "يمكن الرد لمن يتابعهم صاحب المنشور", "mention": "يمكن الرد لمن أشار إليهم صاحب المنشور"]
-func fullDate(_ d: Date) -> String { let f = DateFormatter(); f.locale = Locale(identifier: "ar"); f.dateFormat = "h:mm a · d MMMM yyyy"; return f.string(from: d) }
+let RULE_NOTE = ["follow": tr("يمكن الرد لمن يتابعهم صاحب المنشور"), "mention": tr("يمكن الرد لمن أشار إليهم صاحب المنشور")]
+func fullDate(_ d: Date) -> String { let f = DateFormatter(); f.locale = L.locale; f.dateFormat = "h:mm a · d MMMM yyyy"; return f.string(from: d) }
 
 // MARK: - the community (feed, explore, notifications, profiles)
 
@@ -324,24 +324,24 @@ struct CommunityView: View {
     var body: some View {
         VStack(spacing: 0) {
             HStack(spacing: 6) {
-                Pill(title: "الرئيسية", on: view == "feed", icon: "home") { if view != "feed" { ui.go(.community) } }
-                Pill(title: "استكشف", on: view == "search", icon: "search") { if view != "search" { ui.path.append(.cm("search")) } }
+                Pill(title: tr("الرئيسية"), on: view == "feed", icon: "home") { if view != "feed" { ui.go(.community) } }
+                Pill(title: tr("استكشف"), on: view == "search", icon: "search") { if view != "search" { ui.path.append(.cm("search")) } }
                 if let me = cm.me {
-                    Pill(title: "الإشعارات", on: view == "notifs", icon: "bell") { if view != "notifs" { ui.path.append(.cm("notifications")) } }
+                    Pill(title: tr("الإشعارات"), on: view == "notifs", icon: "bell") { if view != "notifs" { ui.path.append(.cm("notifications")) } }
                         .overlay(alignment: .topTrailing) { if cm.unread > 0 { Text(cm.unread > 99 ? "99+" : cm.unread.ar).font(F.plex(10, .bold)).foregroundStyle(.white).padding(.horizontal, 5).background(Capsule().fill(c.danger)).offset(x: 4, y: -4) } }
                     Spacer()
                     Button { ui.path.append(.user(me.handle)) } label: { Avatar(m: me, size: 36) }.buttonStyle(.plain)
                 } else {
                     Spacer()
-                    Pill(title: "دخول", on: true, icon: "person.crop.circle") { auth = true }
+                    Pill(title: tr("دخول"), on: true, icon: "person.crop.circle") { auth = true }
                 }
             }.padding(.horizontal, 12).padding(.vertical, 6)
             if let me = cm.me, me.email.isEmpty, ready {
                 HStack(spacing: 8) {
                     SiteIcon(name: "mail", size: 18, color: c.gold)
-                    Text("أضف بريدك الإلكتروني لتتمكن من استعادة حسابك إن نسيت كلمة المرور.").font(F.plex(12.5)).foregroundStyle(c.text).fixedSize(horizontal: false, vertical: true)
+                    Text(tr("أضف بريدك الإلكتروني لتتمكن من استعادة حسابك إن نسيت كلمة المرور.")).font(F.plex(12.5)).foregroundStyle(c.text).fixedSize(horizontal: false, vertical: true)
                     Spacer(minLength: 4)
-                    Button("إضافة") { edit = true }.font(F.plex(14, .bold)).foregroundStyle(c.gold)
+                    Button(tr("إضافة")) { edit = true }.font(F.plex(14, .bold)).foregroundStyle(c.gold)
                 }.padding(.horizontal, 12).padding(.vertical, 8).background(RoundedRectangle(cornerRadius: 14).fill(c.gold.opacity(0.1))).overlay(RoundedRectangle(cornerRadius: 14).stroke(c.gold.opacity(0.45))).padding(.horizontal, 12).padding(.vertical, 4)
             }
             ZStack(alignment: .bottomLeading) {
@@ -356,7 +356,7 @@ struct CommunityView: View {
                 }
                 if view == "feed" || view == "user" {
                     Button { if cm.me == nil { auth = true } else { ui.path.append(.compose("new")) } } label: {
-                        HStack(spacing: 8) { Ico(name: "pencil", size: 21.6); Text("منشور جديد").font(F.plex(15, .bold)) }
+                        HStack(spacing: 8) { Ico(name: "pencil", size: 21.6); Text(tr("منشور جديد")).font(F.plex(15, .bold)) }
                             .foregroundStyle(c.onGold).padding(.horizontal, 18).frame(height: 56).background(RoundedRectangle(cornerRadius: 20).fill(c.gold)).shadow(color: .black.opacity(0.25), radius: 8, y: 3)
                     }.buttonStyle(Press()).padding(18)
                 }
@@ -384,7 +384,7 @@ struct PagedPosts<Header: View>: View {
             LazyVStack(alignment: .leading, spacing: 0) {
                 header(first)
                 if first == nil && err == nil { ProgressView().tint(c.gold).frame(maxWidth: .infinity).padding(40) }
-                if let err { Empty(text: err, icon: "offline", action: "إعادة المحاولة") { Task { await reload() } } }
+                if let err { Empty(text: err, icon: "offline", action: tr("إعادة المحاولة")) { Task { await reload() } } }
                 if let p = first?.pinned { PostCard(p: p) }
                 if first != nil && items.isEmpty && first?.pinned == nil { Empty(text: empty, icon: "chat") }
                 ForEach(items) { it in PostCard(p: it.post, repostBy: it.repostBy).onAppear { if it.id == items.last?.id { Task { await more() } } } }
@@ -413,8 +413,8 @@ struct FeedView: View {
     @State private var tab = "all"
     @State private var sug: (people: [Member], tags: [(String, Int)])?
     var body: some View {
-        PagedPosts(key: tab, load: { try await cm.feed(tab, before: $0) }, empty: tab == "following" ? "لا توجد منشورات بعد — تابع حسابات لترى منشوراتها هنا." : "لا توجد منشورات بعد — كن أول من ينشر.") { _ in
-            if cm.me != nil { Seg(items: ["لك", "المتابَعون"], selected: tab == "all" ? 0 : 1) { tab = $0 == 0 ? "all" : "following" }.padding(.horizontal, 16).padding(.vertical, 6) }
+        PagedPosts(key: tab, load: { try await cm.feed(tab, before: $0) }, empty: tab == "following" ? tr("لا توجد منشورات بعد — تابع حسابات لترى منشوراتها هنا.") : tr("لا توجد منشورات بعد — كن أول من ينشر.")) { _ in
+            if cm.me != nil { Seg(items: [tr("لك"), tr("المتابَعون")], selected: tab == "all" ? 0 : 1) { tab = $0 == 0 ? "all" : "following" }.padding(.horizontal, 16).padding(.vertical, 6) }
             if let s = sug, !s.people.isEmpty || !s.tags.isEmpty { suggestions(s) }
             Rectangle().fill(c.lineSoft).frame(height: 1)
         }
@@ -423,11 +423,11 @@ struct FeedView: View {
     private func suggestions(_ s: (people: [Member], tags: [(String, Int)])) -> some View {
         Panel(pad: 12, lattice: false) {
             if !s.tags.isEmpty {
-                Text("رائج هذا الأسبوع").font(F.plex(14, .semibold)).foregroundStyle(c.gold)
+                Text(tr("رائج هذا الأسبوع")).font(F.plex(14, .semibold)).foregroundStyle(c.gold)
                 FlowLayout(spacing: 6) { ForEach(s.tags, id: \.0) { t, n in Chip(text: "#\(t) · \(n.ar)", icon: "number") { ui.path.append(.cm("search:#\(t)")) } } }.padding(.vertical, 8)
             }
             if !s.people.isEmpty {
-                Text("حسابات مقترحة").font(F.plex(14, .semibold)).foregroundStyle(c.gold)
+                Text(tr("حسابات مقترحة")).font(F.plex(14, .semibold)).foregroundStyle(c.gold)
                 ScrollView(.horizontal, showsIndicators: false) {
                     HStack(spacing: 10) {
                         ForEach(s.people) { m in
@@ -459,7 +459,7 @@ struct UserView: View {
     @State private var limitFor: Member?
     var body: some View {
         PagedPosts(key: "\(handle)/\(tab)", load: { try await cm.user(handle, tab: tab, before: $0) },
-                   empty: tab == "likes" ? "لا إعجابات بعد." : tab == "media" ? "لا صور أو فيديو بعد." : tab == "replies" ? "لا ردود بعد." : cm.me?.handle == handle ? "لم تنشر شيئًا بعد — اكتب أول منشور لك." : "لا منشورات بعد.") { pg in
+                   empty: tab == "likes" ? tr("لا إعجابات بعد.") : tab == "media" ? tr("لا صور أو فيديو بعد.") : tab == "replies" ? tr("لا ردود بعد.") : cm.me?.handle == handle ? tr("لم تنشر شيئًا بعد — اكتب أول منشور لك.") : tr("لا منشورات بعد.")) { pg in
             if let pg, let u = pg.user { profile(u, pg) }
         }
         .bzSheet(item: $limitFor) { LimitSheet(m: $0) }
@@ -474,14 +474,14 @@ struct UserView: View {
                 Avatar(m: u, size: 84).padding(4).background(Circle().fill(c.bg))
                 Spacer()
                 if mine {
-                    Button { ui.path.append(.blocked) } label: { Ico(name: "shield", size: 24.0).foregroundStyle(c.gold).frame(width: 44, height: 44) }.accessibilityLabel("الحظر والكتم")
-                    GhostButton(title: "تعديل الملف", icon: "pencil") { edit() }
+                    Button { ui.path.append(.blocked) } label: { Ico(name: "shield", size: 24.0).foregroundStyle(c.gold).frame(width: 44, height: 44) }.accessibilityLabel(tr("الحظر والكتم"))
+                    GhostButton(title: tr("تعديل الملف"), icon: "pencil") { edit() }
                 } else {
-                    if cm.me != nil { Button { relMenu = true } label: { Ico(name: "ellipsis", size: 24.0).foregroundStyle(c.text).frame(width: 44, height: 44) }.accessibilityLabel("المزيد") }
-                    if pg.blocked { if u.blocked { GhostButton(title: "إلغاء الحظر", icon: "nosign") { Task { await setRel(u.handle, "block", false) } } } }
+                    if cm.me != nil { Button { relMenu = true } label: { Ico(name: "ellipsis", size: 24.0).foregroundStyle(c.text).frame(width: 44, height: 44) }.accessibilityLabel(tr("المزيد")) }
+                    if pg.blocked { if u.blocked { GhostButton(title: tr("إلغاء الحظر"), icon: "nosign") { Task { await setRel(u.handle, "block", false) } } } }
                     else {
                         let f = follow ?? u.iFollow
-                        if f { GhostButton(title: "متابَع", icon: "check") { toggle(u, false) } } else { GoldButton(title: "متابعة", icon: "person.badge.plus") { toggle(u, true) } }
+                        if f { GhostButton(title: tr("متابَع"), icon: "check") { toggle(u, false) } } else { GoldButton(title: tr("متابعة"), icon: "person.badge.plus") { toggle(u, true) } }
                     }
                 }
             }.padding(.horizontal, 16).offset(y: -38).padding(.bottom, -38)
@@ -489,36 +489,36 @@ struct UserView: View {
                 HStack(spacing: 4) { Text(u.name).font(F.amiri(22)).foregroundStyle(c.text); BadgeIcons(m: u, max: 9, size: 20) }
                 HStack(spacing: 6) {
                     Text("\u{2066}@\(u.handle)\u{2069}").font(F.plex(14)).foregroundStyle(c.muted)
-                    if u.followsMe { Text("يتابعك").font(F.plex(11)).foregroundStyle(c.muted).padding(.horizontal, 6).padding(.vertical, 1).background(RoundedRectangle(cornerRadius: 6).fill(c.surface2)) }
+                    if u.followsMe { Text(tr("يتابعك")).font(F.plex(11)).foregroundStyle(c.muted).padding(.horizontal, 6).padding(.vertical, 1).background(RoundedRectangle(cornerRadius: 6).fill(c.surface2)) }
                 }
                 BadgeChips(m: u)
-                if pg.blocked { Text(u.blockedMe ? "لا يمكنك عرض منشورات هذا الحساب أو التفاعل معه." : "لقد حظرت هذا الحساب — لا يمكنه رؤية منشوراتك أو التفاعل معك.").font(F.plex(14)).foregroundStyle(c.muted).padding(.top, 10) }
-                else if u.muted { Text("هذا الحساب مكتوم — لا تظهر منشوراته في صفحتك الرئيسية.").font(F.plex(12.5)).foregroundStyle(c.muted).padding(.top, 8) }
+                if pg.blocked { Text(u.blockedMe ? tr("لا يمكنك عرض منشورات هذا الحساب أو التفاعل معه.") : tr("لقد حظرت هذا الحساب — لا يمكنه رؤية منشوراتك أو التفاعل معك.")).font(F.plex(14)).foregroundStyle(c.muted).padding(.top, 10) }
+                else if u.muted { Text(tr("هذا الحساب مكتوم — لا تظهر منشوراته في صفحتك الرئيسية.")).font(F.plex(12.5)).foregroundStyle(c.muted).padding(.top, 8) }
                 if !u.bio.isEmpty { RichText(t: u.bio).padding(.top, 8) }
                 FlowLayout(spacing: 14) {
                     if !u.location.isEmpty { HStack(spacing: 3) { SiteIcon(name: "pin", size: 16, color: c.muted); Text(u.location).font(F.plex(12.5)).foregroundStyle(c.muted) } }
                     if !u.website.isEmpty { Link(destination: URL(string: u.website) ?? URL(string: Repo.site)!) { HStack(spacing: 3) { SiteIcon(name: "link", size: 16, color: c.gold); Text(String(u.website.replacingOccurrences(of: "^https?://", with: "", options: .regularExpression).prefix(30))).font(F.plex(12.5)).foregroundStyle(c.gold) } } }
-                    if u.created > 0 { HStack(spacing: 3) { SiteIcon(name: "calendar", size: 16, color: c.muted); Text("انضم \(joined(u.created))").font(F.plex(12.5)).foregroundStyle(c.muted) } }
+                    if u.created > 0 { HStack(spacing: 3) { SiteIcon(name: "calendar", size: 16, color: c.muted); Text(tr("انضم {0}", joined(u.created))).font(F.plex(12.5)).foregroundStyle(c.muted) } }
                 }.padding(.top, 8)
                 HStack(spacing: 16) {
-                    Button { ui.path.append(.people(u.handle, "following")) } label: { Text("\(Text(u.following.ar).bold().foregroundColor(c.text)) يتابع") }.buttonStyle(.plain)
-                    Button { ui.path.append(.people(u.handle, "followers")) } label: { Text("\(Text((followers ?? u.followers).ar).bold().foregroundColor(c.text)) متابِع") }.buttonStyle(.plain)
+                    Button { ui.path.append(.people(u.handle, "following")) } label: { Text(tr("{0} يتابع", Text(u.following.ar).bold().foregroundColor(c.text))) }.buttonStyle(.plain)
+                    Button { ui.path.append(.people(u.handle, "followers")) } label: { Text(tr("{0} متابِع", Text((followers ?? u.followers).ar).bold().foregroundColor(c.text))) }.buttonStyle(.plain)
                 }.font(F.plex(14)).foregroundStyle(c.muted).padding(.top, 8)
             }.padding(.horizontal, 16).padding(.top, 8)
-            if !pg.blocked { Seg(items: ["المنشورات", "الردود", "الوسائط", "الإعجابات"], selected: ["posts", "replies", "media", "likes"].firstIndex(of: tab) ?? 0) { tab = ["posts", "replies", "media", "likes"][$0] }.padding(.horizontal, 12).padding(.vertical, 12) }
+            if !pg.blocked { Seg(items: [tr("المنشورات"), tr("الردود"), tr("الوسائط"), tr("الإعجابات")], selected: ["posts", "replies", "media", "likes"].firstIndex(of: tab) ?? 0) { tab = ["posts", "replies", "media", "likes"][$0] }.padding(.horizontal, 12).padding(.vertical, 12) }
             Rectangle().fill(c.lineSoft).frame(height: 1)
         }
         .confirmationDialog("@\(u.handle)", isPresented: $relMenu) {
-            Button(u.muted ? "إلغاء كتم @\(u.handle)" : "كتم @\(u.handle)") { Task { await setRel(u.handle, "mute", !u.muted) } }
-            if u.blocked { Button("إلغاء حظر @\(u.handle)") { Task { await setRel(u.handle, "block", false) } } } else { Button("حظر @\(u.handle)", role: .destructive) { blockAsk = true } }
-            if cm.me?.canLimit == true { Button(u.limitedNow ? "تعديل تقييد @\(u.handle) (إدارة)" : "تقييد @\(u.handle) (إدارة)") { limitFor = u } }
+            Button(u.muted ? tr("إلغاء كتم @{0}", u.handle) : tr("كتم @{0}", u.handle)) { Task { await setRel(u.handle, "mute", !u.muted) } }
+            if u.blocked { Button(tr("إلغاء حظر @{0}", u.handle)) { Task { await setRel(u.handle, "block", false) } } } else { Button(tr("حظر @{0}", u.handle), role: .destructive) { blockAsk = true } }
+            if cm.me?.canLimit == true { Button(u.limitedNow ? tr("تعديل تقييد @{0} (إدارة)", u.handle) : tr("تقييد @{0} (إدارة)", u.handle)) { limitFor = u } }
         }
-        .alert("حظر @\(u.handle)؟", isPresented: $blockAsk) {
-            Button("حظر", role: .destructive) { Task { await setRel(u.handle, "block", true) } }
-            Button("إلغاء", role: .cancel) {}
+        .alert(tr("حظر @{0}؟", u.handle), isPresented: $blockAsk) {
+            Button(tr("حظر"), role: .destructive) { Task { await setRel(u.handle, "block", true) } }
+            Button(tr("إلغاء"), role: .cancel) {}
         } message: { Text(BLOCK_NOTE) }
     }
-    private func joined(_ t: Int) -> String { let f = DateFormatter(); f.locale = Locale(identifier: "ar"); f.dateFormat = "MMMM yyyy"; return f.string(from: Date(timeIntervalSince1970: Double(t))) }
+    private func joined(_ t: Int) -> String { let f = DateFormatter(); f.locale = L.locale; f.dateFormat = "MMMM yyyy"; return f.string(from: Date(timeIntervalSince1970: Double(t))) }
     private func toggle(_ u: Member, _ on: Bool) {
         if cm.me == nil { ui.go(.community); return }
         follow = on
@@ -545,18 +545,18 @@ struct ThreadView: View {
                     if let me = cm.me {
                         if t.0.canReply {
                             Button { ui.path.append(.compose("reply:\(t.0.id)")) } label: {
-                                HStack(spacing: 10) { Avatar(m: me, size: 36); Text("اكتب ردّك…").font(F.plex(15)).foregroundStyle(c.muted).frame(maxWidth: .infinity, alignment: .leading).padding(.horizontal, 16).padding(.vertical, 10).overlay(Capsule().stroke(c.line)) }.padding(16)
+                                HStack(spacing: 10) { Avatar(m: me, size: 36); Text(tr("اكتب ردّك…")).font(F.plex(15)).foregroundStyle(c.muted).frame(maxWidth: .infinity, alignment: .leading).padding(.horizontal, 16).padding(.vertical, 10).overlay(Capsule().stroke(c.line)) }.padding(16)
                             }.buttonStyle(.plain)
-                        } else { Text(RULE_NOTE[t.0.replyRule] ?? "لا يمكنك الرد على هذا المنشور.").font(F.plex(14)).foregroundStyle(c.muted).padding(16) }
+                        } else { Text(RULE_NOTE[t.0.replyRule] ?? tr("لا يمكنك الرد على هذا المنشور.")).font(F.plex(14)).foregroundStyle(c.muted).padding(16) }
                         Rectangle().fill(c.lineSoft).frame(height: 1)
                     }
                     ForEach(t.1) { PostCard(p: $0) }
-                    if t.1.isEmpty { Text("لا ردود بعد.").font(F.plex(14)).foregroundStyle(c.faint).frame(maxWidth: .infinity).padding(24) }
+                    if t.1.isEmpty { Text(tr("لا ردود بعد.")).font(F.plex(14)).foregroundStyle(c.faint).frame(maxWidth: .infinity).padding(24) }
                 } else if let err { Empty(text: err, icon: "search") }
                 else { ProgressView().tint(c.gold).frame(maxWidth: .infinity).padding(40) }
             }.padding(.bottom, 40)
         }
-        .task(id: "\(id)-\(cm.relRev)") { do { t = try await cm.thread(id) } catch { err = (error as? CmError)?.code == "not_found" ? "هذا المنشور غير موجود." : Community.msg(error) } }
+        .task(id: "\(id)-\(cm.relRev)") { do { t = try await cm.thread(id) } catch { err = (error as? CmError)?.code == "not_found" ? tr("هذا المنشور غير موجود.") : Community.msg(error) } }
     }
 }
 
@@ -567,12 +567,12 @@ struct NotifsView: View {
     @State private var list: [Notif]?
     @State private var err: String?
     var body: some View {
-        let T: [String: (String, Color, String)] = ["like": ("heart-f", Color(hex: 0xFFE5484D), "أعجبه منشورك"), "repost": ("repost", Color(hex: 0xFF30A46C), "أعاد نشر منشورك"),
-            "reply": ("reply", c.gold, "ردّ عليك"), "quote": ("quote", c.gold, "اقتبس منشورك"), "follow": ("person.badge.plus", c.gold, "بدأ متابعتك"), "mention": ("at", c.gold, "أشار إليك")]
+        let T: [String: (String, Color, String)] = ["like": ("heart-f", Color(hex: 0xFFE5484D), tr("أعجبه منشورك")), "repost": ("repost", Color(hex: 0xFF30A46C), tr("أعاد نشر منشورك")),
+            "reply": ("reply", c.gold, tr("ردّ عليك")), "quote": ("quote", c.gold, tr("اقتبس منشورك")), "follow": ("person.badge.plus", c.gold, tr("بدأ متابعتك")), "mention": ("at", c.gold, tr("أشار إليك"))]
         ScrollView {
             LazyVStack(spacing: 0) {
                 if let l = list {
-                    if l.isEmpty { Empty(text: "لا إشعارات بعد — حين يتفاعل أحد مع منشوراتك ستظهر هنا.", icon: "bell") }
+                    if l.isEmpty { Empty(text: tr("لا إشعارات بعد — حين يتفاعل أحد مع منشوراتك ستظهر هنا."), icon: "bell") }
                     ForEach(l) { n in
                         let tt = T[n.type] ?? ("bell", c.gold, "")
                         Button { if n.type == "follow" { ui.path.append(.user(n.actor.handle)) } else if let p = n.post { ui.path.append(.thread(p.id)) } } label: {
@@ -607,14 +607,14 @@ struct CmSearchView: View {
     var body: some View {
         VStack(spacing: 0) {
             HStack(spacing: 8) {
-                SearchField(text: $q, hint: "ابحث عن أشخاص أو منشورات أو #وسم").onSubmit { sent = q.trimmingCharacters(in: .whitespaces) }
-                GoldButton(title: "بحث") { sent = q.trimmingCharacters(in: .whitespaces) }
+                SearchField(text: $q, hint: tr("ابحث عن أشخاص أو منشورات أو #وسم")).onSubmit { sent = q.trimmingCharacters(in: .whitespaces) }
+                GoldButton(title: tr("بحث")) { sent = q.trimmingCharacters(in: .whitespaces) }
             }.padding(.horizontal, 16).padding(.vertical, 6)
-            if sent.count < 2 { Empty(text: "ابحث باسم شخص أو @اسم_مستخدم أو كلمة أو #وسم.", icon: "search"); Spacer() }
+            if sent.count < 2 { Empty(text: tr("ابحث باسم شخص أو @اسم_مستخدم أو كلمة أو #وسم."), icon: "search"); Spacer() }
             else {
-                PagedPosts(key: sent, load: { b in let p = try await cm.search(sent, before: b); if b == 0 { people = p.people }; return p }, empty: "لا نتائج.") { _ in
+                PagedPosts(key: sent, load: { b in let p = try await cm.search(sent, before: b); if b == 0 { people = p.people }; return p }, empty: tr("لا نتائج.")) { _ in
                     if !people.isEmpty {
-                        SectionHead(title: "أشخاص")
+                        SectionHead(title: tr("أشخاص"))
                         ForEach(people) { m in
                             Button { ui.path.append(.user(m.handle)) } label: {
                                 HStack(spacing: 10) {
@@ -628,7 +628,7 @@ struct CmSearchView: View {
                                 }.padding(.horizontal, 16).padding(.vertical, 10)
                             }.buttonStyle(.plain)
                         }
-                        SectionHead(title: "منشورات")
+                        SectionHead(title: tr("منشورات"))
                     }
                 }
             }

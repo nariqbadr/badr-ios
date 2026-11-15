@@ -38,8 +38,8 @@ final class Prayers: NSObject, ObservableObject, CLLocationManagerDelegate {
         let (lat, lon) = coords
         let comps = Calendar(identifier: .gregorian).dateComponents([.year, .month, .day], from: date)
         guard let pt = PrayerTimes(coordinates: Coordinates(latitude: lat, longitude: lon), date: comps, calculationParameters: params()) else { return [] }
-        return [PrayerTime(key: "fajr", name: "الفجر", time: pt.fajr), PrayerTime(key: "sunrise", name: "الشروق", time: pt.sunrise), PrayerTime(key: "dhuhr", name: "الظهر", time: pt.dhuhr),
-                PrayerTime(key: "asr", name: "العصر", time: pt.asr), PrayerTime(key: "maghrib", name: "المغرب", time: pt.maghrib), PrayerTime(key: "isha", name: "العشاء", time: pt.isha)]
+        return [PrayerTime(key: "fajr", name: tr("الفجر"), time: pt.fajr), PrayerTime(key: "sunrise", name: tr("الشروق"), time: pt.sunrise), PrayerTime(key: "dhuhr", name: tr("الظهر"), time: pt.dhuhr),
+                PrayerTime(key: "asr", name: tr("العصر"), time: pt.asr), PrayerTime(key: "maghrib", name: tr("المغرب"), time: pt.maghrib), PrayerTime(key: "isha", name: tr("العشاء"), time: pt.isha)]
     }
     func next() -> PrayerTime? {
         let now = Date()
@@ -49,8 +49,8 @@ final class Prayers: NSObject, ObservableObject, CLLocationManagerDelegate {
     func qibla() -> Double { let (lat, lon) = coords; return Qibla(coordinates: Coordinates(latitude: lat, longitude: lon)).direction }
 
     static func hijri(_ d: Date = Date()) -> String {
-        let f = DateFormatter(); f.calendar = Calendar(identifier: .islamicUmmAlQura); f.locale = Locale(identifier: "ar"); f.dateFormat = "d MMMM y"
-        return f.string(from: d) + " هـ"
+        let f = DateFormatter(); f.calendar = Calendar(identifier: .islamicUmmAlQura); f.locale = L.locale; f.dateFormat = "d MMMM y"
+        return f.string(from: d) + tr(" هـ")
     }
 
     // MARK: location
@@ -71,21 +71,21 @@ final class Prayers: NSObject, ObservableObject, CLLocationManagerDelegate {
         let j = J(data: d)
         guard let lat = j["latitude"].double, let lon = j["longitude"].double else { return false }
         Store.shared.set("cc", j["country_code"].str)
-        await save(lat, lon, by: "ip", fallbackName: [j["city"].str, j["country_name"].str].filter { !$0.isEmpty }.joined(separator: "، "))
+        await save(lat, lon, by: "ip", fallbackName: [j["city"].str, j["country_name"].str].filter { !$0.isEmpty }.joined(separator: tr("، ")))
         return true
     }
     func setCity(_ city: String, _ country: String) async -> Bool {
         guard let p = try? await CLGeocoder().geocodeAddressString("\(city), \(country)").first, let l = p.location else { return false }
         Store.shared.set("cc", p.isoCountryCode ?? "")
         Store.shared.set("lat", l.coordinate.latitude); Store.shared.set("lon", l.coordinate.longitude)
-        Store.shared.set("place", [city, p.country ?? country].filter { !$0.isEmpty }.joined(separator: "، ")); Store.shared.set("placeBy", "manual")
+        Store.shared.set("place", [city, p.country ?? country].filter { !$0.isEmpty }.joined(separator: tr("، "))); Store.shared.set("placeBy", "manual")
         rev += 1; schedule(); return true
     }
     private func save(_ lat: Double, _ lon: Double, by: String, fallbackName: String = "") async {
         Store.shared.set("lat", lat); Store.shared.set("lon", lon); Store.shared.set("placeBy", by)
         let pm = try? await CLGeocoder().reverseGeocodeLocation(CLLocation(latitude: lat, longitude: lon), preferredLocale: Locale(identifier: "ar")).first
         if let pm { Store.shared.set("cc", pm.isoCountryCode ?? Store.shared.str("cc")) }
-        let name = [pm?.locality ?? pm?.administrativeArea, pm?.country].compactMap { $0 }.joined(separator: "، ")
+        let name = [pm?.locality ?? pm?.administrativeArea, pm?.country].compactMap { $0 }.joined(separator: tr("، "))
         Store.shared.set("place", name.isEmpty ? fallbackName : name)
         rev += 1; schedule()
     }
@@ -129,14 +129,14 @@ final class Prayers: NSObject, ObservableObject, CLLocationManagerDelegate {
                 let m = mode(p.key); if m == "off" { continue }
                 if p.time > now {
                     let n = UNMutableNotificationContent()
-                    n.title = p.key == "sunrise" ? "حان وقت الشروق" : "حان الآن موعد صلاة \(p.name)"; n.body = "حيّ على الصلاة"
+                    n.title = p.key == "sunrise" ? tr("حان وقت الشروق") : tr("حان الآن موعد صلاة {0}", p.name); n.body = tr("حيّ على الصلاة")
                     n.sound = m == "adhan" ? UNNotificationSound(named: UNNotificationSoundName(Adhan.soundName(p.key == "fajr") ?? "adhan.caf")) : .default
                     if m == "adhan" && p.key != "sunrise" { n.userInfo = ["adhan": p.key] }
                     if #available(iOS 15.0, *) { n.interruptionLevel = .timeSensitive }
                     reqs.append(UNNotificationRequest(identifier: "p-\(p.key)-\(Int(p.time.timeIntervalSince1970))", content: n, trigger: trigger(p.time)))
                 }
                 if pre > 0, p.key != "sunrise", p.time.addingTimeInterval(Double(-pre * 60)) > now {
-                    let n = UNMutableNotificationContent(); n.title = "اقتربت صلاة \(p.name)"; n.body = "بعد \(pre.ar) دقيقة"; n.sound = .default
+                    let n = UNMutableNotificationContent(); n.title = tr("اقتربت صلاة {0}", p.name); n.body = tr("بعد {0} دقيقة", pre.ar); n.sound = .default
                     reqs.append(UNNotificationRequest(identifier: "pre-\(p.key)-\(Int(p.time.timeIntervalSince1970))", content: n, trigger: trigger(p.time.addingTimeInterval(Double(-pre * 60)))))
                 }
             }

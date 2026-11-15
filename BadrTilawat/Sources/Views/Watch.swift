@@ -45,15 +45,15 @@ final class VideoDownloads: NSObject, ObservableObject, URLSessionDownloadDelega
         let moved = ok && (try? FileManager.default.moveItem(at: loc, to: tmp)) != nil
         MainActor.assumeIsolated {
             guard let j = jobs[id] else { return }
-            if moved { VideoFiles.delete(j.id); try? FileManager.default.moveItem(at: tmp, to: VideoFiles.file(j.id, j.h)); UIState.shared?.say("حُفظت — يمكنك مشاهدتها بدون إنترنت") }
-            else { UIState.shared?.say("تعذّر حفظ الملف. تأكد من المساحة والاتصال.") }
+            if moved { VideoFiles.delete(j.id); try? FileManager.default.moveItem(at: tmp, to: VideoFiles.file(j.id, j.h)); UIState.shared?.say(tr("حُفظت — يمكنك مشاهدتها بدون إنترنت")) }
+            else { UIState.shared?.say(tr("تعذّر حفظ الملف. تأكد من المساحة والاتصال.")) }
             jobs[id] = nil; progress[j.id] = nil; savedTick += 1
         }
     }
     nonisolated func urlSession(_ s: URLSession, task: URLSessionTask, didCompleteWithError e: Error?) {
         guard e != nil else { return }
         let id = task.taskIdentifier
-        MainActor.assumeIsolated { if let j = jobs[id] { jobs[id] = nil; progress[j.id] = nil; UIState.shared?.say("تعذّر حفظ الملف. تأكد من المساحة والاتصال.") } }
+        MainActor.assumeIsolated { if let j = jobs[id] { jobs[id] = nil; progress[j.id] = nil; UIState.shared?.say(tr("تعذّر حفظ الملف. تأكد من المساحة والاتصال.")) } }
     }
 }
 
@@ -238,9 +238,9 @@ private struct VideoSurface: UIViewRepresentable {
     func updateUIView(_ v: Host, context: Context) { if layer.superlayer !== v.layer { v.layer.addSublayer(layer); v.pl = layer }; v.setNeedsLayout() }
 }
 
-private func qLabel(_ h: Int) -> String { h > 0 ? "\(h)p" : "صوت فقط" }
+private func qLabel(_ h: Int) -> String { h > 0 ? "\(h)p" : tr("صوت فقط") }
 private func qName(_ h: Int) -> String { h >= 1080 ? "Full HD" : h >= 720 ? "HD" : "" }
-func sizeTxt(_ b: Int64) -> String { b <= 0 ? "" : b >= 1_000_000_000 ? String(format: "%.1f غيغابايت", Double(b) / 1e9) : "\(max(1, Int(b / 1_048_576)).ar) ميجابايت" }
+func sizeTxt(_ b: Int64) -> String { b <= 0 ? "" : b >= 1_000_000_000 ? String(format: tr("%.1f غيغابايت"), Double(b) / 1e9) : tr("{0} ميجابايت", max(1, Int(b / 1_048_576)).ar) }
 private func fmtT(_ s: Double) -> String { let x = Int(max(0, s.isFinite ? s : 0)); return x >= 3600 ? String(format: "%d:%02d:%02d", x / 3600, x % 3600 / 60, x % 60) : String(format: "%d:%02d", x / 60, x % 60) }
 
 /// «تلاوة مرئية»: the video page.
@@ -277,17 +277,17 @@ struct WatchView: View {
                                 .clipShape(RoundedRectangle(cornerRadius: 18)).overlay(RoundedRectangle(cornerRadius: 18).stroke(c.line))
                             info(t)
                             if !next.isEmpty {
-                                HStack { Text("التالي").font(F.plex(16, .bold)).foregroundStyle(c.text); Spacer()
-                                    Toggle(isOn: $auto) { Text("تشغيل تلقائي").font(F.plex(13)).foregroundStyle(c.muted) }.toggleStyle(.switch).tint(c.gold).fixedSize()
+                                HStack { Text(tr("التالي")).font(F.plex(16, .bold)).foregroundStyle(c.text); Spacer()
+                                    Toggle(isOn: $auto) { Text(tr("تشغيل تلقائي")).font(F.plex(13)).foregroundStyle(c.muted) }.toggleStyle(.switch).tint(c.gold).fixedSize()
                                         .onChange(of: auto) { Store.shared.set("videoAuto", $0) } }
                                 ForEach(next.prefix(20)) { n in VideoRow(t: n) { ui.path.append(.watch(n.id)) } }
                             }
                         }.padding(16).padding(.bottom, 120)
                     }
                 }
-            } else { Empty(text: "هذه التلاوة غير متاحة الآن", icon: "film") }
+            } else { Empty(text: tr("هذه التلاوة غير متاحة الآن"), icon: "film") }
         }
-        .navigationTitle(full ? "" : "تلاوة مرئية")
+        .navigationTitle(full ? "" : tr("تلاوة مرئية"))
         .onChange(of: full) { ui.videoFull = $0 }.onDisappear { ui.videoFull = false }
         .onAppear { if let t { v.open(t); v.onEnd = { if auto, let n = next.first { ui.path.append(.watch(n.id)) } } }; bump() }
         .onChange(of: id) { _ in if let t { v.open(t) } }
@@ -295,7 +295,7 @@ struct WatchView: View {
         .bzSheet(item: Binding(get: { sheet.map { SheetID(id: $0) } }, set: { sheet = $0?.id })) { s in
             if let t { if s.id == "q" { qualitySheet(t) } else { downloadSheet(t) } }
         }
-        .environment(\.layoutDirection, .rightToLeft)
+        .environment(\.layoutDirection, L.dir)
     }
     private struct SheetID: Identifiable { let id: String }
 
@@ -312,7 +312,7 @@ struct WatchView: View {
                 Color.clear.contentShape(Rectangle()).onTapGesture(count: 2) { v.skip(-10); flash = (false, Date()); bump() }.onTapGesture { withAnimation { controls.toggle() }; if controls { bump() } }
             }.environment(\.layoutDirection, .leftToRight)
             if v.buffering { ProgressView().tint(.white).scaleEffect(1.3) }
-            if v.failed { Text("تعذّر تشغيل الفيديو. جرّب جودة أقل.").font(F.plex(14)).foregroundStyle(.white).padding(10).background(Capsule().fill(.black.opacity(0.6))) }
+            if v.failed { Text(tr("تعذّر تشغيل الفيديو. جرّب جودة أقل.")).font(F.plex(14)).foregroundStyle(.white).padding(10).background(Capsule().fill(.black.opacity(0.6))) }
             if controls { overlay(t).transition(.opacity) }
         }
     }
@@ -322,9 +322,9 @@ struct WatchView: View {
             LinearGradient(colors: [.black.opacity(0.5), .clear, .black.opacity(0.65)], startPoint: .top, endPoint: .bottom).allowsHitTesting(false)
             // left: forward 10 (arrow turning left) · play · right: back 10 (arrow turning right) — as on the site
             HStack(spacing: 34) {
-                round("gobackward.10", 26) { v.skip(10); bump() }.accessibilityLabel("تقديم ١٠ ثوانٍ")
-                round(v.playing ? "pause.fill" : "play.fill", 34, big: true) { v.toggle(); bump() }.accessibilityLabel(v.playing ? "إيقاف مؤقت" : "تشغيل")
-                round("goforward.10", 26) { v.skip(-10); bump() }.accessibilityLabel("رجوع ١٠ ثوانٍ")
+                round("gobackward.10", 26) { v.skip(10); bump() }.accessibilityLabel(tr("تقديم ١٠ ثوانٍ"))
+                round(v.playing ? "pause.fill" : "play.fill", 34, big: true) { v.toggle(); bump() }.accessibilityLabel(v.playing ? tr("إيقاف مؤقت") : tr("تشغيل"))
+                round("goforward.10", 26) { v.skip(-10); bump() }.accessibilityLabel(tr("رجوع ١٠ ثوانٍ"))
             }.environment(\.layoutDirection, .leftToRight)
             VStack(spacing: 6) {
                 Spacer()
@@ -335,7 +335,7 @@ struct WatchView: View {
                     Button { sheet = "q" } label: { Text(qLabel(v.h)).font(.system(size: 12, weight: .bold)).foregroundStyle(.white).padding(.horizontal, 8).padding(.vertical, 3).background(Capsule().stroke(.white.opacity(0.7))) }
                     if v.pip != nil { Button { v.startPip() } label: { Ico(name: "pip.enter", size: 20).foregroundStyle(.white) } }
                     Button { withAnimation { full.toggle() }; rotate(full) } label: { Ico(name: full ? "arrow.down.right.and.arrow.up.left" : "arrow.up.left.and.arrow.down.right", size: 20).foregroundStyle(.white) }
-                        .accessibilityLabel(full ? "الخروج من ملء الشاشة" : "ملء الشاشة")
+                        .accessibilityLabel(full ? tr("الخروج من ملء الشاشة") : tr("ملء الشاشة"))
                 }.padding(.horizontal, 14).padding(.bottom, 10)
             }
         }
@@ -361,14 +361,14 @@ struct WatchView: View {
         let saved = dl.savedTick >= 0 ? VideoFiles.savedH(t.id) : nil
         return VStack(alignment: .leading, spacing: 10) {
             Text(t.title).font(F.amiri(22)).foregroundStyle(c.text)
-            if let r { Button { ui.path.append(.reciter(r.id)) } label: { HStack(spacing: 8) { RemoteImage(raw: r.image).frame(width: 30, height: 30).clipShape(Circle()); Text(r.name).font(F.plex(14, .medium)).foregroundStyle(c.gold) } }.buttonStyle(Press()) }
+            if let r { Button { ui.path.append(.reciter(r.id)) } label: { HStack(spacing: 8) { RemoteImage(raw: r.image).frame(width: 30, height: 30).clipShape(Circle()); Text(nm(r.name)).font(F.plex(14, .medium)).foregroundStyle(c.gold) } }.buttonStyle(Press()) }
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: 8) {
-                    chip(fav ? "heart.fill" : "heart", fav ? "في المفضلة" : "المفضلة") { store.toggleFav(t.id) }
-                    if let p = dl.progress[t.id] { chip("arrow.down.circle", "جارٍ الحفظ \(Int(p * 100).ar)٪") {} }
-                    else { chip(saved != nil ? "checkmark.circle" : "arrow.down.circle", saved != nil ? "✓ محفوظة" : "تحميل") { sheet = "d" } }
-                    if repo.data?.site.sec("clip") != false { chip("scissors", "اصنع مقطعًا للمشاركة") { ui.path.append(.clip(t.id)) } }
-                    ShareLink(item: URL(string: Repo.site + "watch/" + t.id) ?? URL(string: Repo.site)!) { HStack(spacing: 6) { Ico(name: "square.and.arrow.up", size: 20); Text("مشاركة") }.font(F.plex(13, .medium)).foregroundStyle(c.text).padding(.horizontal, 12).padding(.vertical, 8).background(Capsule().fill(c.surface2)) }
+                    chip(fav ? "heart.fill" : "heart", fav ? tr("في المفضلة") : tr("المفضلة")) { store.toggleFav(t.id) }
+                    if let p = dl.progress[t.id] { chip("arrow.down.circle", tr("جارٍ الحفظ {0}٪", Int(p * 100).ar)) {} }
+                    else { chip(saved != nil ? "checkmark.circle" : "arrow.down.circle", saved != nil ? tr("✓ محفوظة") : tr("تحميل")) { sheet = "d" } }
+                    if repo.data?.site.sec("clip") != false { chip("scissors", tr("اصنع مقطعًا للمشاركة")) { ui.path.append(.clip(t.id)) } }
+                    ShareLink(item: URL(string: Repo.site + "watch/" + t.id) ?? URL(string: Repo.site)!) { HStack(spacing: 6) { Ico(name: "square.and.arrow.up", size: 20); Text(tr("مشاركة")) }.font(F.plex(13, .medium)).foregroundStyle(c.text).padding(.horizontal, 12).padding(.vertical, 8).background(Capsule().fill(c.surface2)) }
                 }
             }
             if !t.description.isEmpty { Text(t.description).font(F.plex(14)).foregroundStyle(c.muted) }
@@ -383,12 +383,12 @@ struct WatchView: View {
         let pref = Int(store.str("videoQ", "0")) ?? 0
         return NavigationStack {
             List {
-                Button { store.set("videoQ", "0"); v.setQ(VideoEngine.pickQ(t)); sheet = nil } label: { row("تلقائي", "يختار المناسب لاتصالك", on: pref == 0) }.listRowBackground(c.surface)
+                Button { store.set("videoQ", "0"); v.setQ(VideoEngine.pickQ(t)); sheet = nil } label: { row(tr("تلقائي"), tr("يختار المناسب لاتصالك"), on: pref == 0) }.listRowBackground(c.surface)
                 ForEach(qs, id: \.h) { q in
                     Button { store.set("videoQ", "\(q.h)"); v.setQ(q.h); sheet = nil } label: { row("\(qLabel(q.h)) \(qName(q.h))", sizeTxt(q.size), on: v.h == q.h && pref != 0) }
                 }.listRowBackground(c.surface)
-            }.bzList(c).navigationTitle("جودة الفيديو").navigationBarTitleDisplayMode(.inline)
-        }.presentationDetents([.medium]).environment(\.layoutDirection, .rightToLeft)
+            }.bzList(c).navigationTitle(tr("جودة الفيديو")).navigationBarTitleDisplayMode(.inline)
+        }.presentationDetents([.medium]).environment(\.layoutDirection, L.dir)
     }
     private func downloadSheet(_ t: Track) -> some View {
         let qs = t.video?.q ?? []
@@ -396,24 +396,24 @@ struct WatchView: View {
         let audioSaved = OfflineFiles.local(t.id) != nil
         return NavigationStack {
             List {
-                Section("حفظ للمشاهدة دون إنترنت") {
+                Section(tr("حفظ للمشاهدة دون إنترنت")) {
                     ForEach(qs, id: \.h) { q in
-                        Button { if saved == q.h { ui.say("محفوظة بهذه الجودة بالفعل") } else { dl.start(t, q.h); ui.say("بدأ تنزيل الملف") }; sheet = nil } label: { row("\(qLabel(q.h)) \(qName(q.h))", sizeTxt(q.size), on: saved == q.h) }
+                        Button { if saved == q.h { ui.say(tr("محفوظة بهذه الجودة بالفعل")) } else { dl.start(t, q.h); ui.say(tr("بدأ تنزيل الملف")) }; sheet = nil } label: { row("\(qLabel(q.h)) \(qName(q.h))", sizeTxt(q.size), on: saved == q.h) }
                     }
                 }.listRowBackground(c.surface)
                 if !t.audio.isEmpty {
-                    Section("حفظ الصوت للاستماع دون إنترنت") {
+                    Section(tr("حفظ الصوت للاستماع دون إنترنت")) {
                         Button {
                             sheet = nil
-                            if audioSaved { ui.say("الصوت محفوظ بالفعل"); return }
-                            ui.say("جارٍ حفظ الصوت…")
-                            Task { let ok = await OfflineFiles.save(t); ui.say(ok ? "حُفظ الصوت — يمكنك سماعه بدون إنترنت" : "تعذّر حفظ الملف. تأكد من المساحة والاتصال.") }
-                        } label: { row("صوت فقط", sizeTxt(t.video?.audioSize ?? 0), on: audioSaved) }
+                            if audioSaved { ui.say(tr("الصوت محفوظ بالفعل")); return }
+                            ui.say(tr("جارٍ حفظ الصوت…"))
+                            Task { let ok = await OfflineFiles.save(t); ui.say(ok ? tr("حُفظ الصوت — يمكنك سماعه بدون إنترنت") : tr("تعذّر حفظ الملف. تأكد من المساحة والاتصال.")) }
+                        } label: { row(tr("صوت فقط"), sizeTxt(t.video?.audioSize ?? 0), on: audioSaved) }
                     }.listRowBackground(c.surface)
                 }
-                if saved != nil { Section { Button(role: .destructive) { VideoFiles.delete(t.id); dl.objectWillChange.send(); ui.say("حُذفت من الجهاز"); sheet = nil } label: { Text("حذف النسخة المحفوظة").font(F.plex(15)) } }.listRowBackground(c.surface) }
-            }.bzList(c).navigationTitle("تحميل التلاوة").navigationBarTitleDisplayMode(.inline)
-        }.presentationDetents([.medium, .large]).environment(\.layoutDirection, .rightToLeft)
+                if saved != nil { Section { Button(role: .destructive) { VideoFiles.delete(t.id); dl.objectWillChange.send(); ui.say(tr("حُذفت من الجهاز")); sheet = nil } label: { Text(tr("حذف النسخة المحفوظة")).font(F.plex(15)) } }.listRowBackground(c.surface) }
+            }.bzList(c).navigationTitle(tr("تحميل التلاوة")).navigationBarTitleDisplayMode(.inline)
+        }.presentationDetents([.medium, .large]).environment(\.layoutDirection, L.dir)
     }
     private func row(_ a: String, _ b: String, on: Bool) -> some View {
         HStack { VStack(alignment: .leading, spacing: 2) { Text(a).font(F.plex(15, .medium)).foregroundStyle(c.text); if !b.isEmpty { Text(b).font(F.plex(12)).foregroundStyle(c.muted) } }; Spacer(); if on { Ico(name: "checkmark", size: 20).foregroundStyle(c.gold) } }

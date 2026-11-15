@@ -65,7 +65,7 @@ extension Repo {
         else { let p = max(1, min(3, r.pad)); audio = r.pat.replacingOccurrences(of: "{s}", with: String(repeating: "0", count: max(0, p - String(s).count)) + String(s)) }
         let rc = r.builtin ? quranReciter() : nil
         let d = r.dur["\(s)"] ?? 0
-        return Track(id: "quran-\(r.id)-\(s)", reciterId: rc?.id ?? r.id, title: "سورة \(Quran.surahs[s - 1])", surah: Quran.surahs[s - 1], surahNumber: s,
+        return Track(id: "quran-\(r.id)-\(s)", reciterId: rc?.id ?? r.id, title: tr("سورة {0}", Quran.surahs[s - 1]), surah: Quran.surahs[s - 1], surahNumber: s,
                      audio: audio, image: quranImage(r), durationSec: d > 20 ? d : 0)
     }
     func quranTracks(_ r: QuranRec?) -> [Track] { guard let r else { return [] }; return quranNums(r).compactMap { quranTrack(r, $0) } }
@@ -146,9 +146,9 @@ private struct PlayDot: View {
     }
 }
 @MainActor private func countLabel(_ repo: Repo, _ r: QuranRec) -> String {
-    if repo.quranJuz(r) { return "٣٠ جزءًا" }
+    if repo.quranJuz(r) { return tr("٣٠ جزءًا") }
     let n = repo.quranNums(r).count
-    return n == 1 ? "سورة واحدة" : n == 2 ? "سورتان" : "\(n.ar) \(n <= 10 ? "سور" : "سورة")"
+    return n == 1 ? tr("سورة واحدة") : n == 2 ? tr("سورتان") : "\(n.ar) \(n <= 10 ? "سور" : "سورة")"
 }
 private func ytURL(_ r: QuranRec, _ index: Int = 0) -> URL? { URL(string: "https://www.youtube.com/playlist?list=\(r.yt)" + (index > 0 ? "&index=\(index + 1)" : "")) }
 private func msFmt(_ s: Double) -> String { let x = Int(s); return x >= 3600 ? String(format: "%d:%02d:%02d", x / 3600, x % 3600 / 60, x % 60) : String(format: "%d:%02d", x / 60, x % 60) }
@@ -171,7 +171,7 @@ struct ListenView: View {
     @State private var rid = ""
     var body: some View {
         let recs = repo.quranRecs()
-        if recs.isEmpty { Empty(text: "القرآن الكريم كاملًا غير متاح الآن.", icon: "book") }
+        if recs.isEmpty { Empty(text: tr("القرآن الكريم كاملًا غير متاح الآن."), icon: "book") }
         else if let playable = recs.first(where: { $0.src != "yt" }) {
             if recs.count > 1, !recs.contains(where: { $0.id == rid && $0.src != "yt" }) { QuranLibraryView(recs: recs) { rid = $0 } }
             else { ReciterQuranView(recs: recs, r: recs.first { $0.id == rid } ?? playable, back: recs.count > 1 ? { rid = "" } : nil) }
@@ -193,13 +193,13 @@ private struct QuranLibraryView: View {
         let hits = nq.isEmpty ? [] : Array((1...114).filter { (n0 != nil && $0 == n0) || QuranMeta.norm(Quran.surahs[$0 - 1]).contains(nq) }.prefix(8))
         ScrollView {
             LazyVStack(alignment: .leading, spacing: 8) {
-                SearchField(text: $q, hint: "ابحث عن سورة واسمعها بصوت أي قارئ").padding(.horizontal, 16).padding(.top, 8)
+                SearchField(text: $q, hint: tr("ابحث عن سورة واسمعها بصوت أي قارئ")).padding(.horizontal, 16).padding(.top, 8)
                 if !nq.isEmpty {
-                    if hits.isEmpty { Empty(text: "لا توجد سورة بهذا الاسم.") }
+                    if hits.isEmpty { Empty(text: tr("لا توجد سورة بهذا الاسم.")) }
                     else {
                         let sn = hits.contains(pick) ? pick : hits[0]
                         if hits.count > 1 { ScrollView(.horizontal, showsIndicators: false) { HStack(spacing: 6) { ForEach(hits, id: \.self) { n in Pill(title: Quran.surahs[n - 1], on: n == sn) { pick = n } } }.padding(.horizontal, 16) } }
-                        Text("سورة \(Quran.surahs[sn - 1]) · اختر بصوت مَن تسمعها").font(F.plex(13, .bold)).foregroundStyle(c.gold).padding(.horizontal, 18).padding(.vertical, 6)
+                        Text(tr("سورة {0} · اختر بصوت مَن تسمعها", Quran.surahs[sn - 1])).font(F.plex(13, .bold)).foregroundStyle(c.gold).padding(.horizontal, 18).padding(.vertical, 6)
                         ForEach(recs) { r in
                             let juz = repo.quranJuz(r), n = juz ? QuranMeta.juzOfSurah(sn) : sn
                             let t = repo.quranTrack(r, n)
@@ -210,7 +210,7 @@ private struct QuranLibraryView: View {
                                         RecAvatar(r: r, size: 40)
                                         VStack(alignment: .leading, spacing: 2) {
                                             Text(repo.quranName(r).replacingOccurrences(of: "الشيخ ", with: "")).font(F.amiri(17)).foregroundStyle(c.text).lineLimit(1)
-                                            Text(juz ? "الجزء \(n.ar) (فيه السورة)" : (t.map { Fmt.dur($0.durationSec) }.flatMap { $0.isEmpty ? nil : $0 } ?? countLabel(repo, r))).font(F.plex(12)).foregroundStyle(c.text.opacity(0.62))
+                                            Text(juz ? tr("الجزء {0} (فيه السورة)", n.ar) : (t.map { Fmt.dur($0.durationSec) }.flatMap { $0.isEmpty ? nil : $0 } ?? countLabel(repo, r))).font(F.plex(12)).foregroundStyle(c.text.opacity(0.62))
                                         }.frame(minWidth: 92, alignment: .leading)
                                         QWave(seed: "\(r.id):\(n)", p: 0, bars: 22, height: 22).padding(.horizontal, 6)
                                         PlayDot(playing: on && player.playing, on: on, size: 36)
@@ -222,12 +222,12 @@ private struct QuranLibraryView: View {
                         }
                     }
                 } else {
-                    Text("اختر القارئ").font(F.plex(13, .bold)).foregroundStyle(c.gold).padding(.horizontal, 18).padding(.vertical, 4)
+                    Text(tr("اختر القارئ")).font(F.plex(13, .bold)).foregroundStyle(c.gold).padding(.horizontal, 18).padding(.vertical, 4)
                     ForEach(recs) { r in
                         let pr = progress(repo, r, player), lt = repo.track(pr.id)
                         let mine = player.current?.id.hasPrefix("quran-\(r.id)-") == true
                         let all = repo.quranTracks(r)
-                        let sub = mine && player.playing ? "يُشغَّل الآن · \(lt?.title ?? "")" : lt != nil ? "وصلت إلى \(lt!.title)\(pr.pos > 10 ? "، \(msFmt(pr.pos))" : "")" : countLabel(repo, r)
+                        let sub = mine && player.playing ? tr("يُشغَّل الآن · {0}", lt?.title ?? "") : lt != nil ? tr("وصلت إلى {0}{1}", lt!.title, pr.pos > 10 ? "، \(msFmt(pr.pos))" : "") : countLabel(repo, r)
                         Button { if r.src == "yt" { if let u = ytURL(r) { openURL(u) } } else { open(r.id) } } label: {
                             VStack(spacing: 10) {
                                 HStack(spacing: 12) {
@@ -235,7 +235,7 @@ private struct QuranLibraryView: View {
                                     VStack(alignment: .leading, spacing: 3) {
                                         Text(repo.quranName(r)).font(F.amiri(20)).foregroundStyle(c.text).lineLimit(1)
                                         HStack(spacing: 6) {
-                                            if r.featured { Text("مميّز").font(F.plex(11, .bold)).foregroundStyle(c.gold).padding(.horizontal, 8).padding(.vertical, 2).background(Capsule().fill(c.gold.opacity(0.16))) }
+                                            if r.featured { Text(tr("مميّز")).font(F.plex(11, .bold)).foregroundStyle(c.gold).padding(.horizontal, 8).padding(.vertical, 2).background(Capsule().fill(c.gold.opacity(0.16))) }
                                             Text(sub).font(F.plex(12)).foregroundStyle(c.text.opacity(0.64)).lineLimit(1)
                                         }
                                     }
@@ -278,7 +278,7 @@ private struct ReciterQuranView: View {
 
     var body: some View {
         let all = repo.quranTracks(r)
-        if all.isEmpty { Empty(text: "هذا المصحف غير متاح الآن.") } else { page(all) }
+        if all.isEmpty { Empty(text: tr("هذا المصحف غير متاح الآن.")) } else { page(all) }
     }
 
     private func page(_ all: [Track]) -> some View {
@@ -292,14 +292,14 @@ private struct ReciterQuranView: View {
         return ZStack(alignment: .bottom) {
             ScrollView {
                 LazyVStack(alignment: .leading, spacing: 8) {
-                    if let back { Button(action: back) { HStack(spacing: 4) { Ico(name: "chevron.right", size: 20); Text("كل القرّاء") }.font(F.plex(14)).foregroundStyle(c.muted) }.padding(.horizontal, 18).padding(.top, 6) }
+                    if let back { Button(action: back) { HStack(spacing: 4) { Ico(name: "chevron.right", size: 20); Text(tr("كل القرّاء")) }.font(F.plex(14)).foregroundStyle(c.muted) }.padding(.horizontal, 18).padding(.top, 6) }
                     // hero
                     VStack(spacing: 14) {
                         HStack(spacing: 14) {
                             RecAvatar(r: r, size: 72)
                             VStack(alignment: .leading, spacing: 4) {
                                 Text(repo.quranName(r)).font(F.amiri(23)).foregroundStyle(c.text)
-                                Text(last != nil ? "وصلت إلى \(last!.title)\(pr.pos > 10 ? "، \(msFmt(pr.pos))" : "")" : r.builtin ? "المصحف المرتّل · ١١٤ سورة · رواية حفص عن عاصم" : countLabel(repo, r))
+                                Text(last != nil ? tr("وصلت إلى {0}{1}", last!.title, pr.pos > 10 ? "، \(msFmt(pr.pos))" : "") : r.builtin ? tr("المصحف المرتّل · ١١٤ سورة · رواية حفص عن عاصم") : countLabel(repo, r))
                                     .font(F.plex(12.5)).foregroundStyle(c.text.opacity(0.66))
                             }
                             Spacer(minLength: 0)
@@ -310,17 +310,17 @@ private struct ReciterQuranView: View {
                     // carry on / from the start / repeat
                     HStack(spacing: 8) {
                         if mine {
-                            GoldButton(title: player.playing ? "إيقاف مؤقت" : "أكمل \(player.current?.title ?? "")", icon: player.playing ? "pause.fill" : "play.fill") { player.toggle() }
-                            GhostButton(title: "من \(all[0].surah)", icon: "play.fill") { player.play(all[0], in: all, fromStart: true) }
+                            GoldButton(title: player.playing ? tr("إيقاف مؤقت") : tr("أكمل {0}", player.current?.title ?? ""), icon: player.playing ? "pause.fill" : "play.fill") { player.toggle() }
+                            GhostButton(title: tr("من {0}", all[0].surah), icon: "play.fill") { player.play(all[0], in: all, fromStart: true) }
                         } else if let last {
-                            GoldButton(title: "أكمل من \(last.surah)", icon: "play.fill") { player.play(last, in: all) }
-                            GhostButton(title: "من \(all[0].surah)", icon: "play.fill") { player.play(all[0], in: all, fromStart: true) }
+                            GoldButton(title: tr("أكمل من {0}", last.surah), icon: "play.fill") { player.play(last, in: all) }
+                            GhostButton(title: tr("من {0}", all[0].surah), icon: "play.fill") { player.play(all[0], in: all, fromStart: true) }
                         } else {
-                            GoldButton(title: "تشغيل من \(all[0].surah)", icon: "play.fill") { player.play(all[0], in: all) }
-                            GhostButton(title: "عشوائي", icon: "shuffle") { if let t = all.randomElement() { player.play(t, in: all); player.shuffle = true } }
+                            GoldButton(title: tr("تشغيل من {0}", all[0].surah), icon: "play.fill") { player.play(all[0], in: all) }
+                            GhostButton(title: tr("عشوائي"), icon: "shuffle") { if let t = all.randomElement() { player.play(t, in: all); player.shuffle = true } }
                         }
                         Button { sheet = "rep" } label: { Ico(name: "repeat", size: 21.6).foregroundStyle(repOn ? c.onGold : c.gold).frame(width: 46, height: 46).background(Circle().fill(repOn ? c.gold : .clear)).overlay(Circle().stroke(repOn ? c.gold : c.line)) }
-                            .accessibilityLabel("التكرار")
+                            .accessibilityLabel(tr("التكرار"))
                     }.padding(.horizontal, 16)
                     // saving in progress
                     if dl.running || !dl.queue.isEmpty {
@@ -328,36 +328,36 @@ private struct ReciterQuranView: View {
                         HStack(spacing: 12) {
                             Ico(name: "arrow.down", size: 20).foregroundStyle(c.onGold).frame(width: 38, height: 38).background(Circle().fill(c.gold))
                             VStack(alignment: .leading, spacing: 2) {
-                                Text(dl.running ? "جارٍ الحفظ: \(cur?.title ?? "")" : "توقّف الحفظ").font(F.plex(14, .semibold)).foregroundStyle(c.text)
-                                Text("تبقّى \(dl.queue.count.ar) سورة\(dl.running ? " · يمكنك متابعة الاستماع أثناء الحفظ" : "")").font(F.plex(12)).foregroundStyle(c.muted)
+                                Text(dl.running ? tr("جارٍ الحفظ: {0}", cur?.title ?? "") : tr("توقّف الحفظ")).font(F.plex(14, .semibold)).foregroundStyle(c.text)
+                                Text(tr("تبقّى {0} سورة{1}", dl.queue.count.ar, dl.running ? " · يمكنك متابعة الاستماع أثناء الحفظ" : "")).font(F.plex(12)).foregroundStyle(c.muted)
                             }
                             Spacer()
-                            GhostButton(title: dl.running ? "إيقاف" : "استكمال") { if dl.running { dl.stop() } else { dl.run() } }
+                            GhostButton(title: dl.running ? tr("إيقاف") : tr("استكمال")) { if dl.running { dl.stop() } else { dl.run() } }
                         }.padding(12).background(RoundedRectangle(cornerRadius: 16).fill(c.gold.opacity(0.1))).overlay(RoundedRectangle(cornerRadius: 16).stroke(c.gold.opacity(0.4))).padding(.horizontal, 16)
                     }
-                    SearchField(text: $q, hint: "ابحث عن سورة بالاسم أو الرقم").padding(.horizontal, 16)
+                    SearchField(text: $q, hint: tr("ابحث عن سورة بالاسم أو الرقم")).padding(.horizontal, 16)
                     HStack(spacing: 6) {
                         ScrollView(.horizontal, showsIndicators: false) {
                             HStack(spacing: 6) {
-                                Pill(title: "الكل", on: filter == "all") { filter = "all" }
-                                Pill(title: "المحفوظة\(savedCount > 0 ? " (\(savedCount.ar))" : "")", on: filter == "saved") { filter = "saved" }
-                                Pill(title: "مكية", on: filter == "makki") { filter = "makki" }
-                                Pill(title: "مدنية", on: filter == "madani") { filter = "madani" }
+                                Pill(title: tr("الكل"), on: filter == "all") { filter = "all" }
+                                Pill(title: tr("المحفوظة{0}", savedCount > 0 ? " (\(savedCount.ar))" : ""), on: filter == "saved") { filter = "saved" }
+                                Pill(title: tr("مكية"), on: filter == "makki") { filter = "makki" }
+                                Pill(title: tr("مدنية"), on: filter == "madani") { filter = "madani" }
                             }
                         }
-                        Button { sheet = "dl" } label: { Ico(name: "arrow.down.circle", size: 24.0).foregroundStyle(c.gold) }.accessibilityLabel("التحميل")
-                        Button { select.toggle(); picked = [] } label: { Ico(name: select ? "xmark" : "checklist", size: 21.6).foregroundStyle(c.gold) }.accessibilityLabel(select ? "إلغاء التحديد" : "تحديد سور")
+                        Button { sheet = "dl" } label: { Ico(name: "arrow.down.circle", size: 24.0).foregroundStyle(c.gold) }.accessibilityLabel(tr("التحميل"))
+                        Button { select.toggle(); picked = [] } label: { Ico(name: select ? "xmark" : "checklist", size: 21.6).foregroundStyle(c.gold) }.accessibilityLabel(select ? tr("إلغاء التحديد") : tr("تحديد سور"))
                     }.padding(.horizontal, 16)
-                    if shown.isEmpty { Empty(text: filter == "saved" ? "لم تحفظ أي سورة بعد. اضغط زر التحميل لحفظ القرآن كاملًا أو بعض السور." : "لا توجد سورة بهذا الاسم.") }
+                    if shown.isEmpty { Empty(text: filter == "saved" ? tr("لم تحفظ أي سورة بعد. اضغط زر التحميل لحفظ القرآن كاملًا أو بعض السور.") : tr("لا توجد سورة بهذا الاسم.")) }
                     ForEach(shown) { t in row(t, all) }
                 }.padding(.bottom, select ? 96 : 24)
             }
             if select {
                 HStack(spacing: 8) {
-                    Text(picked.isEmpty ? "اختر السور" : "تم تحديد \(picked.count.ar) سورة").font(F.plex(14, .semibold)).foregroundStyle(c.text)
+                    Text(picked.isEmpty ? tr("اختر السور") : tr("تم تحديد {0} سورة", picked.count.ar)).font(F.plex(14, .semibold)).foregroundStyle(c.text)
                     Spacer()
-                    GoldButton(title: "تحميل", icon: "arrow.down") { if picked.isEmpty { ui.say("اختر سورة واحدة على الأقل") } else { dl.add(all.map(\.id).filter { picked.contains($0) }); select = false; picked = [] } }
-                    GhostButton(title: "تشغيل", icon: "play.fill") { let l = all.filter { picked.contains($0.id) }; if let f = l.first { player.play(f, in: l, fromStart: true); select = false; picked = [] } else { ui.say("اختر سورة واحدة على الأقل") } }
+                    GoldButton(title: tr("تحميل"), icon: "arrow.down") { if picked.isEmpty { ui.say(tr("اختر سورة واحدة على الأقل")) } else { dl.add(all.map(\.id).filter { picked.contains($0) }); select = false; picked = [] } }
+                    GhostButton(title: tr("تشغيل"), icon: "play.fill") { let l = all.filter { picked.contains($0.id) }; if let f = l.first { player.play(f, in: l, fromStart: true); select = false; picked = [] } else { ui.say(tr("اختر سورة واحدة على الأقل")) } }
                 }.padding(10).background(RoundedRectangle(cornerRadius: 18).fill(c.surface)).overlay(RoundedRectangle(cornerRadius: 18).stroke(c.gold.opacity(0.4))).padding(12)
             }
         }
@@ -368,15 +368,15 @@ private struct ReciterQuranView: View {
                 case "range": rangeSheet(all)
                 default: downloadSheet(all, savedCount)
                 }
-            }.environment(\.layoutDirection, .rightToLeft).presentationDetents([.medium, .large])
+            }.environment(\.layoutDirection, L.dir).presentationDetents([.medium, .large])
         }
         .bzSheet(item: $more) { t in
             MenuSheet(title: t.title) {
-                MenuRow(icon: "repeat", title: "تكرار هذه السورة") { more = nil; player.play(t, in: all); player.setRepeat(2); ui.say("ستُكرَّر \(t.title)") }
-                MenuRow(icon: "text.line.first.and.arrowtriangle.forward", title: "تشغيل بعد الحالية") { more = nil; player.playNext(t); ui.say("ستُشغَّل بعد التلاوة الحالية") }
-                MenuRow(icon: "text.badge.plus", title: "إضافة إلى قائمة الانتظار") { more = nil; player.enqueue(t); ui.say("أُضيفت إلى قائمة الانتظار") }
-                MenuRow(icon: saved(t.id) ? "trash" : "arrow.down.circle", title: saved(t.id) ? "حذف من الجهاز" : "حفظ للاستماع دون إنترنت") {
-                    more = nil; if saved(t.id) { dl.delete(t.id); ui.say("حُذفت من الجهاز") } else { dl.add([t.id]) }
+                MenuRow(icon: "repeat", title: tr("تكرار هذه السورة")) { more = nil; player.play(t, in: all); player.setRepeat(2); ui.say(tr("ستُكرَّر {0}", t.title)) }
+                MenuRow(icon: "text.line.first.and.arrowtriangle.forward", title: tr("تشغيل بعد الحالية")) { more = nil; player.playNext(t); ui.say(tr("ستُشغَّل بعد التلاوة الحالية")) }
+                MenuRow(icon: "text.badge.plus", title: tr("إضافة إلى قائمة الانتظار")) { more = nil; player.enqueue(t); ui.say(tr("أُضيفت إلى قائمة الانتظار")) }
+                MenuRow(icon: saved(t.id) ? "trash" : "arrow.down.circle", title: saved(t.id) ? tr("حذف من الجهاز") : tr("حفظ للاستماع دون إنترنت")) {
+                    more = nil; if saved(t.id) { dl.delete(t.id); ui.say(tr("حُذفت من الجهاز")) } else { dl.add([t.id]) }
                 }
             }.presentationDetents([.medium])
         }
@@ -387,7 +387,7 @@ private struct ReciterQuranView: View {
         let on = player.current?.id == t.id, playing = on && player.playing
         let sv = saved(t.id), busy = dl.current == t.id, waiting = dl.queue.contains(t.id) && !busy
         let isPicked = picked.contains(t.id)
-        let meta = [QuranMeta.medinan.contains(t.surahNumber) ? "مدنية" : "مكية", "\(Quran.ayahs[t.surahNumber - 1].ar) آية", Fmt.dur(t.durationSec), sv ? "محفوظة" : ""].filter { !$0.isEmpty }.joined(separator: " · ")
+        let meta = [QuranMeta.medinan.contains(t.surahNumber) ? tr("مدنية") : tr("مكية"), tr("{0} آية", Quran.ayahs[t.surahNumber - 1].ar), Fmt.dur(t.durationSec), sv ? tr("محفوظة") : ""].filter { !$0.isEmpty }.joined(separator: " · ")
         return HStack(spacing: 12) {
             Text(t.surahNumber.ar).font(F.amiri(16)).foregroundStyle(c.gold).frame(width: 42, height: 42).background(Circle().stroke(c.gold.opacity(0.5)))
             VStack(alignment: .leading, spacing: 2) {
@@ -402,15 +402,15 @@ private struct ReciterQuranView: View {
             } else {
                 Button {
                     if busy || waiting { return }
-                    if sv { dl.delete(t.id); ui.say("حُذفت من الجهاز") } else { dl.add([t.id]) }
+                    if sv { dl.delete(t.id); ui.say(tr("حُذفت من الجهاز")) } else { dl.add([t.id]) }
                 } label: {
                     Group {
                         if busy { ProgressView().tint(c.gold) }
                         else if waiting { Ico(name: "clock", size: 20).foregroundStyle(c.faint) }
                         else { Ico(name: sv ? "checkmark.circle" : "arrow.down.circle", size: 20).foregroundStyle(c.gold) }
                     }.frame(width: 30, height: 30)
-                }.buttonStyle(.plain).accessibilityLabel(sv ? "محفوظة على الجهاز" : "احفظ للاستماع دون إنترنت")
-                Button { more = t } label: { Ico(name: "ellipsis", size: 20).rotationEffect(.degrees(90)).foregroundStyle(c.faint).frame(width: 28, height: 30) }.buttonStyle(.plain).accessibilityLabel("خيارات \(t.title)")
+                }.buttonStyle(.plain).accessibilityLabel(sv ? tr("محفوظة على الجهاز") : tr("احفظ للاستماع دون إنترنت"))
+                Button { more = t } label: { Ico(name: "ellipsis", size: 20).rotationEffect(.degrees(90)).foregroundStyle(c.faint).frame(width: 28, height: 30) }.buttonStyle(.plain).accessibilityLabel(tr("خيارات {0}", t.title))
                 Ico(name: playing ? "pause.fill" : "play.fill", size: 20).foregroundStyle(playing ? c.onGold : c.gold).frame(width: 38, height: 38).background(Circle().fill(playing ? c.gold : .clear))
             }
         }
@@ -427,13 +427,13 @@ private struct ReciterQuranView: View {
         let target = (mine ? player.current : nil) ?? last ?? all[0]
         let cur = mine ? player.repeatMode : 0
         func ensure() { if !mine { player.play(target, in: all) } }
-        return MenuSheet(title: "التكرار") {
-            MenuRow(icon: "xmark", title: "بدون تكرار", sub: "تنتقل للسورة التالية تلقائيًا", on: cur == 0 && player.repN == 0) { sheet = nil; player.setRepeat(0) }
-            MenuRow(icon: "repeat.1", title: "تكرار السورة دائمًا", sub: "تُعاد \(target.title) حتى توقفها", on: cur == 2 && player.repN == 0) { sheet = nil; ensure(); player.setRepeat(2) }
-            Text("تكرار عددًا محددًا · للحفظ والمراجعة").font(F.plex(12)).foregroundStyle(c.muted).padding(.horizontal, 20).padding(.top, 6)
-            HStack(spacing: 8) { ForEach([3, 5, 7, 10], id: \.self) { n in Pill(title: "\(n.ar) مرات", on: player.repN == n) { sheet = nil; ensure(); player.repeatTimes(n); ui.say("كل سورة تُعاد \(n.ar) مرات ثم التالية") } } }.padding(.horizontal, 20)
-            MenuRow(icon: "arrow.up.arrow.down", title: "تكرار نطاق من السور", sub: "مثال: من الملك إلى الناس") { sheet = "range" }
-            MenuRow(icon: "infinity", title: "تكرار المصحف كله", sub: "بعد آخر سورة يبدأ من الأولى", on: cur == 1 && player.repN == 0) { sheet = nil; ensure(); player.setRepeat(1) }
+        return MenuSheet(title: tr("التكرار")) {
+            MenuRow(icon: "xmark", title: tr("بدون تكرار"), sub: tr("تنتقل للسورة التالية تلقائيًا"), on: cur == 0 && player.repN == 0) { sheet = nil; player.setRepeat(0) }
+            MenuRow(icon: "repeat.1", title: tr("تكرار السورة دائمًا"), sub: tr("تُعاد {0} حتى توقفها", target.title), on: cur == 2 && player.repN == 0) { sheet = nil; ensure(); player.setRepeat(2) }
+            Text(tr("تكرار عددًا محددًا · للحفظ والمراجعة")).font(F.plex(12)).foregroundStyle(c.muted).padding(.horizontal, 20).padding(.top, 6)
+            HStack(spacing: 8) { ForEach([3, 5, 7, 10], id: \.self) { n in Pill(title: tr("{0} مرات", n.ar), on: player.repN == n) { sheet = nil; ensure(); player.repeatTimes(n); ui.say(tr("كل سورة تُعاد {0} مرات ثم التالية", n.ar)) } } }.padding(.horizontal, 20)
+            MenuRow(icon: "arrow.up.arrow.down", title: tr("تكرار نطاق من السور"), sub: tr("مثال: من الملك إلى الناس")) { sheet = "range" }
+            MenuRow(icon: "infinity", title: tr("تكرار المصحف كله"), sub: tr("بعد آخر سورة يبدأ من الأولى"), on: cur == 1 && player.repN == 0) { sheet = nil; ensure(); player.setRepeat(1) }
         }
     }
     private func rangeSheet(_ all: [Track]) -> some View {
@@ -442,40 +442,40 @@ private struct ReciterQuranView: View {
             let l = all.filter { (min(x, y)...max(x, y)).contains($0.surahNumber) }
             guard let f = l.first else { return }
             sheet = nil; player.play(f, in: l, fromStart: true); player.setRepeat(1)
-            ui.say("يتكرر من \(l.first!.surah) إلى \(l.last!.surah)")
+            ui.say(tr("يتكرر من {0} إلى {1}", l.first!.surah, l.last!.surah))
         }
         func picker(_ label: String, _ v: Binding<Int>) -> some View {
             HStack {
                 Text(label).font(F.plex(14)).foregroundStyle(c.muted).frame(width: 36, alignment: .leading)
-                Button { if let i = nums.firstIndex(of: v.wrappedValue), i > 0 { v.wrappedValue = nums[i - 1] } } label: { Ico(name: "chevron.right", size: 20).foregroundStyle(c.gold) }.accessibilityLabel("السابقة")
+                Button { if let i = nums.firstIndex(of: v.wrappedValue), i > 0 { v.wrappedValue = nums[i - 1] } } label: { Ico(name: "chevron.right", size: 20).foregroundStyle(c.gold) }.accessibilityLabel(tr("السابقة"))
                 Text("\(v.wrappedValue.ar). \(Quran.surahs[v.wrappedValue - 1])").font(F.amiri(19)).foregroundStyle(c.text).frame(maxWidth: .infinity)
-                Button { if let i = nums.firstIndex(of: v.wrappedValue), i + 1 < nums.count { v.wrappedValue = nums[i + 1] } } label: { Ico(name: "chevron.left", size: 20).foregroundStyle(c.gold) }.accessibilityLabel("التالية")
+                Button { if let i = nums.firstIndex(of: v.wrappedValue), i + 1 < nums.count { v.wrappedValue = nums[i + 1] } } label: { Ico(name: "chevron.left", size: 20).foregroundStyle(c.gold) }.accessibilityLabel(tr("التالية"))
             }.padding(.horizontal, 20)
         }
-        return MenuSheet(title: "تكرار نطاق من السور") {
-            Text("جاهزة").font(F.plex(12)).foregroundStyle(c.muted).padding(.horizontal, 20)
+        return MenuSheet(title: tr("تكرار نطاق من السور")) {
+            Text(tr("جاهزة")).font(F.plex(12)).foregroundStyle(c.muted).padding(.horizontal, 20)
             ScrollView(.horizontal, showsIndicators: false) { HStack(spacing: 6) {
-                Pill(title: "جزء عمّ", on: false) { go(78, 114) }; Pill(title: "جزء تبارك", on: false) { go(67, 77) }
-                Pill(title: "الزهراوان", on: false) { go(2, 3) }; Pill(title: "المعوّذات", on: false) { go(112, 114) }
+                Pill(title: tr("جزء عمّ"), on: false) { go(78, 114) }; Pill(title: tr("جزء تبارك"), on: false) { go(67, 77) }
+                Pill(title: tr("الزهراوان"), on: false) { go(2, 3) }; Pill(title: tr("المعوّذات"), on: false) { go(112, 114) }
             }.padding(.horizontal, 20) }
-            Text("أو اختر بنفسك").font(F.plex(12)).foregroundStyle(c.muted).padding(.horizontal, 20).padding(.top, 6)
-            picker("من", Binding(get: { nums.contains(ra) ? ra : nums.first ?? 1 }, set: { ra = $0 }))
-            picker("إلى", Binding(get: { nums.contains(rb) ? rb : nums.last ?? 114 }, set: { rb = $0 }))
-            GoldButton(title: "ابدأ التكرار", icon: "repeat") { go(nums.contains(ra) ? ra : nums.first ?? 1, nums.contains(rb) ? rb : nums.last ?? 114) }.padding(20)
+            Text(tr("أو اختر بنفسك")).font(F.plex(12)).foregroundStyle(c.muted).padding(.horizontal, 20).padding(.top, 6)
+            picker(tr("من"), Binding(get: { nums.contains(ra) ? ra : nums.first ?? 1 }, set: { ra = $0 }))
+            picker(tr("إلى"), Binding(get: { nums.contains(rb) ? rb : nums.last ?? 114 }, set: { rb = $0 }))
+            GoldButton(title: tr("ابدأ التكرار"), icon: "repeat") { go(nums.contains(ra) ? ra : nums.first ?? 1, nums.contains(rb) ? rb : nums.last ?? 114) }.padding(20)
         }
     }
     private func downloadSheet(_ all: [Track], _ savedCount: Int) -> some View {
         let amma = all.filter { $0.surahNumber >= 78 }
         let mb = all.filter { saved($0.id) }.reduce(0.0) { s, t in s + Double(((try? FileManager.default.attributesOfItem(atPath: OfflineFiles.file(t.id).path))?[.size] as? Int64) ?? 0) / 1_048_576 }
-        return MenuSheet(title: "تحميل للاستماع دون إنترنت") {
-            Text("المحفوظ على جهازك: \(savedCount.ar) من \(all.count.ar) سورة · \(Int(mb).ar) ميجا").font(F.plex(12)).foregroundStyle(c.muted).padding(.horizontal, 20)
-            if savedCount < all.count { MenuRow(icon: "arrow.down.circle", title: all.count >= 114 ? "تحميل القرآن الكريم كاملًا" : "تحميل كل السور", sub: "\((all.count - savedCount).ar) سورة · الحجم كبير، يُفضَّل الاتصال بشبكة Wi-Fi") { sheet = nil; dl.add(all.map(\.id)) } }
-            if amma.count > 1 && amma.contains(where: { !saved($0.id) }) { MenuRow(icon: "arrow.down.circle", title: "تحميل جزء عمّ", sub: "من سورة النبأ إلى سورة الناس") { sheet = nil; dl.add(amma.map(\.id)) } }
-            if all.count > 5 && all.prefix(5).contains(where: { !saved($0.id) }) { MenuRow(icon: "arrow.down.circle", title: "تحميل أول خمس سور", sub: all.prefix(5).map(\.surah).joined(separator: "، ")) { sheet = nil; dl.add(all.prefix(5).map(\.id)) } }
-            MenuRow(icon: "checklist", title: "اختيار سور معيّنة", sub: "حدّد السور التي تريدها ثم اضغط «تحميل»") { sheet = nil; select = true; picked = [] }
-            if !dl.queue.isEmpty && !dl.running { MenuRow(icon: "arrow.down.circle", title: "استكمال الحفظ المتوقف", sub: "\(dl.queue.count.ar) سورة متبقية") { sheet = nil; dl.run() } }
-            if !dl.queue.isEmpty { MenuRow(icon: "xmark", title: "إلغاء الحفظ") { sheet = nil; dl.cancel() } }
-            if savedCount > 0 { MenuRow(icon: "trash", title: "حذف السور المحفوظة", sub: "لتوفير مساحة على جهازك") { sheet = nil; all.filter { saved($0.id) }.forEach { dl.delete($0.id) }; ui.say("حُذفت السور المحفوظة") } }
+        return MenuSheet(title: tr("تحميل للاستماع دون إنترنت")) {
+            Text(tr("المحفوظ على جهازك: {0} من {1} سورة · {2} ميجا", savedCount.ar, all.count.ar, Int(mb).ar)).font(F.plex(12)).foregroundStyle(c.muted).padding(.horizontal, 20)
+            if savedCount < all.count { MenuRow(icon: "arrow.down.circle", title: all.count >= 114 ? tr("تحميل القرآن الكريم كاملًا") : tr("تحميل كل السور"), sub: tr("{0} سورة · الحجم كبير، يُفضَّل الاتصال بشبكة Wi-Fi", (all.count - savedCount).ar)) { sheet = nil; dl.add(all.map(\.id)) } }
+            if amma.count > 1 && amma.contains(where: { !saved($0.id) }) { MenuRow(icon: "arrow.down.circle", title: tr("تحميل جزء عمّ"), sub: tr("من سورة النبأ إلى سورة الناس")) { sheet = nil; dl.add(amma.map(\.id)) } }
+            if all.count > 5 && all.prefix(5).contains(where: { !saved($0.id) }) { MenuRow(icon: "arrow.down.circle", title: tr("تحميل أول خمس سور"), sub: all.prefix(5).map(\.surah).joined(separator: tr("، "))) { sheet = nil; dl.add(all.prefix(5).map(\.id)) } }
+            MenuRow(icon: "checklist", title: tr("اختيار سور معيّنة"), sub: tr("حدّد السور التي تريدها ثم اضغط «تحميل»")) { sheet = nil; select = true; picked = [] }
+            if !dl.queue.isEmpty && !dl.running { MenuRow(icon: "arrow.down.circle", title: tr("استكمال الحفظ المتوقف"), sub: tr("{0} سورة متبقية", dl.queue.count.ar)) { sheet = nil; dl.run() } }
+            if !dl.queue.isEmpty { MenuRow(icon: "xmark", title: tr("إلغاء الحفظ")) { sheet = nil; dl.cancel() } }
+            if savedCount > 0 { MenuRow(icon: "trash", title: tr("حذف السور المحفوظة"), sub: tr("لتوفير مساحة على جهازك")) { sheet = nil; all.filter { saved($0.id) }.forEach { dl.delete($0.id) }; ui.say(tr("حُذفت السور المحفوظة")) } }
         }
     }
 }
@@ -490,15 +490,15 @@ struct QuranFullBanner: View {
         if let r = recs.first {
             let n = recs.count
             let short = { (x: QuranRec) in repo.quranName(x).replacingOccurrences(of: "الشيخ ", with: "") }
-            let cnt = n == 2 ? "مصحفان مرتّلان" : n <= 10 ? "\(n.ar) مصاحف مرتّلة" : "\(n.ar) مصحفًا مرتّلًا"
+            let cnt = n == 2 ? tr("مصحفان مرتّلان") : n <= 10 ? tr("{0} مصاحف مرتّلة", n.ar) : tr("{0} مصحفًا مرتّلًا", n.ar)
             Button { ui.path.append(.listen) } label: {
                 HStack(spacing: 12) {
                     if n == 1 { RecAvatar(r: r, size: 56) }
                     else { HStack(spacing: -12) { ForEach(recs.prefix(n > 3 ? 2 : 3)) { x in RecAvatar(r: x, size: 40).overlay(Circle().stroke(c.surface, lineWidth: 2)) }
                         if n > 3 { Text("+\((n - 2).ar)").font(F.plex(13, .bold)).foregroundStyle(c.gold).frame(width: 40, height: 40).background(Circle().fill(c.gold.opacity(0.18))).overlay(Circle().stroke(c.surface, lineWidth: 2)) } }.environment(\.layoutDirection, .leftToRight) }
                     VStack(alignment: .leading, spacing: 3) {
-                        Text("القرآن الكريم كاملًا").font(F.amiri(19)).foregroundStyle(c.text)
-                        Text(n > 1 ? "\(cnt) · \(short(recs[0])) و\(short(recs[1]))\(n > 2 ? " وغيرهما" : "")" : "بصوت \(Repo.withSheikh(short(r))) · ١١٤ سورة متتابعة").font(F.plex(12)).foregroundStyle(c.muted).lineLimit(2).multilineTextAlignment(.leading)
+                        Text(tr("القرآن الكريم كاملًا")).font(F.amiri(19)).foregroundStyle(c.text)
+                        Text(n > 1 ? tr("{0} · {1} و{2}{3}", cnt, short(recs[0]), short(recs[1]), n > 2 ? " وغيرهما" : "") : tr("بصوت {0} · ١١٤ سورة متتابعة", Repo.withSheikh(short(r)))).font(F.plex(12)).foregroundStyle(c.muted).lineLimit(2).multilineTextAlignment(.leading)
                     }
                     Spacer(minLength: 0)
                     Ico(name: "play.fill", size: 20).foregroundStyle(c.onGold).frame(width: 42, height: 42).background(Circle().fill(c.gold))
@@ -518,7 +518,7 @@ struct SearchField: View {
         HStack(spacing: 8) {
             SiteIcon(name: "search", size: 22, color: c.gold)
             TextField(hint, text: $text).font(F.plex(15)).autocorrectionDisabled()
-            if !text.isEmpty { Button { text = "" } label: { SiteIcon(name: "close", size: 20, color: c.muted) }.accessibilityLabel("مسح") }
+            if !text.isEmpty { Button { text = "" } label: { SiteIcon(name: "close", size: 20, color: c.muted) }.accessibilityLabel(tr("مسح")) }
         }.padding(.horizontal, 14).padding(.vertical, 13).background(RoundedRectangle(cornerRadius: 18).fill(c.surface.opacity(0.45))).overlay(RoundedRectangle(cornerRadius: 18).stroke(c.line))
     }
 }
@@ -534,7 +534,7 @@ struct MenuSheet<Content: View>: View {
                 SheetHead(title: title)
                 content
             }.padding(.bottom, 20)
-        }.background(c.bg2.ignoresSafeArea()).environment(\.layoutDirection, .rightToLeft)
+        }.background(c.bg2.ignoresSafeArea()).environment(\.layoutDirection, L.dir)
     }
 }
 struct MenuRow: View {
