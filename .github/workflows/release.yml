@@ -1,5 +1,7 @@
 name: Release to TestFlight (signed, uploaded to App Store Connect)
 on:
+  push:
+    branches: [testflight]   # pushing to this branch releases too (no store text)
   workflow_dispatch:
     inputs:
       metadata:
@@ -42,9 +44,15 @@ jobs:
           xcodebuild -project BadrTilawat.xcodeproj -scheme BadrTilawat -configuration Release -destination 'generic/platform=iOS' \
             -archivePath build/Badr.xcarchive archive -allowProvisioningUpdates \
             -authenticationKeyPath ~/private_keys/AuthKey_$ASC_KEY_ID.p8 -authenticationKeyID "$ASC_KEY_ID" -authenticationKeyIssuerID "$ASC_ISSUER_ID" \
-            DEVELOPMENT_TEAM="$TEAM_ID" CODE_SIGN_STYLE=Automatic CODE_SIGNING_ALLOWED=YES CODE_SIGNING_REQUIRED=YES CODE_SIGN_IDENTITY="Apple Development" \
-            CURRENT_PROJECT_VERSION=$BUILD > archive.log 2>&1 || { grep -E "error|warning: .*sign" archive.log | head -60; exit 1; }
+            DEVELOPMENT_TEAM="$TEAM_ID" CODE_SIGN_STYLE=Manual CODE_SIGN_IDENTITY="-" CODE_SIGNING_REQUIRED=NO CODE_SIGNING_ALLOWED=YES PROVISIONING_PROFILE_SPECIFIER="" \
+            CURRENT_PROJECT_VERSION=$BUILD > archive.log 2>&1 || { grep -E "error" archive.log | head -60; exit 1; }
           tail -3 archive.log
+          # the archive is signed locally only (no device needed); the export below signs it for the App Store.
+          # the app groups (the widgets' shared data) must be in it:
+          for a in build/Badr.xcarchive/Products/Applications/BadrTilawat.app build/Badr.xcarchive/Products/Applications/BadrTilawat.app/PlugIns/BadrWidgets.appex; do
+            codesign -d --entitlements - "$a" 2>/dev/null | grep -q group.com.bawazirquran.app || { echo "::error::app group missing in $a"; exit 1; }
+          done
+          echo "app groups: ok"
       - name: Upload to App Store Connect (TestFlight)
         run: |
           cat > ExportOptions.plist <<PL
@@ -60,7 +68,7 @@ jobs:
           </dict></plist>
           PL
           xcodebuild -exportArchive -archivePath build/Badr.xcarchive -exportOptionsPlist ExportOptions.plist -exportPath build/export -allowProvisioningUpdates \
-            -authenticationKeyPath ~/private_keys/AuthKey_$ASC_KEY_ID.p8 -authenticationKeyID "$ASC_KEY_ID" -authenticationKeyIssuerID "$ASC_ISSUER_ID" > export.log 2>&1 || { tail -60 export.log; exit 1; }
+            -authenticationKeyPath ~/private_keys/AuthKey_$ASC_KEY_ID.p8 -authenticationKeyID "$ASC_KEY_ID" -authenticationKeyIssuerID "$ASC_ISSUER_ID" > export.log 2>&1 || { grep -iE "error|fail" export.log | head -40; tail -30 export.log; exit 1; }
           tail -5 export.log
       - name: Store screenshots (6.9-inch iPhone simulator)
         if: inputs.metadata
