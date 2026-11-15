@@ -56,6 +56,23 @@ if __name__ == "__main__":
             n = p["attributes"].get("name", "")
             if n.startswith("iOS Team Provisioning Profile: com.bawazirquran.app"):
                 call("DELETE", f"/v1/profiles/{p['id']}"); print("deleted:", n)
+    elif sys.argv[1:] == ["crashes"]:
+        # TestFlight crash reports the testers sent: the crash log only (no tester's name, email or device id)
+        import re
+        got = call("GET", "/v1/apps?filter[bundleId]=com.bawazirquran.app") or {}
+        if not got.get("data"): sys.exit("no app")
+        app = got["data"][0]["id"]
+        subs = call("GET", f"/v1/apps/{app}/betaFeedbackCrashSubmissions?limit=10&sort=-createdDate") or {}
+        print("crash reports:", len(subs.get("data", [])))
+        for c in subs.get("data", []):
+            a = c["attributes"]
+            print("=" * 30, a.get("createdDate"), a.get("deviceModel"), a.get("osVersion"), "build", a.get("appVersion") or "", a.get("buildNumber") or "")
+            if a.get("comment"): print("comment:", a["comment"][:500])
+            lg = call("GET", f"/v1/betaFeedbackCrashSubmissions/{c['id']}/crashLog") or {}
+            txt = (lg.get("data") or {}).get("attributes", {}).get("logText", "")
+            skip = re.compile(r"^(Incident Identifier|CrashReporter Key|Beta Identifier|Device Identifier|Hardware Model|Sleep/Wake UUID|Anonymous UUID)", re.I)
+            lines = [l for l in txt.splitlines() if not skip.match(l) and "@" not in l]
+            print("\n".join(lines[:260]))
     elif sys.argv[1:] == ["app"]:
         got = call("GET", "/v1/apps?filter[bundleId]=com.bawazirquran.app") or {}
         print("app record:", "found" if got.get("data") else "MISSING — create it in App Store Connect (My Apps → + → New App, bundle ID com.bawazirquran.app)")
