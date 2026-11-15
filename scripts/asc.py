@@ -3,7 +3,9 @@
 import os, sys, time, json, urllib.request, urllib.error
 import jwt  # pyjwt
 
-KID, ISS, P8 = os.environ["ASC_KEY_ID"], os.environ["ASC_ISSUER_ID"], os.environ["ASC_KEY_P8"]
+import subprocess
+KID, ISS = os.environ["ASC_KEY_ID"].strip(), os.environ["ASC_ISSUER_ID"].strip()
+P8 = subprocess.run([sys.executable, os.path.join(os.path.dirname(os.path.abspath(__file__)), "pem.py")], capture_output=True, text=True, check=True).stdout
 def token():
     now = int(time.time())
     return jwt.encode({"iss": ISS, "iat": now, "exp": now + 1100, "aud": "appstoreconnect-v1"}, P8, algorithm="ES256", headers={"kid": KID, "typ": "JWT"})
