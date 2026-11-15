@@ -30,7 +30,7 @@ enum NamesData {
         "الفقيه": "Al-Faqih", "مسعد": "Mossad", "الحمدان": "Al-Hamdan", "الرفاعي": "Al-Rifai", "النعيمي": "Al-Nuaimi", "الأحمد": "Al-Ahmad",
         "الجبري": "Al-Jabri", "العريفي": "Al-Arifi", "الشثري": "Al-Shathri", "حمزة": "Hamza", "طاهر": "Taher", "طالب": "Talib",
         "لؤي": "Luay", "شيرزاد": "Shirzad", "عباد": "Abbad", "حميد": "Hamid", "السالمي": "Al-Salmi", "العثمان": "Al-Othman",
-        "الأركاني": "Al-Arkani", "نادر": "Nader", "رشيد": "Rashid", "عبيد": "Obaid", "سهل": "Sahl", "ياسين": "Yaseen",
-        "الجنيد": "Al-Junaid", "المزروعي": "Al-Mazrouei", "الدغريري": "Al-Daghriri"
+        "الأركاني": "Al-Arkani", "نادر": "Nader", "رشيد": "Rashid", "عبيد": "Obaid", "سهل": "Sahl", "الجنيد": "Al-Junaid",
+        "المزروعي": "Al-Mazrouei", "الدغريري": "Al-Daghriri"
     ]
 }
