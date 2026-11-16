@@ -160,6 +160,7 @@ struct MushafView: View {
             TabView(selection: $page) {
                 ForEach((1...604).reversed(), id: \.self) { p in
                     MushafPage(pg: p, size: size, hi: ma.current > 0 ? ma.current : (menu ?? followG)) { g in menu = g }
+                        .modifier(PageFit(on: size <= 1.01))
                         .padding(.horizontal, 10).padding(.vertical, 8).tag(p)
                         .environment(\.layoutDirection, .rightToLeft)
                 }
@@ -217,6 +218,15 @@ struct MushafView: View {
         let hits = line.filter { $0[0] == s0 && $0[1] == a0 }
         let pos = Int(player.currentTime * 1000)
         return (hits.first { $0[2] >= pos - 1000 } ?? hits.first)?[2]
+    }
+}
+
+/// The whole page in sight, shaped like a printed page (1 : 1.55, as on the site): the 15 lines sit evenly and
+/// close together, never spread out over a tall screen. Enlarged text scrolls instead.
+private struct PageFit: ViewModifier {
+    let on: Bool
+    func body(content: Content) -> some View {
+        if on { content.aspectRatio(1 / 1.55, contentMode: .fit).frame(maxWidth: .infinity, maxHeight: .infinity) } else { content }
     }
 }
 
