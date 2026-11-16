@@ -538,8 +538,20 @@ extension UIViewController { var topMost: UIViewController { presentedViewContro
 struct SheetSkin: ViewModifier {
     @Environment(\.pal) private var c
     func body(content: Content) -> some View {
-        if #available(iOS 16.4, *) { content.presentationBackground(c.bg2).environment(\.pal, c).preferredColorScheme(c.dark ? .dark : .light) }
-        else { content.background(c.bg2.ignoresSafeArea()).environment(\.pal, c).preferredColorScheme(c.dark ? .dark : .light) }
+        // every sheet has a close button in its corner, opposite its title (swiping down still closes it too)
+        let x = content.overlay(alignment: .topTrailing) { SheetClose() }
+        if #available(iOS 16.4, *) { x.presentationBackground(c.bg2).environment(\.pal, c).preferredColorScheme(c.dark ? .dark : .light) }
+        else { x.background(c.bg2.ignoresSafeArea()).environment(\.pal, c).preferredColorScheme(c.dark ? .dark : .light) }
+    }
+}
+private struct SheetClose: View {
+    @Environment(\.pal) private var c
+    @Environment(\.dismiss) private var dismiss
+    var body: some View {
+        Button { dismiss() } label: {
+            Ico(name: "xmark", size: 15).foregroundStyle(c.text).frame(width: 32, height: 32).background(Circle().fill(c.surface.opacity(0.9))).overlay(Circle().stroke(c.lineSoft))
+                .frame(width: 44, height: 44).contentShape(Rectangle())
+        }.buttonStyle(.plain).padding(.top, 10).padding(.trailing, 10).accessibilityLabel(tr("إغلاق"))
     }
 }
 extension View {
