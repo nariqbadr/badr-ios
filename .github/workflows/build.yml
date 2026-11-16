@@ -65,6 +65,7 @@ jobs:
           : > shots/runs.txt
           # a first launch that downloads the site's data (the shots that follow open at once, from the saved copy)
           SIMCTL_CHILD_BZ_LANG=ar SIMCTL_CHILD_BZ_ROUTE=home xcrun simctl launch --terminate-running-process "$UDID" com.bawazirquran.app >/dev/null 2>&1; sleep 30
+          [ -n "$TL" ] && BZ_SHOTS="${BZ_SHOTS:-home}"
           for r in ${BZ_SHOTS:-home recitations quran surah read mushaf drawer prayer player watch live liveMd imams imamAlerts lang}; do
             SIMCTL_CHILD_BZ_LANG=ar SIMCTL_CHILD_BZ_ROUTE=$r xcrun simctl launch --terminate-running-process "$UDID" com.bawazirquran.app >/dev/null 2>&1
             sleep 14
@@ -75,7 +76,7 @@ jobs:
           if [ -n "$TL" ]; then
             SIMCTL_CHILD_BZ_LANG=ar SIMCTL_CHILD_BZ_LOGIN="$TL" SIMCTL_CHILD_BZ_PASS="$TP" SIMCTL_CHILD_BZ_ROUTE=community xcrun simctl launch --terminate-running-process "$UDID" com.bawazirquran.app >/dev/null 2>&1; sleep 20
             xcrun simctl io "$UDID" screenshot "shots/community-in.png" >/dev/null 2>&1 || true
-            SIMCTL_CHILD_BZ_LANG=ar SIMCTL_CHILD_BZ_ROUTE=community SIMCTL_CHILD_BZ_SCROLL=1 xcrun simctl launch --terminate-running-process "$UDID" com.bawazirquran.app >/dev/null 2>&1; sleep 20
+            SIMCTL_CHILD_BZ_LANG=ar SIMCTL_CHILD_BZ_ROUTE=community SIMCTL_CHILD_BZ_DEBUG=1 xcrun simctl launch --terminate-running-process "$UDID" com.bawazirquran.app >/dev/null 2>&1; sleep 20
             if xcrun simctl spawn "$UDID" launchctl list | grep -q UIKitApplication:com.bawazirquran.app; then echo "community-in ok" >> shots/runs.txt; else echo "community-in CRASHED" >> shots/runs.txt; fi
             xcrun simctl io "$UDID" screenshot "shots/community-in2.png" >/dev/null 2>&1 || true
           fi
