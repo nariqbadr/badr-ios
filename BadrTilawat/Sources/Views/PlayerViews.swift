@@ -42,8 +42,8 @@ struct MiniPlayer: View {
                         if p.playing { Equalizer(playing: true, color: c.gold2).frame(width: 12, height: 10).padding(3).background(RoundedRectangle(cornerRadius: 5).fill(.black.opacity(0.45))).padding(5) }
                     }
                     VStack(alignment: .leading, spacing: 1) {
-                        Text(t.title).font(F.plex(15, .bold)).foregroundStyle(c.text).lineLimit(1)
-                        Text(p.nowLabel?.0 == t.id ? p.nowLabel!.1 : (Repo.shared.reciter(t.reciterId)?.name ?? "")).font(F.plex(12.5)).foregroundStyle(c.muted).lineLimit(1)
+                        Text(titleL(t)).font(F.plex(15, .bold)).foregroundStyle(c.text).lineLimit(1)
+                        Text(p.nowLabel?.0 == t.id ? p.nowLabel!.1 : (Repo.shared.reciter(t.reciterId)?.shown ?? "")).font(F.plex(12.5)).foregroundStyle(c.muted).lineLimit(1)
                     }.padding(.leading, 12).frame(maxWidth: .infinity, alignment: .leading)
                     Button { store.toggleFav(t.id) } label: { SiteIcon(name: store.favs.contains(t.id) ? "heart-f" : "heart", size: 22, color: store.favs.contains(t.id) ? c.danger : c.muted).frame(width: 40, height: 40) }.accessibilityLabel(tr("المفضلة"))
                     Button { ui.playerOpen = true } label: { Ico(name: "chevron.up", size: 19.2).foregroundStyle(c.muted).frame(width: 38, height: 38) }.accessibilityLabel(tr("فتح المشغّل"))
@@ -133,7 +133,7 @@ struct PlayerView: View {
                     Spacer(minLength: 8)
                     HStack(alignment: .center) {
                         VStack(alignment: .leading, spacing: 2) {
-                            Text(t.title).font(F.amiri(24)).foregroundStyle(c.text).lineLimit(2).id(t.id).transition(.opacity)
+                            Text(titleL(t)).font(F.amiri(24)).foregroundStyle(c.text).lineLimit(2).id(t.id).transition(.opacity)
                             Button { if let r { dismiss(); DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) { ui.path.append(.reciter(r.id)) } } } label: { Text(nm(r?.name)).font(F.plex(14, .semibold)).foregroundStyle(c.gold) }.buttonStyle(.plain)
                             if !t.location.isEmpty { Text(t.location).font(F.plex(12.5)).foregroundStyle(c.muted) }
                         }.frame(maxWidth: .infinity, alignment: .leading)
@@ -203,7 +203,7 @@ struct QueueSheet: View {
                 HStack(spacing: 10) {
                     Group { if cur { Equalizer(playing: p.playing, color: c.gold) } else { Text((i + 1).ar).font(F.plex(13)).foregroundStyle(c.faint) } }.frame(width: 28)
                     RemoteImage(raw: q.cover.isEmpty ? Repo.shared.reciter(q.reciterId)?.image : q.cover).frame(width: 42, height: 42).clipShape(RoundedRectangle(cornerRadius: 12))
-                    VStack(alignment: .leading, spacing: 0) { Text(q.title).font(F.plex(14, .semibold)).foregroundStyle(cur ? c.gold : c.text).lineLimit(1); Text(Repo.shared.reciter(q.reciterId)?.name ?? "").font(F.plex(12.5)).foregroundStyle(c.muted).lineLimit(1) }
+                    VStack(alignment: .leading, spacing: 0) { Text(titleL(q)).font(F.plex(14, .semibold)).foregroundStyle(cur ? c.gold : c.text).lineLimit(1); Text(Repo.shared.reciter(q.reciterId)?.name ?? "").font(F.plex(12.5)).foregroundStyle(c.muted).lineLimit(1) }
                     Spacer()
                     if !cur {
                         Button { p.move(i, max(0, i - 1)) } label: { SiteIcon(name: "up", size: 20, color: c.muted).frame(width: 34, height: 34) }.accessibilityLabel(tr("تحريك لأعلى"))
@@ -235,7 +235,7 @@ struct TrackMenu: View {
             VStack(alignment: .leading, spacing: 0) {
                 HStack(spacing: 12) {
                     RemoteImage(raw: t.cover.isEmpty ? r?.image : t.cover).frame(width: 58, height: 58).clipShape(RoundedRectangle(cornerRadius: 14))
-                    VStack(alignment: .leading, spacing: 1) { Text(t.title).font(F.plex(16, .semibold)).foregroundStyle(c.text).lineLimit(2); Text(nm(r?.name)).font(F.plex(12.5)).foregroundStyle(c.gold) }
+                    VStack(alignment: .leading, spacing: 1) { Text(titleL(t)).font(F.plex(16, .semibold)).foregroundStyle(c.text).lineLimit(2); Text(nm(r?.name)).font(F.plex(12.5)).foregroundStyle(c.gold) }
                     Spacer()
                 }.padding(.horizontal, 22).padding(.top, 22).padding(.bottom, 6)
                 if !t.description.isEmpty { Text(t.description).font(F.plex(12.5)).foregroundStyle(c.muted).padding(.horizontal, 22).padding(.vertical, 4) }

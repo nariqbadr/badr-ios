@@ -53,6 +53,8 @@ private func surahMatch(_ title: String) -> SurahHit? {
 private let CUT = "\\s(?:ل|ب|لـ)?(?:فضيلة\\s+)?(?:الشيخ|للشيخ|بصوت|لفضيلة|القارئ)\\s|\\s[-–—|]\\s"
 
 /// The short title in the app's language.
+/// The title shown for a recitation: as written in Arabic, else its translated form (as in the lists)
+@MainActor func titleL(_ t: Track) -> String { L.ar ? t.title : shortTitleL(t) }
 @MainActor func shortTitleL(_ t: Track) -> String { TitleMemo.get("s", t) { surahMatch(t.title)?.local ?? shortTitle(t) } }
 /// Titles are worked out once per recitation (and language), not on every redraw of a list.
 @MainActor enum TitleMemo {

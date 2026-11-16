@@ -175,7 +175,7 @@ final class AudioPlayer: ObservableObject {
     private func nowPlaying() {
         WidgetBridge.now()
         guard let t = current else { MPNowPlayingInfoCenter.default().nowPlayingInfo = nil; return }
-        var info: [String: Any] = [MPMediaItemPropertyTitle: t.title, MPMediaItemPropertyArtist: Repo.shared.reciter(t.reciterId)?.name ?? "",
+        var info: [String: Any] = [MPMediaItemPropertyTitle: titleL(t), MPMediaItemPropertyArtist: Repo.shared.reciter(t.reciterId)?.shown ?? "",
                                    MPMediaItemPropertyPlaybackDuration: duration, MPNowPlayingInfoPropertyElapsedPlaybackTime: position,
                                    MPNowPlayingInfoPropertyPlaybackRate: playing ? Double(Store.shared.speed) : 0]
         if let a = art { info[MPMediaItemPropertyArtwork] = a }

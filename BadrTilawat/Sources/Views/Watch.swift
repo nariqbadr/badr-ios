@@ -287,7 +287,7 @@ final class VideoEngine: NSObject, ObservableObject, AVPictureInPictureControlle
     private var art: MPMediaItemArtwork?
     private func nowPlaying() {
         guard let t = track, remoteOn else { return }
-        var i: [String: Any] = [MPMediaItemPropertyTitle: t.title, MPMediaItemPropertyArtist: Repo.shared.reciter(t.reciterId)?.name ?? "",
+        var i: [String: Any] = [MPMediaItemPropertyTitle: titleL(t), MPMediaItemPropertyArtist: Repo.shared.reciter(t.reciterId)?.shown ?? "",
                                 MPMediaItemPropertyPlaybackDuration: duration, MPNowPlayingInfoPropertyElapsedPlaybackTime: position,
                                 MPNowPlayingInfoPropertyPlaybackRate: playing ? Double(Store.shared.speed) : 0, MPNowPlayingInfoPropertyMediaType: MPNowPlayingInfoMediaType.video.rawValue]
         if let art { i[MPMediaItemPropertyArtwork] = art }
@@ -459,7 +459,7 @@ struct WatchView: View {
         let fav = store.favs.contains(t.id)
         let saved = dl.savedTick >= 0 ? VideoFiles.savedH(t.id) : nil
         return VStack(alignment: .leading, spacing: 10) {
-            Text(t.title).font(F.amiri(22)).foregroundStyle(c.text)
+            Text(titleL(t)).font(F.amiri(22)).foregroundStyle(c.text)
             if let r { Button { ui.path.append(.reciter(r.id)) } label: { HStack(spacing: 8) { RemoteImage(raw: r.image).frame(width: 30, height: 30).clipShape(Circle()); Text(nm(r.name)).font(F.plex(14, .medium)).foregroundStyle(c.gold) } }.buttonStyle(Press()) }
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: 8) {
@@ -552,8 +552,8 @@ struct VideoRow: View {
                     if !t.durationText.isEmpty { Text(t.durationText).font(.system(size: 11, weight: .bold).monospacedDigit()).foregroundStyle(.white).padding(.horizontal, 6).padding(.vertical, 2).background(Capsule().fill(.black.opacity(0.7))).padding(6) }
                 }
                 VStack(alignment: .leading, spacing: 4) {
-                    Text(t.title).font(F.plex(14, .semibold)).foregroundStyle(c.text).lineLimit(2).multilineTextAlignment(.leading)
-                    Text(repo.reciter(t.reciterId)?.name ?? "").font(F.plex(12)).foregroundStyle(c.muted).lineLimit(1)
+                    Text(titleL(t)).font(F.plex(14, .semibold)).foregroundStyle(c.text).lineLimit(2).multilineTextAlignment(.leading)
+                    Text(repo.reciter(t.reciterId)?.shown ?? "").font(F.plex(12)).foregroundStyle(c.muted).lineLimit(1)
                 }
                 Spacer(minLength: 0)
             }

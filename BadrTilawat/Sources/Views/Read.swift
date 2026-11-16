@@ -152,7 +152,7 @@ struct ReadIndexView: View {
                         Ico(name: "play.fill", size: 15.6).foregroundStyle(c.onGold).frame(width: 34, height: 34).background(Circle().fill(c.gold))
                     }.padding(10)
                 }.frame(width: 150, height: 180).clipShape(RoundedRectangle(cornerRadius: 18)).overlay(RoundedRectangle(cornerRadius: 18).stroke(cur ? c.gold : .clear, lineWidth: 2))
-                Text(repo.reciter(t.reciterId)?.name ?? "").font(F.plex(13, .semibold)).foregroundStyle(c.text).lineLimit(1).frame(width: 150, alignment: .leading)
+                Text(repo.reciter(t.reciterId)?.shown ?? "").font(F.plex(13, .semibold)).foregroundStyle(c.text).lineLimit(1).frame(width: 150, alignment: .leading)
             }
         }.buttonStyle(Press())
     }
@@ -399,7 +399,7 @@ struct ReadView: View {
                         HStack(spacing: 12) {
                             RemoteImage(raw: x.img).frame(width: 46, height: 46).clipShape(Circle())
                             VStack(alignment: .leading, spacing: 2) {
-                                Text(x.name).font(F.plex(14.5, .bold)).foregroundStyle(c.text).lineLimit(1)
+                                Text(nm(x.name)).font(F.plex(14.5, .bold)).foregroundStyle(c.text).lineLimit(1)
                                 Text(x.kind == "track" ? "\(x.title) · \(rangeText(x.from, x.to))" : tr("المصحف المرتّل — السورة كاملة")).font(F.plex(12)).foregroundStyle(c.muted).lineLimit(2)
                             }
                             Spacer(); if on { Ico(name: "checkmark", size: 20).foregroundStyle(c.gold) }

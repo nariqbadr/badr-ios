@@ -410,8 +410,8 @@ struct TrackRow: View {
             }
             VStack(alignment: .leading, spacing: 1) {
                 Text(shortTitleL(t)).font(F.plex(15, .bold)).foregroundStyle(cur ? c.gold : c.text).lineLimit(2).multilineTextAlignment(.leading)
-                if !detail.isEmpty { Text(detail).font(F.plex(12)).foregroundStyle(c.gold.opacity(0.78)).lineLimit(2).multilineTextAlignment(.leading) }
-                if showReciter, let n = r?.name, !n.isEmpty { Text(n).font(F.plex(12.5)).foregroundStyle(c.muted).lineLimit(1) }
+                if !detail.isEmpty && L.ar { Text(detail).font(F.plex(12)).foregroundStyle(c.gold.opacity(0.78)).lineLimit(2).multilineTextAlignment(.leading) }
+                if showReciter, let n = r?.shown, !n.isEmpty { Text(n).font(F.plex(12.5)).foregroundStyle(c.muted).lineLimit(1) }
                 HStack(spacing: 0) {
                     if isNewTrack(t) { Circle().fill(c.gold).frame(width: 6, height: 6).padding(.trailing, 6) }
                     if OfflineFiles.local(t.id) != nil { Image(systemName: "arrow.down.circle.fill").font(.system(size: 12)).foregroundStyle(c.ok).padding(.trailing, 4) }
@@ -472,7 +472,7 @@ struct TrackCard: View {
             HStack(alignment: .top, spacing: 0) {
                 VStack(alignment: .leading, spacing: 0) {
                     Text(nm(r?.name)).font(F.plex(13, .semibold)).foregroundStyle(c.text).lineLimit(1)
-                    if !detail.isEmpty { Text(detail).font(F.plex(11.5)).foregroundStyle(c.gold.opacity(0.78)).lineLimit(2) }
+                    if !detail.isEmpty && L.ar { Text(detail).font(F.plex(11.5)).foregroundStyle(c.gold.opacity(0.78)).lineLimit(2) }
                     Text(relAgo(t)).font(F.plex(11.5)).foregroundStyle(c.faint)
                 }.padding(.top, 7).frame(maxWidth: .infinity, alignment: .leading)
                 Button { ui.menuFor = t } label: { SiteIcon(name: "dots", size: 18, color: c.muted).frame(width: 32, height: 32) }.buttonStyle(.plain).accessibilityLabel(tr("خيارات أخرى"))

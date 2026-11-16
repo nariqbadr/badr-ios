@@ -594,7 +594,7 @@ struct ClipView: View {
     private var segsKey: String { "\(times?.ayahs.count ?? 0)|\(texts.count)|\(t0)|\(t1)|\(o.per)|\(o.font)|\(modes)" }
     private func makeSegs() -> [ClipSeg] { ClipEngine.buildSegs(times, o.font == "uthmani" ? texts.mapValues(ClipEngine.qpc) : texts, t0, t1, o.per, modes) }
     private var info: ClipInfo {
-        let r = repo.reciter(t?.reciterId)?.name ?? ""
+        let r = repo.reciter(t?.reciterId)?.shown ?? ""
         let s = (1...114).contains(surahNo) ? tr("سورة {0}", Quran.surahs[surahNo - 1]) : (t?.surah ?? "").isEmpty ? "" : ((t?.surah ?? "").hasPrefix("سورة") ? t!.surah : tr("سورة {0}", t!.surah))
         let b = repo.data?.site.title ?? tr("بدر التلاوات")
         func n(_ k: String, _ d: String) -> String { let v = (names[k] ?? "").trimmingCharacters(in: .whitespaces); return v.isEmpty ? d : v }

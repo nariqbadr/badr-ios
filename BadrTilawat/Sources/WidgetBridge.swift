@@ -64,7 +64,7 @@ enum WidgetBridge {
     static func now() {
         let pl = AudioPlayer.shared
         guard let t = pl.current ?? Store.shared.history.first.flatMap({ Repo.shared.track($0) }) else { return }
-        let sub = Repo.shared.reciter(t.reciterId)?.name ?? ""
+        let sub = Repo.shared.reciter(t.reciterId)?.shown ?? ""
         let key = "\(t.id)|\(pl.playing)"
         if key == lastNow { return }
         lastNow = key

@@ -187,7 +187,7 @@ struct TimelineScreen: View {
                                 HStack {
                                     VStack(alignment: .leading, spacing: 1) {
                                         Text(t.title).font(F.plex(14, .semibold)).foregroundStyle(c.text).lineLimit(2)
-                                        Text([repo.reciter(t.reciterId)?.name, t.location.isEmpty ? nil : t.location].compactMap { $0 }.joined(separator: " — ")).font(F.plex(12.5)).foregroundStyle(c.muted)
+                                        Text([repo.reciter(t.reciterId)?.shown, t.location.isEmpty ? nil : t.location].compactMap { $0 }.joined(separator: " — ")).font(F.plex(12.5)).foregroundStyle(c.muted)
                                     }
                                     Spacer()
                                     RemoteImage(raw: t.cover.isEmpty ? repo.reciter(t.reciterId)?.image : t.cover).frame(width: 54, height: 54).clipShape(RoundedRectangle(cornerRadius: 14))

@@ -2,6 +2,8 @@ import Foundation
 
 struct Reciter: Identifiable, Hashable {
     let id: String, name: String, nameEn: String, image: String, bio: String, featured: Bool, order: Int
+    /// the name in the app's language (the Arabic name as written when the app is in Arabic)
+    @MainActor var shown: String { nm(name) }
     init(_ j: J) { id = j["id"].str; name = j["name"].str; nameEn = j["nameEn"].str; image = j["image"].str; bio = j["bio"].str; featured = j["featured"].bool(); order = j["order"].int }
 }
 
