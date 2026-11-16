@@ -195,11 +195,12 @@ struct PostCard: View {
     @State private var tick = 0
     var body: some View {
         VStack(spacing: 0) {
+            // redraw after a like / repost (Post is a class) — never via .id(): every card would share id 0 and a LazyVStack shows only one of them
+            let _ = tick
             if p.gone { Text(tr("هذا المنشور لم يعد متاحًا.")).font(F.plex(14)).foregroundStyle(c.faint).padding(18).frame(maxWidth: .infinity, alignment: .leading) }
             else if let a = p.author { content(a) }
             Rectangle().fill(c.lineSoft).frame(height: 1)
         }
-        .id(tick)
         .bzSheet(isPresented: $more) { moreSheet.presentationDetents([.medium, .large]) }
         .bzSheet(isPresented: $repostMenu) {
             MenuSheet(title: tr("إعادة النشر")) {
@@ -382,13 +383,6 @@ struct PagedPosts<Header: View>: View {
     var body: some View {
         ScrollView {
             LazyVStack(alignment: .leading, spacing: 0) {
-                #if targetEnvironment(simulator)
-                // CI only: what the feed received, and the posts without the header (the screenshots cannot scroll)
-                if ProcessInfo.processInfo.environment["BZ_DEBUG"] != nil {
-                    Text("items \(items.count) · noAuthor \(items.filter { $0.post.author == nil }.count) · gone \(items.filter { $0.post.gone }.count) · pinned \(first?.pinned?.id ?? 0) · err \(err ?? "-")").font(.system(size: 11)).foregroundStyle(.red).padding(6)
-                    ForEach(items.prefix(4)) { it in PostCard(p: it.post, repostBy: it.repostBy) }
-                }
-                #endif
                 header(first)
                 if first == nil && err == nil { ProgressView().tint(c.gold).frame(maxWidth: .infinity).padding(40) }
                 if let err { Empty(text: err, icon: "offline", action: tr("إعادة المحاولة")) { Task { await reload() } } }
