@@ -121,6 +121,27 @@ final class Prayers: NSObject, ObservableObject, CLLocationManagerDelegate {
         if p.key == "dhuhr" && Calendar.current.component(.weekday, from: p.time) == 6 { return nil }
         return p.time.addingTimeInterval(Double(iqMin(p.key) * 60))
     }
+    /// «تجربة الأذان»: the very notification a prayer time gives (its title, the muezzin, the adhan's sound), in 10 seconds —
+    /// the app can be closed or the screen locked to see it arrive (as on Android)
+    func testNotification() async -> Bool {
+        let c = UNUserNotificationCenter.current()
+        let st = await c.notificationSettings()
+        if st.authorizationStatus != .authorized && st.authorizationStatus != .provisional {
+            guard (try? await c.requestAuthorization(options: [.alert, .sound, .badge])) == true else { return false }
+        }
+        await Adhan.prepare()
+        let nx = forDay().first { $0.key != "sunrise" && $0.time > Date() } ?? forDay().first { $0.key == "maghrib" }
+        let k = nx?.key ?? "maghrib", name = nx?.name ?? tr("المغرب")
+        let n = UNMutableNotificationContent()
+        n.title = tr("حان الآن موعد صلاة {0}", name)
+        let who = Adhan.voice.map { $0.muezzin.isEmpty ? $0.name : $0.muezzin } ?? ""
+        n.body = who.isEmpty ? tr("انقر للاستماع إلى الأذان كاملًا") : tr("بصوت {0} · انقر للاستماع إلى الأذان كاملًا", who)
+        n.sound = UNNotificationSound(named: UNNotificationSoundName(Adhan.soundName(k == "fajr") ?? "adhan.caf"))
+        n.userInfo = ["adhan": k]
+        if #available(iOS 15.0, *) { n.interruptionLevel = .timeSensitive }
+        try? await c.add(UNNotificationRequest(identifier: "adhan-test", content: n, trigger: UNTimeIntervalNotificationTrigger(timeInterval: 10, repeats: false)))
+        return true
+    }
     var preMinutes: Int { Int(Store.shared.str("preMin", "0")) ?? 0 }
     func setPre(_ m: Int) { Store.shared.set("preMin", "\(m)"); schedule() }
 

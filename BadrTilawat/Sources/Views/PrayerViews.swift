@@ -247,7 +247,9 @@ struct PrayerSettings: View {
                         .padding(12).background(RoundedRectangle(cornerRadius: 14).fill(c.surface.opacity(0.6))).overlay(RoundedRectangle(cornerRadius: 14).stroke(voice == v.id ? c.gold : c.lineSoft))
                     }.buttonStyle(.plain)
                 }
-                GhostButton(title: tr("تجربة الأذان"), icon: "play.fill") { testAdhan = true; AdhanPlayer.shared.play(fajr: false) }
+                GhostButton(title: tr("تجربة الأذان"), icon: "bell") {
+                    Task { let ok = await prayers.testNotification(); ui.say(ok ? tr("سيُرفع الأذان بعد ١٠ ثوانٍ — يمكنك إغلاق التطبيق أو قفل الشاشة") : tr("اسمح للتطبيق بالإشعارات من الإعدادات أولًا")) }
+                }
                 Text(tr("في الإشعار يُسمع أول ٣٠ ثانية من الأذان (أقصى ما يسمح به الآيفون)، والمس الإشعار لسماعه كاملًا.")).font(F.plex(12)).foregroundStyle(c.muted)
                 GhostButton(title: busy ? tr("جارٍ التحديد…") : tr("حدّد موقعي تلقائيًا"), icon: "location") {
                     busy = true; Task { let ok = await prayers.locate(); busy = false; ui.say(ok ? tr("تم تحديث المواقيت: {0}", prayers.place) : tr("تعذّر تحديد الموقع — اكتب مدينتك")) }
