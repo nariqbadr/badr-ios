@@ -108,6 +108,19 @@ final class Prayers: NSObject, ObservableObject, CLLocationManagerDelegate {
     func setMode(_ k: String, _ m: String) { Store.shared.set("pmode_" + k, m); schedule() }
     var alertsOn: Bool { Store.shared.bool("adhan", true) }
     func setAlerts(_ on: Bool) { Store.shared.set("adhan", on); schedule() }
+    // «الإقامة»: a notification a set number of minutes after each adhan (not Friday's jumuah, whose khutbah sets the time) — as on Android
+    static let iqDef: [String: Int] = ["fajr": 20, "dhuhr": 15, "asr": 15, "maghrib": 10, "isha": 15]
+    static let iqKeys = ["fajr", "dhuhr", "asr", "maghrib", "isha"]
+    var iqOn: Bool { Store.shared.str("iqOn", "1") == "1" }
+    func setIqOn(_ on: Bool) { Store.shared.set("iqOn", on ? "1" : "0"); schedule() }
+    func iqMin(_ k: String) -> Int { min(90, max(1, Int(Store.shared.str("iq_" + k, "\(Prayers.iqDef[k] ?? 15)")) ?? 15)) }
+    func setIqMin(_ k: String, _ m: Int) { Store.shared.set("iq_" + k, "\(min(90, max(1, m)))"); schedule() }
+    /// the iqama time of a prayer, or nil (off, sunrise, its alert off, or Friday's dhuhr)
+    func iqamaAt(_ p: Prayer) -> Date? {
+        guard iqOn, Prayers.iqDef[p.key] != nil, mode(p.key) != "off" else { return nil }
+        if p.key == "dhuhr" && Calendar.current.component(.weekday, from: p.time) == 6 { return nil }
+        return p.time.addingTimeInterval(Double(iqMin(p.key) * 60))
+    }
     var preMinutes: Int { Int(Store.shared.str("preMin", "0")) ?? 0 }
     func setPre(_ m: Int) { Store.shared.set("preMin", "\(m)"); schedule() }
 
@@ -145,6 +158,13 @@ final class Prayers: NSObject, ObservableObject, CLLocationManagerDelegate {
                     if #available(iOS 15.0, *) { n.interruptionLevel = .timeSensitive }
                     reqs.append(UNNotificationRequest(identifier: "p-\(p.key)-\(Int(p.time.timeIntervalSince1970))", content: n, trigger: trigger(p.time)))
                 }
+                if let iq = iqamaAt(p), iq > now {
+                    let n = UNMutableNotificationContent(); n.title = tr("حان وقت إقامة صلاة {0}", p.name)
+                    n.body = tr("قال رسول الله صلى الله عليه وسلم: «إذا أُقيمَت الصلاةُ فلا تأتوها تَسْعَوْن، وأْتوها تمشون، وعليكم السَّكينة، فما أدركتم فصلُّوا، وما فاتكم فأتِمُّوا»")
+                    n.sound = .default; n.userInfo = ["iqama": p.key]
+                    if #available(iOS 15.0, *) { n.interruptionLevel = .timeSensitive }
+                    reqs.append(UNNotificationRequest(identifier: "iq-\(p.key)-\(Int(p.time.timeIntervalSince1970))", content: n, trigger: trigger(iq)))
+                }
                 if pre > 0, p.key != "sunrise", p.time.addingTimeInterval(Double(-pre * 60)) > now {
                     let n = UNMutableNotificationContent(); n.title = tr("اقتربت صلاة {0}", p.name); n.body = tr("بعد {0} دقيقة", pre.ar); n.sound = .default
                     reqs.append(UNNotificationRequest(identifier: "pre-\(p.key)-\(Int(p.time.timeIntervalSince1970))", content: n, trigger: trigger(p.time.addingTimeInterval(Double(-pre * 60)))))
@@ -152,6 +172,8 @@ final class Prayers: NSObject, ObservableObject, CLLocationManagerDelegate {
             }
         }
         // iOS keeps 64: the imams' alerts keep up to 16 of them
+        // the soonest first (the prayer, its iqama and the next one's reminder are kept in time order)
+        reqs.sort { ($0.trigger as? UNCalendarNotificationTrigger)?.nextTriggerDate() ?? .distantFuture < ($1.trigger as? UNCalendarNotificationTrigger)?.nextTriggerDate() ?? .distantFuture }
         replace(Array(reqs.prefix(48 - wird.count)) + wird)
     }
     private func trigger(_ d: Date) -> UNCalendarNotificationTrigger {

@@ -401,12 +401,22 @@ struct WatchView: View {
                     VideoTimeText(clock: v.clock)
                     Spacer()
                     Button { sheet = "q" } label: { Text(qLabel(v.h)).font(.system(size: 12, weight: .bold)).foregroundStyle(.white).padding(.horizontal, 8).padding(.vertical, 3).background(Capsule().stroke(.white.opacity(0.7))) }
-                    if v.pip != nil { Button { v.startPip() } label: { Ico(name: "pip.enter", size: 20).foregroundStyle(.white) } }
-                    Button { withAnimation { full.toggle() }; rotate(full) } label: { Ico(name: full ? "arrow.down.right.and.arrow.up.left" : "arrow.up.left.and.arrow.down.right", size: 20).foregroundStyle(.white) }
+                    if v.pip != nil { Button { v.startPip() } label: { Ico(name: "pip.enter", size: 20).foregroundStyle(.white).frame(width: 44, height: 44).contentShape(Rectangle()) } }
+                    Button { withAnimation { full.toggle() }; rotate(full) } label: { Ico(name: full ? "arrow.down.right.and.arrow.up.left" : "arrow.up.left.and.arrow.down.right", size: 20).foregroundStyle(.white) .frame(width: 44, height: 44).contentShape(Rectangle()) }
                         .accessibilityLabel(full ? tr("الخروج من ملء الشاشة") : tr("ملء الشاشة"))
-                }.padding(.horizontal, 14).padding(.bottom, 10).environment(\.layoutDirection, .leftToRight)
+                }.padding(.horizontal, 14).padding(.bottom, full ? 0 : 4).environment(\.layoutDirection, .leftToRight)
             }
+            // full screen: the time bar and its buttons stay clear of the rounded corners, the notch and the home bar
+            .padding(.leading, full ? edge.left + 8 : 0).padding(.trailing, full ? edge.right + 8 : 0).padding(.bottom, full ? max(edge.bottom, 12) + 6 : 4)
         }
+    }
+    /// the screen's safe margins (the video itself fills the whole screen)
+    private var edge: UIEdgeInsets {
+        let w = UIApplication.shared.connectedScenes.compactMap { ($0 as? UIWindowScene)?.keyWindow }.first
+        let e = w?.safeAreaInsets ?? .zero
+        let landscape = (w?.bounds.width ?? 0) > (w?.bounds.height ?? 0)
+        // in landscape the corners curve on both sides: the same margin on each
+        return landscape ? UIEdgeInsets(top: e.top, left: max(e.left, e.right, 24), bottom: e.bottom, right: max(e.left, e.right, 24)) : e
     }
     private func round(_ icon: String, _ s: CGFloat, big: Bool = false, _ a: @escaping () -> Void) -> some View {
         Button(action: a) {

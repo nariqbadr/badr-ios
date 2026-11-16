@@ -87,7 +87,7 @@ struct RootView: View {
             else if let s = repo.data?.site, RootView.shot == nil { AppMessages(site: s) }
         }
         .fullScreenCover(isPresented: $ui.playerOpen) { PlayerView() }
-        .fullScreenCover(item: $ui.adhan) { a in AdhanScreen(key: a.key) }
+        .fullScreenCover(item: $ui.adhan) { a in if a.iqama { IqamaScreen(key: a.key) } else { AdhanScreen(key: a.key) } }
         .onOpenURL { u in
             // from the home-screen widgets: badr://prayer · badr://ayah/s/a · badr://player · badr://adhkar
             guard u.scheme == "badr" else { return }

@@ -326,7 +326,34 @@ final class AdhanPlayer: ObservableObject {
     func stop() { player.pause(); player.replaceCurrentItem(with: nil); playing = false }
 }
 
-struct AdhanKey: Identifiable { let key: String; var id: String { key } }
+struct AdhanKey: Identifiable { let key: String; var iqama = false; var id: String { key + (iqama ? "-iq" : "") } }
+
+/// «حان وقت إقامة صلاة …» with the hadith, full screen (opened from the iqama notification), as on Android.
+struct IqamaScreen: View {
+    let key: String
+    @EnvironmentObject var prayers: Prayers
+    @Environment(\.pal) private var c
+    @Environment(\.dismiss) private var dismiss
+    private var name: String { prayers.forDay().first { $0.key == key }?.name ?? "" }
+    private func close() { UIState.shared?.adhan = nil; dismiss() }
+    var body: some View {
+        ZStack(alignment: .topLeading) {
+            RadialGradient(colors: [c.gold.opacity(0.14), c.bg], center: .center, startRadius: 10, endRadius: 600).ignoresSafeArea()
+            ScrollView {
+                VStack(spacing: 6) {
+                    Ico(name: "bell", size: 30).foregroundStyle(c.gold).frame(width: 64, height: 64).background(Circle().fill(c.gold.opacity(0.18)))
+                    Text(tr("حان وقت إقامة صلاة")).font(F.plex(18)).foregroundStyle(c.muted).padding(.top, 14)
+                    Text(name).font(F.amiri(52)).foregroundStyle(c.gold)
+                    Hadith(words: tr("«إذا أُقيمَت الصلاةُ فلا تأتوها تَسْعَوْن، وأْتوها تمشون، وعليكم السَّكينة، فما أدركتم فصلُّوا، وما فاتكم فأتِمُّوا»")).padding(.top, 22)
+                    GoldButton(title: tr("حسنًا"), icon: nil) { close() }.frame(minWidth: 180).padding(.top, 22)
+                }.padding(24).frame(maxWidth: 440).frame(maxWidth: .infinity).padding(.top, 70)
+            }
+            Button { close() } label: { Ico(name: "xmark", size: 21.6).foregroundStyle(c.text).frame(width: 44, height: 44).contentShape(Rectangle()) }
+                .padding(12).accessibilityLabel(tr("إغلاق"))
+        }
+        .environment(\.layoutDirection, L.dir)
+    }
+}
 
 /// «حان الآن موعد صلاة …» (opened from the adhan notification): stop the adhan or play it; «test» tries the chosen voice.
 struct AdhanScreen: View {

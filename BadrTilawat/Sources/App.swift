@@ -74,6 +74,7 @@ final class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCent
         let info = response.notification.request.content.userInfo
         await MainActor.run {
             if let k = info["adhan"] as? String { UIState.shared?.adhan = AdhanKey(key: k) }
+            else if let k = info["iqama"] as? String { UIState.shared?.adhan = AdhanKey(key: k, iqama: true) }
             else if info["open"] as? String == "wird" { UIState.shared?.sheet = .wird }
             else if let o = info["open"] as? String, o.hasPrefix("live/") { UIState.shared?.path = [.liveAt(String(o.dropFirst(5)))] }
         }

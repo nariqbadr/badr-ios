@@ -190,6 +190,8 @@ struct PrayerSettings: View {
     @State private var busy = false
     @State private var modes: [String: String] = [:]
     @State private var pre = 0
+    @State private var iqOn = true
+    @State private var iq: [String: Int] = [:]
     @State private var on = true
     @State private var notifDenied = false
     @State private var voice = Adhan.voiceId
@@ -221,6 +223,22 @@ struct PrayerSettings: View {
                 }.tint(c.gold)
                 Text(tr("تنبيه قبل الصلاة")).font(F.plex(15, .semibold))
                 HStack(spacing: 6) { ForEach([0, 5, 10, 15, 30], id: \.self) { m in Pill(title: m == 0 ? tr("بدون") : tr("{0} د", m.ar), on: pre == m) { pre = m; prayers.setPre(m) } } }
+                // «الإقامة»: minutes after each adhan, per prayer
+                Toggle(isOn: Binding(get: { iqOn }, set: { v in iqOn = v; prayers.setIqOn(v) })) {
+                    VStack(alignment: .leading) { Text(tr("تنبيه وقت الإقامة")).font(F.plex(15, .semibold)); Text(tr("بعد الأذان بالمدة التي تختارها لكل صلاة (عدا صلاة الجمعة)")).font(F.plex(12)).foregroundStyle(c.muted) }
+                }.tint(c.gold).disabled(!on)
+                if iqOn && on {
+                    ForEach(Prayers.iqKeys, id: \.self) { k in
+                        let v = iq[k] ?? prayers.iqMin(k)
+                        HStack {
+                            Text(tr(Prayers.names.first { $0.0 == k }?.1 ?? "")).font(F.plex(14.5)).foregroundStyle(c.text)
+                            Spacer()
+                            Button { let n = max(5, v - 5); iq[k] = n; prayers.setIqMin(k, n) } label: { Text("−").font(.system(size: 22, weight: .medium)).foregroundStyle(c.gold).frame(width: 40, height: 36) }.buttonStyle(.plain).disabled(v <= 5)
+                            Text(tr("بعد {0} د", v.ar)).font(F.plex(14)).foregroundStyle(c.text).frame(width: 80)
+                            Button { let n = min(60, v + 5); iq[k] = n; prayers.setIqMin(k, n) } label: { Text("+").font(.system(size: 22, weight: .medium)).foregroundStyle(c.gold).frame(width: 40, height: 36) }.buttonStyle(.plain).disabled(v >= 60)
+                        }.padding(.horizontal, 14).padding(.vertical, 2).background(RoundedRectangle(cornerRadius: 14).fill(c.surface.opacity(0.5)))
+                    }
+                }
                 Text(tr("صوت الأذان")).font(F.plex(15, .semibold))
                 ForEach(Adhan.voices, id: \.id) { v in
                     Button { voice = v.id; Adhan.setVoice(v.id) } label: {
@@ -246,7 +264,7 @@ struct PrayerSettings: View {
         .font(F.plex(15)).background(c.bg2.ignoresSafeArea()).environment(\.layoutDirection, L.dir)
         .fullScreenCover(isPresented: $testAdhan) { AdhanScreen(key: "test") }
         .onAppear {
-            pre = prayers.preMinutes; on = prayers.alertsOn; voice = Adhan.voiceId; Task { await Adhan.prepare(); prayers.schedule() }
+            pre = prayers.preMinutes; on = prayers.alertsOn; iqOn = prayers.iqOn; voice = Adhan.voiceId; Task { await Adhan.prepare(); prayers.schedule() }
             UNUserNotificationCenter.current().getNotificationSettings { s in DispatchQueue.main.async { notifDenied = s.authorizationStatus == .denied } }
         }
     }
