@@ -222,7 +222,9 @@ struct RootView: View {
         case .user(let h): CommunityView(user: h)
         case .people(let h, let l): PeopleView(handle: h, list: l)
         case .thread(let id): ThreadView(id: id)
-        case .watch(let id): WatchView(id: id)
+        // a new page for each video (one taking the place of another kept the old page's state: the title of one
+        // video over the picture of another)
+        case .watch(let id): WatchView(id: id).id(id)
         case .listen: ListenView().navigationTitle(tr("القرآن الكريم كاملًا"))
         case .clip(let id): ClipView(trackId: id)
         case .maker(let s, let a): MakerView(s0: s, a0: a)

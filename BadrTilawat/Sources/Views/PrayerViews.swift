@@ -197,6 +197,7 @@ struct PrayerSettings: View {
     @State private var voice = Adhan.voiceId
     @State private var testAdhan = false
     @State private var testMsg = ""
+    @State private var locOk: Bool?
     @ObservedObject private var adhanP = AdhanPlayer.shared
     var body: some View {
         ScrollView {
@@ -255,18 +256,50 @@ struct PrayerSettings: View {
                         if adhanP.playing { adhanP.stop() } else { adhanP.play(fajr: false) }
                     }.frame(maxWidth: .infinity)
                     GhostButton(title: tr("تجربة الإشعار"), icon: "bell") {
-                        testMsg = tr("جارٍ التجهيز…")
+                        withAnimation(.spring(response: 0.45, dampingFraction: 0.7)) { testMsg = tr("جارٍ التجهيز…") }
+                        UIImpactFeedbackGenerator(style: .medium).impactOccurred()
                         Task {
                             let ok = await prayers.testNotification()
                             testMsg = ok ? tr("سيصل إشعار الأذان بعد ١٠ ثوانٍ — يمكنك إغلاق التطبيق أو قفل الشاشة") : tr("اسمح للتطبيق بالإشعارات من الإعدادات أولًا")
                         }
                     }.frame(maxWidth: .infinity)
                 }
-                if !testMsg.isEmpty { Text(testMsg).font(F.plex(13, .semibold)).foregroundStyle(c.gold).frame(maxWidth: .infinity, alignment: .leading) }
+                if !testMsg.isEmpty {
+                    HStack(spacing: 8) {
+                        Ico(name: "bell", size: 14).foregroundStyle(c.onGold).frame(width: 24, height: 24).background(Circle().fill(c.gold))
+                        Text(testMsg).font(F.plex(12.5, .semibold)).foregroundStyle(c.text)
+                        Spacer(minLength: 0)
+                    }
+                    .padding(.horizontal, 12).padding(.vertical, 9)
+                    .background(RoundedRectangle(cornerRadius: 14).fill(c.gold.opacity(0.12)))
+                    .overlay(RoundedRectangle(cornerRadius: 14).stroke(c.gold.opacity(0.45)))
+                    .transition(.scale(scale: 0.92).combined(with: .opacity))
+                }
                 Text(tr("في الإشعار يُسمع أول ٣٠ ثانية من الأذان (أقصى ما يسمح به الآيفون)، والمس الإشعار لسماعه كاملًا.")).font(F.plex(12)).foregroundStyle(c.muted)
                 GhostButton(title: busy ? tr("جارٍ التحديد…") : tr("حدّد موقعي تلقائيًا"), icon: "location") {
-                    busy = true; Task { let ok = await prayers.locate(); busy = false; ui.say(ok ? tr("تم تحديث المواقيت: {0}", prayers.place) : tr("تعذّر تحديد الموقع — اكتب مدينتك")) }
+                    busy = true; locOk = nil
+                    Task {
+                        let ok = await prayers.locate(); busy = false
+                        withAnimation(.spring(response: 0.45, dampingFraction: 0.7)) { locOk = ok }
+                        if ok { UINotificationFeedbackGenerator().notificationOccurred(.success) }
+                    }
                 }.frame(maxWidth: .infinity)
+                // the result under the button (a toast was hidden behind this sheet)
+                if let ok = locOk {
+                    HStack(spacing: 8) {
+                        Ico(name: ok ? "check" : "xmark", size: 14).foregroundStyle(ok ? c.onGold : .white)
+                            .frame(width: 24, height: 24).background(Circle().fill(ok ? c.gold : Color.red.opacity(0.75)))
+                        VStack(alignment: .leading, spacing: 1) {
+                            Text(ok ? tr("تم تحديث الموقع") : tr("تعذّر تحديد الموقع — اكتب مدينتك")).font(F.plex(13, .bold)).foregroundStyle(c.text)
+                            if ok { Text(prayers.place).font(F.plex(12)).foregroundStyle(c.gold).lineLimit(1) }
+                        }
+                        Spacer(minLength: 0)
+                    }
+                    .padding(.horizontal, 12).padding(.vertical, 9)
+                    .background(RoundedRectangle(cornerRadius: 14).fill(c.gold.opacity(ok ? 0.12 : 0.05)))
+                    .overlay(RoundedRectangle(cornerRadius: 14).stroke(c.gold.opacity(ok ? 0.45 : 0.15)))
+                    .transition(.asymmetric(insertion: .scale(scale: 0.92).combined(with: .opacity), removal: .opacity))
+                }
                 Text(tr("أو اكتب مدينتك يدويًا:")).font(F.plex(13)).foregroundStyle(c.muted)
                 TextField(tr("المدينة — مثال: القاهرة"), text: $city).padding(12).background(RoundedRectangle(cornerRadius: 14).fill(c.surface))
                 TextField(tr("الدولة — مثال: مصر"), text: $country).padding(12).background(RoundedRectangle(cornerRadius: 14).fill(c.surface))
