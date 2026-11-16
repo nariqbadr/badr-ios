@@ -1,0 +1,34 @@
+name: community-test
+# Signs in with a test account kept in the repository's secrets (BZ_TEST_LOGIN / BZ_TEST_PASS — never in code or logs)
+# and prints what the community feed returns to that member: only counts and public handles.
+on:
+  push:
+    branches: [ctest]
+  workflow_dispatch:
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Feed as a signed-in member
+        env:
+          L: ${{ secrets.BZ_TEST_LOGIN }}
+          P: ${{ secrets.BZ_TEST_PASS }}
+        run: |
+          B="https://bawazirquran.com/wp-admin/admin-ajax.php?action=bz"
+          if [ -z "$L" ]; then echo "secrets BZ_TEST_LOGIN / BZ_TEST_PASS are not set"; exit 1; fi
+          curl -s -c jar -b jar -F "handle=$L" -F "password=$P" -F "newHandle=" "$B&do=c_login" -o login.json
+          python3 -c "import json;j=json.load(open('login.json'));print('login ok:', j.get('ok'), j.get('error',''))"
+          curl -s -c jar -b jar "$B&do=c_me" -o me.json
+          for t in all following; do curl -s -c jar -b jar "$B&do=c_feed&tab=$t&before=0" -o feed-$t.json; done
+          curl -s "$B&do=c_feed&tab=all&before=0" -o feed-anon.json
+          python3 - <<'PY'
+          import json
+          me = json.load(open('me.json')); m = (me.get('me') or {})
+          print('me:', m.get('handle'), 'role:', m.get('role'), 'owner:', m.get('owner'), 'keys:', sorted(m.keys())[:30])
+          for f in ['feed-all.json', 'feed-following.json', 'feed-anon.json']:
+              j = json.load(open(f)); it = j.get('items') or []
+              hs = [((x.get('post') or x).get('author') or {}).get('handle') for x in it]
+              pin = (j.get('pinned') or {}).get('id') if isinstance(j.get('pinned'), dict) else j.get('pinned')
+              print(f, 'ok', j.get('ok'), 'items', len(it), 'pinned', pin, 'authors', hs[:20])
+          PY
+          curl -s -c jar -b jar -F "x=1" "$B&do=c_logout" -o /dev/null
