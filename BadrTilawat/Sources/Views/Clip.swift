@@ -69,8 +69,12 @@ enum ClipEngine {
     }
     static func frame(_ o: ClipOpts, _ vw: Double, _ vh: Double) -> CGSize { let s = sizes.first { $0.key == sizeKey(o, vw, vh) }!; return CGSize(width: s.w, height: s.h) }
 
+    /// fonts uploaded from the dashboard: "c:family" → the registered font's PostScript name
+    nonisolated(unsafe) static var custom: [String: String] = [:]
+
     static func font(_ key: String, _ size: CGFloat) -> UIFont {
         let name: String
+        if key.hasPrefix("c:"), let n = custom[key], let f = UIFont(name: n, size: size) { return f }
         switch key {
         case "uthmani": name = "KFGQPCHAFSUthmanicScript-Regula"
         case "amiri": name = "AmiriQuran-Regular"
@@ -504,11 +508,28 @@ private struct ClipPreview: UIViewRepresentable {
 /// «اصنع مقطعًا»: a share-ready clip from a video recitation, made on the phone; the recited ayahs appear by themselves
 /// from the recitation's analysis, over the video with a soft blurred background.
 struct ClipView: View {
+    /// the fonts uploaded from the dashboard, for the ayahs or the names (as on the site and Android)
+    private func customFonts(_ use: String) -> [(String, String)] {
+        (repo.data?.site.j["maker"]["fonts"].array ?? []).compactMap { f -> (String, String)? in
+            let fam = f["family"].str, u = f["use"].str.isEmpty ? "ayah" : f["use"].str
+            guard !fam.isEmpty, !f["url"].str.isEmpty, u == use || u == "both" else { return nil }
+            return ("c:" + fam, f["name"].str.isEmpty ? fam : f["name"].str)
+        }
+    }
+    /// downloads and registers the custom fonts in use, then redraws
+    private func loadCustomFonts() async {
+        for k in [o.font, o.ifont] where k.hasPrefix("c:") && ClipEngine.custom[k] == nil {
+            let fam = String(k.dropFirst(2))
+            guard let f = (repo.data?.site.j["maker"]["fonts"].array ?? []).first(where: { $0["family"].str == fam }), let u = Repo.media(f["url"].str) else { continue }
+            if let n = await registerFont(u, key: fam) { ClipEngine.custom[k] = n; fontRev += 1 } else { ui.say(tr("تعذّر تحميل الخط")) }
+        }
+    }
     let trackId: String
     @EnvironmentObject var repo: Repo
     /* UI actions only: reading it does not redraw this view on every tab or sheet change */ private var ui: UIState { UIState.shared! }
     @Environment(\.pal) private var c
     @State private var o = ClipOpts.load()
+    @State private var fontRev = 0
     @State private var player = AVPlayer()
     @State private var times: AyahTimes?
     @State private var texts: [Int: String] = [:]
@@ -550,6 +571,7 @@ struct ClipView: View {
         }
         .navigationTitle(tr("اصنع مقطعًا")).navigationBarTitleDisplayMode(.inline)
         .environment(\.layoutDirection, L.dir)
+        .task(id: o.font + "|" + o.ifont) { await loadCustomFonts() }
     }
 
     private func set(_ f: (inout ClipOpts) -> Void) { var n = o; f(&n); o = n; n.save() }
@@ -667,7 +689,7 @@ struct ClipView: View {
             Toggle(tr("إظهار الآيات على الفيديو"), isOn: Binding(get: { o.show }, set: { v in set { $0.show = v } })).tint(c.gold).font(F.plex(14))
             Toggle(tr("رقم الآية ﴿ ﴾"), isOn: Binding(get: { o.num }, set: { v in set { $0.num = v } })).tint(c.gold).font(F.plex(14))
             Text(tr("الخط")).font(F.plex(14, .bold)).foregroundStyle(c.text)
-            HStack(spacing: 6) { ForEach(ClipEngine.ayahFonts, id: \.0) { f in Pill(title: f.1, on: o.font == f.0) { set { $0.font = f.0 } } } }
+            ScrollView(.horizontal, showsIndicators: false) { HStack(spacing: 6) { ForEach(ClipEngine.ayahFonts.map { ($0.0, tr($0.1)) } + customFonts("ayah"), id: \.0) { f in Pill(title: f.1, on: o.font == f.0) { set { $0.font = f.0 } } } } }
             Text(tr("اللون")).font(F.plex(14, .bold)).foregroundStyle(c.text)
             colors(o.color) { v in set { $0.color = v } }
             row(tr("الحجم")) { Slider(value: Binding(get: { Double(o.fs) }, set: { v in set { $0.fs = Int(v) } }), in: 36...110) }
@@ -710,7 +732,7 @@ struct ClipView: View {
                 nameField("brand", tr("اسم الموقع"), on: o.brand) { v in set { $0.brand = v } }
                 HStack(spacing: 6) { Pill(title: tr("أسفل"), on: o.ipos != "top") { set { $0.ipos = "bot" } }; Pill(title: tr("أعلى"), on: o.ipos == "top") { set { $0.ipos = "top" } } }
                 Text(tr("الخط")).font(F.plex(14, .bold)).foregroundStyle(c.text)
-                ScrollView(.horizontal, showsIndicators: false) { HStack(spacing: 6) { ForEach(ClipEngine.infoFonts, id: \.0) { f in Pill(title: f.1, on: o.ifont == f.0) { set { $0.ifont = f.0 } } } } }
+                ScrollView(.horizontal, showsIndicators: false) { HStack(spacing: 6) { ForEach(ClipEngine.infoFonts.map { ($0.0, tr($0.1)) } + customFonts("info"), id: \.0) { f in Pill(title: f.1, on: o.ifont == f.0) { set { $0.ifont = f.0 } } } } }
                 colors(o.icolor) { v in set { $0.icolor = v } }
                 row(tr("الحجم")) { Slider(value: Binding(get: { Double(o.ifs) }, set: { v in set { $0.ifs = Int(v) } }), in: 60...180) }
             }

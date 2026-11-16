@@ -590,15 +590,18 @@ enum MakerExport {
         guard let pcm = tl.pcm, !pcm.isEmpty else { try FileManager.default.moveItem(at: vURL, to: out); progress(1); return out }
         // sound → AAC
         let fmt = AVAudioFormat(commonFormat: .pcmFormatFloat32, sampleRate: Double(tl.rate), channels: 1, interleaved: false)!
-        let af = try AVAudioFile(forWriting: aURL, settings: [AVFormatIDKey: kAudioFormatMPEG4AAC, AVSampleRateKey: tl.rate, AVNumberOfChannelsKey: 1, AVEncoderBitRateKey: 128_000], commonFormat: .pcmFormatFloat32, interleaved: false)
-        var p = 0
-        while p < pcm.count {
-            let n = min(32768, pcm.count - p)
-            let b = AVAudioPCMBuffer(pcmFormat: fmt, frameCapacity: AVAudioFrameCount(n))!; b.frameLength = AVAudioFrameCount(n)
-            for i in 0..<n { b.floatChannelData![0][i] = max(-1, min(1, pcm[p + i])) }
-            try af.write(from: b); p += n
-        }
-        _ = af   // closes on release
+        // written inside its own scope: the AAC file is closed (and complete) before it is joined to the picture —
+        // left open, the join found no sound and the export failed («تعذّر إنشاء الفيديو»)
+        try {
+            let af = try AVAudioFile(forWriting: aURL, settings: [AVFormatIDKey: kAudioFormatMPEG4AAC, AVSampleRateKey: tl.rate, AVNumberOfChannelsKey: 1, AVEncoderBitRateKey: 128_000], commonFormat: .pcmFormatFloat32, interleaved: false)
+            var p = 0
+            while p < pcm.count {
+                let n = min(32768, pcm.count - p)
+                let b = AVAudioPCMBuffer(pcmFormat: fmt, frameCapacity: AVAudioFrameCount(n))!; b.frameLength = AVAudioFrameCount(n)
+                for i in 0..<n { b.floatChannelData![0][i] = max(-1, min(1, pcm[p + i])) }
+                try af.write(from: b); p += n
+            }
+        }()
         progress(0.95)
         // join
         let comp = AVMutableComposition()
@@ -610,10 +613,15 @@ enum MakerExport {
             let d = min(try await aa.load(.duration), try await va.load(.duration))
             try ct.insertTimeRange(CMTimeRange(start: .zero, duration: d), of: at, at: .zero)
         }
-        guard let ex = AVAssetExportSession(asset: comp, presetName: AVAssetExportPresetPassthrough) else { throw MakerError(msg: "تعذّر إنشاء الفيديو") }
-        ex.outputURL = out; ex.outputFileType = .mp4
-        await ex.export()
-        guard ex.status == .completed else { throw ex.error ?? MakerError(msg: "تعذّر إنشاء الفيديو") }
+        // joined as they are (no re-encoding); if that is refused, re-encoded once
+        for preset in [AVAssetExportPresetPassthrough, AVAssetExportPresetHighestQuality] {
+            try? FileManager.default.removeItem(at: out)
+            guard let ex = AVAssetExportSession(asset: comp, presetName: preset) else { continue }
+            ex.outputURL = out; ex.outputFileType = .mp4
+            await ex.export()
+            if ex.status == .completed { break }
+            if preset == AVAssetExportPresetHighestQuality { throw ex.error ?? MakerError(msg: "تعذّر إنشاء الفيديو") }
+        }
         progress(1)
         return out
     }
