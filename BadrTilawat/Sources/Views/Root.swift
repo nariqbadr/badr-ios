@@ -105,7 +105,14 @@ struct RootView: View {
         .bzSheet(item: $ui.menuFor) { t in TrackMenu(t: t).presentationDetents([.medium, .large]) }
         .bzSheet(item: $ui.sheet) { k in sheetView(k).presentationDetents([.large]) }
         .animation(.easeInOut(duration: 0.3), value: ui.drawer)
-        .task { await repo.refresh(); WidgetBridge.tracks(); if let t = repo.data?.site.defaultTheme { store.applyDefaultTheme(t) }; if let r = RootView.shot { openShot(r) } }
+        .task {
+            #if targetEnvironment(simulator)
+            // the CI's screenshots of the community as a signed-in test member (never in a real build)
+            let env = ProcessInfo.processInfo.environment
+            if let l = env["BZ_LOGIN"], let p = env["BZ_PASS"], !l.isEmpty { try? await Community.shared.login(l, p) }
+            #endif
+            await repo.refresh(); WidgetBridge.tracks(); if let t = repo.data?.site.defaultTheme { store.applyDefaultTheme(t) }; if let r = RootView.shot { openShot(r) }
+        }
         .onAppear { if !opened.contains(ui.tab) { opened.append(ui.tab) } }
         // the last three tabs stay alive: more of them made every change redraw many hidden pages
         .onChange(of: ui.tab) { t in opened.removeAll { $0 == t }; opened.append(t); if opened.count > 3 { opened.removeFirst(opened.count - 3) } }
