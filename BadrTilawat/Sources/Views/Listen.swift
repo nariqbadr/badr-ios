@@ -192,7 +192,7 @@ private struct QuranLibraryView: View {
         let n0 = Int(String(q.trimmingCharacters(in: .whitespaces).map { c in c.wholeNumberValue.map { Character(String($0)) } ?? c }))
         let hits = nq.isEmpty ? [] : Array((1...114).filter { (n0 != nil && $0 == n0) || QuranMeta.norm(Quran.surahs[$0 - 1]).contains(nq) }.prefix(8))
         ScrollView {
-            LazyVStack(alignment: .leading, spacing: 8) {
+            VStack(alignment: .leading, spacing: 8) {
                 SearchField(text: $q, hint: tr("ابحث عن سورة واسمعها بصوت أي قارئ")).padding(.horizontal, 16).padding(.top, 8)
                 if !nq.isEmpty {
                     if hits.isEmpty { Empty(text: tr("لا توجد سورة بهذا الاسم.")) }
@@ -291,7 +291,7 @@ private struct ReciterQuranView: View {
         let repOn = mine && (player.repeatMode != 0 || player.repN > 0)
         return ZStack(alignment: .bottom) {
             ScrollView {
-                LazyVStack(alignment: .leading, spacing: 8) {
+                VStack(alignment: .leading, spacing: 8) {
                     if let back { Button(action: back) { HStack(spacing: 4) { Ico(name: "chevron.right", size: 20); Text(tr("كل القرّاء")) }.font(F.plex(14)).foregroundStyle(c.muted) }.padding(.horizontal, 18).padding(.top, 6) }
                     // hero
                     VStack(spacing: 14) {

@@ -14,7 +14,7 @@ struct HomeView: View {
         let s = d?.site
         let all = d?.sortedTracks ?? []
         ScrollView {
-            LazyVStack(alignment: .leading, spacing: 0) {
+            VStack(alignment: .leading, spacing: 0) {
                 banner(s)
                 if s?.liveOn == true && s?.live["showOnHome"].bool(true) == true { LiveStage().reveal() }
                 QuickHead()

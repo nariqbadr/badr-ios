@@ -10,7 +10,7 @@ struct QuranView: View {
         let mus = repo.data?.site.sec("mushaf") != false
         let last = Store.shared.str("lastRead").split(separator: ":").compactMap { Int($0) }
         ScrollView {
-            LazyVStack(alignment: .leading, spacing: 0) {
+            VStack(alignment: .leading, spacing: 0) {
                 if q.isEmpty {
                     if mus {
                         HStack(spacing: 10) {

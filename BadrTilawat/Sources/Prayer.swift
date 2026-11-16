@@ -11,7 +11,8 @@ final class Prayers: NSObject, ObservableObject, CLLocationManagerDelegate {
     static let shared = Prayers()
     static let names: [(String, String)] = [("fajr", "الفجر"), ("sunrise", "الشروق"), ("dhuhr", "الظهر"), ("asr", "العصر"), ("maghrib", "المغرب"), ("isha", "العشاء")]
     @Published var rev = 0
-    @Published var heading: Double = 0
+    /// (the qibla screen has its own compass now: a heading published here redrew every screen many times a second)
+    var heading: Double = 0
     private let lm = CLLocationManager()
     private var locCont: CheckedContinuation<CLLocation?, Never>?
 

@@ -83,7 +83,7 @@ struct FiqhView: View {
     var body: some View {
         let list = repo.data?.fiqh ?? []
         ScrollView {
-            LazyVStack(alignment: .leading, spacing: 14) {
+            VStack(alignment: .leading, spacing: 14) {
                 if !list.isEmpty { Text(tr("{0} درسًا في الفقه الشافعي", list.count.ar)).font(F.plex(14)).foregroundStyle(c.muted) }
                 if list.isEmpty { Empty(text: tr("لا توجد دروس منشورة حاليًا."), icon: "graduationcap") }
                 ForEach(list) { f in
@@ -167,7 +167,7 @@ struct TimelineScreen: View {
         let yr: (Date) -> String = { d in let fm = DateFormatter(); fm.calendar = Calendar(identifier: .islamicUmmAlQura); fm.locale = L.locale; fm.dateFormat = "y"; return fm.string(from: d) + tr(" هـ") }
         let greg: (Date) -> String = { d in let fm = DateFormatter(); fm.locale = L.locale; fm.dateFormat = "d MMMM yyyy"; return fm.string(from: d) }
         return ScrollView {
-            LazyVStack(alignment: .leading, spacing: 0) {
+            VStack(alignment: .leading, spacing: 0) {
                 Seg(items: [tr("الكل"), tr("المناسبات"), tr("التلاوات")], selected: f) { f = $0 }.padding(.bottom, 10)
                 if items.isEmpty { Empty(text: tr("لا توجد عناصر بعد."), icon: "clock") }
                 ForEach(Array(items.enumerated()), id: \.offset) { i, x in
