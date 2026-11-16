@@ -36,6 +36,8 @@ struct ClipOpts: Codable, Equatable {
     var name = true, sh = true, sur = true, brand = true, ipos = "bot", ifont = "plex", ifs = 100, icolor = "#f1d9a0"
     var lh = 175, wmax = 86, stroke = false, glow = 35
     var tfade = 0.5, vfi = 0.6, vfo = 0.8, afi = 1.0, afo = 1.5
+    /// where the ayah text sits when moved by hand (0…1 of the width; -1 = the middle)
+    var tx = -1.0
     @MainActor static func load() -> ClipOpts { (try? JSONDecoder().decode(ClipOpts.self, from: Data(Store.shared.str("clipOpts").utf8))) ?? ClipOpts() }
     @MainActor func save() { if let d = try? JSONEncoder().encode(self), let s = String(data: d, encoding: .utf8) { Store.shared.set("clipOpts", s) } }
     init() {}
@@ -45,7 +47,7 @@ struct ClipOpts: Codable, Equatable {
         g(.size, &o.size); g(.show, &o.show); g(.per, &o.per); g(.num, &o.num); g(.font, &o.font); g(.color, &o.color); g(.fs, &o.fs); g(.anim, &o.anim); g(.band, &o.band)
         g(.blur, &o.blur); g(.dark, &o.dark); g(.layout, &o.layout); g(.vscale, &o.vscale); g(.name, &o.name); g(.sh, &o.sh); g(.sur, &o.sur); g(.brand, &o.brand)
         g(.ipos, &o.ipos); g(.ifont, &o.ifont); g(.ifs, &o.ifs); g(.icolor, &o.icolor); g(.lh, &o.lh); g(.wmax, &o.wmax); g(.stroke, &o.stroke); g(.glow, &o.glow)
-        g(.tfade, &o.tfade); g(.vfi, &o.vfi); g(.vfo, &o.vfo); g(.afi, &o.afi); g(.afo, &o.afo)
+        g(.tx, &o.tx); g(.ty, &o.ty); g(.tfade, &o.tfade); g(.vfi, &o.vfi); g(.vfo, &o.vfo); g(.afi, &o.afi); g(.afo, &o.afo)
         self = o
     }
 }
@@ -181,8 +183,10 @@ enum ClipEngine {
     }
     static func gainAt(_ o: ClipOpts, _ t: Double, _ t0: Double, _ t1: Double, _ span: (Double, Double)) -> Double {
         var g = 1.0
-        if o.afi > 0 { g = min(g, fadeCurve((t - t0) / (span.0 - t0 + o.afi))) }
-        if o.afo > 0 { g = min(g, t >= span.1 + 0.15 ? 0 : fadeCurve((span.1 + 0.15 - t) / (o.afo + 0.15))) }
+        // the voice itself is never faded: the sound rises before the first word and falls after the last one
+        // (the fall began before the last ayah ended, and its last words were lost)
+        if o.afi > 0 { let len = max(0.05, min(o.afi, span.0 - t0)); g = min(g, fadeCurve((t - t0) / len)) }
+        if o.afo > 0 { let st = max(span.1 + 0.1, t1 - o.afo); if t > st { g = min(g, t >= t1 ? 0 : fadeCurve((t1 - t) / max(0.05, t1 - st))) } }
         return min(1, max(0, g))
     }
     static func infoText(_ o: ClipOpts, _ i: ClipInfo) -> String {
@@ -204,7 +208,11 @@ enum ClipEngine {
         let dark = Double(o.dark) / 100 * (o.layout == "fill" ? 0.9 : 1)
         cg.setFillColor(UIColor(white: 0, alpha: dark).cgColor)
         if o.layout == "fill" { cg.fill(CGRect(x: 0, y: 0, width: W, height: H)) }
-        else { let p = CGMutablePath(); p.addRect(CGRect(x: 0, y: 0, width: W, height: H)); p.addRect(g); cg.addPath(p); cg.fillPath(using: .evenOdd) }
+        else {
+            let p = CGMutablePath(); p.addRect(CGRect(x: 0, y: 0, width: W, height: H)); p.addRect(g); cg.addPath(p); cg.fillPath(using: .evenOdd)
+            // the video too (a little less than the background), so the ayahs read clearly when the video fills the frame
+            cg.setFillColor(UIColor(white: 0, alpha: dark * 0.75).cgColor); cg.fill(g)
+        }
         if o.show, let s = segs.first(where: { t >= $0.show && t < $0.hide }) { drawAyah(cg, o, W, H, t, g, s) }
         let line = infoText(o, info)
         if !line.isEmpty {
@@ -221,13 +229,21 @@ enum ClipEngine {
         }
     }
 
+    nonisolated(unsafe) private static var widthCache: [String: Double] = [:]
+    /// where the ayah text's centre is (0…1), for moving it by hand
+    static func ayahCenter(_ o: ClipOpts, _ W: Double, _ H: Double, _ vw: Double, _ vh: Double) -> CGPoint {
+        let g = geometry(o, W, H, vw, vh)
+        let defTy = o.layout == "fill" || W > H * 1.15 ? 0.8 : min(0.86, (g.maxY + H) / 2 / H)
+        return CGPoint(x: o.tx >= 0 ? o.tx : 0.5, y: o.ty >= 0 ? o.ty : defTy)
+    }
     /// one part of an ayah; a part fades out while the next one fades in (never two texts on top of each other)
     private static func drawAyah(_ cg: CGContext, _ o: ClipOpts, _ W: Double, _ H: Double, _ t: Double, _ g: CGRect, _ seg: ClipSeg) {
         let fd = min(1.2, max(0.15, o.tfade)), len = seg.hide - seg.show
         let inK = smooth((t - seg.show) / min(fd, len * 0.4)), outK = smooth((seg.hide - t) / min(fd * 0.8, len * 0.35)), a = min(inK, outK)
         if a <= 0 { return }
-        let scale = min(W, H) / 1080, fs = Double(o.fs) * scale * (sizeKey(o, W, H) == "wide" || W > H * 1.15 ? 0.9 : 1)
-        let f = font(o.font, fs), nf = font("amiri", fs * 0.82)
+        let scale = min(W, H) / 1080
+        var fs = Double(o.fs) * scale * (sizeKey(o, W, H) == "wide" || W > H * 1.15 ? 0.9 : 1)
+        var f = font(o.font, fs), nf = font("amiri", fs * 0.82)
         let glow = Double(o.glow) / 100
         let shadow = NSShadow(); shadow.shadowBlurRadius = fs * (0.1 + 0.6 * glow); shadow.shadowOffset = CGSize(width: 0, height: fs * 0.05)
         var toks = seg.toks; let withNum = o.num && seg.last; if withNum { toks.append("﴿\(seg.n.qar)﴾") }
@@ -236,24 +252,35 @@ enum ClipEngine {
             return [.font: font, .foregroundColor: col.withAlphaComponent(CGFloat(al)), .shadow: s]
         }
         let base = color(o.color)
-        let space = NSAttributedString(string: " ", attributes: [.font: f]).size().width
+        var space = NSAttributedString(string: " ", attributes: [.font: f]).size().width
         func numberParts() -> (open: NSAttributedString, digits: NSAttributedString, close: NSAttributedString) {
             let at: [NSAttributedString.Key: Any] = [.font: nf]
             return (NSAttributedString(string: "\u{FD3E}", attributes: at), NSAttributedString(string: seg.n.ar, attributes: at), NSAttributedString(string: "\u{FD3F}", attributes: at))
         }
         func width(_ i: Int) -> Double {
-            if withNum && i == toks.count - 1 { let p = numberParts(); return p.open.size().width * 2 + p.digits.size().width + fs * 0.12 }
-            return NSAttributedString(string: toks[i], attributes: [.font: f]).size().width
+            let key = "\(o.font)|\(Int(fs * 10))|\(withNum && i == toks.count - 1 ? "#\(seg.n)" : toks[i])"
+            if let w = widthCache[key] { return w }
+            let w: Double
+            if withNum && i == toks.count - 1 { let p = numberParts(); w = p.open.size().width * 2 + p.digits.size().width + fs * 0.12 }
+            else { w = NSAttributedString(string: toks[i], attributes: [.font: f]).size().width }
+            if widthCache.count > 4000 { widthCache.removeAll() }
+            widthCache[key] = w; return w
         }
         let maxW = W * Double(o.wmax) / 100
-        var lines: [[(tk: String, w: Double, i: Int)]] = []; var cur: [(tk: String, w: Double, i: Int)] = []; var lw = 0.0
-        for (i, tk) in toks.enumerated() { let tw = width(i); if !cur.isEmpty && lw + space + tw > maxW { lines.append(cur); cur = []; lw = 0 }; cur.append((tk, tw, i)); lw += (lw > 0 ? space : 0) + tw }
-        if !cur.isEmpty { lines.append(cur) }
+        var lines: [[(tk: String, w: Double, i: Int)]] = []
+        // a long ayah gets a smaller size so the whole of it fits in the frame (it ran off the top and the bottom)
+        for _ in 0..<8 {
+            lines = []; var cur: [(tk: String, w: Double, i: Int)] = []; var lw = 0.0
+            for (i, tk) in toks.enumerated() { let tw = width(i); if !cur.isEmpty && lw + space + tw > maxW { lines.append(cur); cur = []; lw = 0 }; cur.append((tk, tw, i)); lw += (lw > 0 ? space : 0) + tw }
+            if !cur.isEmpty { lines.append(cur) }
+            if Double(lines.count) * fs * Double(o.lh) / 100 <= H * 0.8 || fs < 14 { break }
+            fs *= 0.88; f = font(o.font, fs); nf = font("amiri", fs * 0.82); space = NSAttributedString(string: " ", attributes: [.font: f]).size().width
+        }
         let widths = lines.map { l in l.reduce(0) { $0 + $1.w } + space * Double(l.count - 1) }
         let lh = fs * Double(o.lh) / 100, total = Double(lines.count) * lh, mw = widths.max() ?? 0
         let defTy = o.layout == "fill" || W > H * 1.15 ? 0.8 : min(0.86, (g.maxY + H) / 2 / H)
         let ty = (o.ty >= 0 ? o.ty : defTy) * H
-        let cx = W / 2
+        let cx = o.tx >= 0 ? min(W - mw / 2 - W * 0.02, max(mw / 2 + W * 0.02, o.tx * W)) : W / 2
         var y = min(H - total / 2 - H * 0.03, max(total / 2 + H * 0.03, ty)) - total / 2 + lh / 2
         let top = y - lh / 2
         let dy = o.anim == "slide" ? (1 - inK) * fs * 0.8 : 0
@@ -463,7 +490,7 @@ final class ClipPreviewView: UIView {
         fgLayer.player = player; fgLayer.videoGravity = .resize
         layer.addSublayer(bgLayer); addSubview(blur); layer.addSublayer(fgLayer); addSubview(overlay)
         overlay.backgroundColor = .clear; overlay.isOpaque = false
-        link = CADisplayLink(target: self, selector: #selector(tick)); link?.add(to: .main, forMode: .common)
+        link = CADisplayLink(target: self, selector: #selector(tick)); link?.preferredFramesPerSecond = 30; link?.add(to: .main, forMode: .common)
     }
     required init?(coder: NSCoder) { fatalError() }
     deinit { link?.invalidate() }
@@ -484,12 +511,14 @@ final class ClipPreviewView: UIView {
         guard let m = model?() else { return }
         let t = player.currentTime().seconds
         if player.rate > 0, t >= m.t1 { player.seek(to: CMTime(seconds: m.t0, preferredTimescale: 600), toleranceBefore: .zero, toleranceAfter: .zero) }
+        // the preview sounds as the saved clip will (its fades)
+        if t.isFinite { player.volume = Float(ClipEngine.gainAt(m.o, t, m.t0, m.t1, ClipEngine.voiceSpan(m.segs, m.t0, m.t1))) }
         overlay.draw = { cg, size in
             let F = ClipEngine.frame(m.o, m.vw, m.vh), k = size.width / F.width
             cg.scaleBy(x: k, y: k)
             ClipEngine.drawOverlay(cg, m.o, W: F.width, H: F.height, vw: m.vw, vh: m.vh, t: t.isFinite ? t : m.t0, segs: m.segs, info: m.info, t0: m.t0, t1: m.t1)
         }
-        overlay.setNeedsDisplay(); setNeedsLayout()
+        overlay.setNeedsDisplay()
     }
     final class OverlayView: UIView {
         var draw: ((CGContext, CGSize) -> Void)?
@@ -545,6 +574,11 @@ struct ClipView: View {
     @State private var exporting: Double?
     @State private var exporter: ClipExporter?
     @State private var done: URL?
+    /// the ayah parts, made again only when something they depend on changes (they were made on every redraw)
+    @State private var segsC: [ClipSeg] = []
+    @State private var dragFrom: CGPoint?
+    @State private var pinchFrom: Int?
+    @State private var saveTask: Task<Void, Never>?
 
     private var t: Track? { repo.track(trackId).flatMap { $0.isVideo ? $0 : nil } }
     private var vw: Double { Double(t?.video?.w ?? 0) > 0 ? Double(t!.video!.w) : 16 }
@@ -556,7 +590,9 @@ struct ClipView: View {
         let q = v.q.filter { (1...720).contains($0.h) }.max { $0.h < $1.h } ?? v.q.min { $0.h < $1.h } ?? v.q[0]
         return Repo.media(q.url)
     }
-    private var segs: [ClipSeg] { ClipEngine.buildSegs(times, o.font == "uthmani" ? texts.mapValues(ClipEngine.qpc) : texts, t0, t1, o.per, modes) }
+    private var segs: [ClipSeg] { segsC }
+    private var segsKey: String { "\(times?.ayahs.count ?? 0)|\(texts.count)|\(t0)|\(t1)|\(o.per)|\(o.font)|\(modes)" }
+    private func makeSegs() -> [ClipSeg] { ClipEngine.buildSegs(times, o.font == "uthmani" ? texts.mapValues(ClipEngine.qpc) : texts, t0, t1, o.per, modes) }
     private var info: ClipInfo {
         let r = repo.reciter(t?.reciterId)?.name ?? ""
         let s = (1...114).contains(surahNo) ? tr("سورة {0}", Quran.surahs[surahNo - 1]) : (t?.surah ?? "").isEmpty ? "" : ((t?.surah ?? "").hasPrefix("سورة") ? t!.surah : tr("سورة {0}", t!.surah))
@@ -574,7 +610,11 @@ struct ClipView: View {
         .task(id: o.font + "|" + o.ifont) { await loadCustomFonts() }
     }
 
-    private func set(_ f: (inout ClipOpts) -> Void) { var n = o; f(&n); o = n; n.save() }
+    /// a change shows at once; it is kept a moment later (saving on every step of a slider made it stutter)
+    private func set(_ f: (inout ClipOpts) -> Void) {
+        var n = o; f(&n); o = n
+        saveTask?.cancel(); saveTask = Task { try? await Task.sleep(nanoseconds: 400_000_000); if !Task.isCancelled { n.save() } }
+    }
 
     @ViewBuilder private func body(_ t: Track, _ src: URL) -> some View {
         let FR = ClipEngine.frame(o, vw, vh)
@@ -585,7 +625,22 @@ struct ClipView: View {
                     .aspectRatio(FR.width / FR.height, contentMode: .fit)
                     .frame(maxHeight: 460).clipShape(RoundedRectangle(cornerRadius: 16)).overlay(RoundedRectangle(cornerRadius: 16).stroke(c.line))
                     .overlay { if loading { ProgressView().tint(c.gold) } }
-                    .onTapGesture { togglePlay() }
+                    // drag the ayahs to move them, pinch to make them bigger or smaller; a tap plays / pauses
+                    .overlay { GeometryReader { gp in Color.clear.contentShape(Rectangle())
+                        .onTapGesture { togglePlay() }
+                        .gesture(DragGesture(minimumDistance: 4).onChanged { d in
+                            let from = dragFrom ?? ClipEngine.ayahCenter(o, FR.width, FR.height, w, h)
+                            if dragFrom == nil { dragFrom = from }
+                            var x = min(0.96, max(0.04, from.x + d.translation.width / max(1, gp.size.width)))
+                            var y = min(0.96, max(0.04, from.y + d.translation.height / max(1, gp.size.height)))
+                            if abs(x - 0.5) < 0.02 { x = 0.5 }; if abs(y - 0.5) < 0.02 { y = 0.5 }
+                            set { $0.tx = x == 0.5 ? -1 : x; $0.ty = y }
+                        }.onEnded { _ in dragFrom = nil })
+                        .simultaneousGesture(MagnificationGesture().onChanged { k in
+                            let from = pinchFrom ?? o.fs; if pinchFrom == nil { pinchFrom = from }
+                            set { $0.fs = Int(min(160, max(24, Double(from) * k))) }
+                        }.onEnded { _ in pinchFrom = nil })
+                    } }
                 HStack(spacing: 10) {
                     Button { togglePlay() } label: { Ico(name: playing ? "pause.fill" : "play.fill", size: 20).foregroundStyle(c.onGold).frame(width: 44, height: 44).background(Circle().fill(c.gold)) }
                         .accessibilityLabel(playing ? tr("إيقاف مؤقت") : tr("تشغيل"))
@@ -615,7 +670,8 @@ struct ClipView: View {
             }.padding(16).padding(.bottom, 80)
         }
         .task { await load(t, src) }
-        .onDisappear { player.pause(); exporter?.cancel() }
+        .onChange(of: segsKey) { _ in segsC = makeSegs() }
+        .onDisappear { player.pause(); exporter?.cancel(); o.save() }
     }
 
     private func fmt(_ s: Double) -> String { let x = Int(max(0, s)); return String(format: "%d:%02d", x / 60, x % 60) }
@@ -641,10 +697,14 @@ struct ClipView: View {
             // start at the first recited ayah and end at the last ayah that fits in 30 seconds
             let s0 = Double(tm.ayahs[0][1]) / 1000; var e = Double(tm.ayahs[0][2]) / 1000
             for a in tm.ayahs where Double(a[2]) / 1000 - s0 <= ClipEngine.first { e = Double(a[2]) / 1000 }
-            t0 = max(0, s0 - 0.25); t1 = min(t0 + ClipEngine.first, e + 0.35)
+            // ends a little after the last ayah (its last word is never cut, and the sound falls after it)
+            t0 = max(0, s0 - 0.25); t1 = e + 0.35 + max(0.6, o.afo)
+            if t1 - t0 > ClipEngine.maxLen { t1 = t0 + ClipEngine.maxLen }
         } else { t1 = min(dur, ClipEngine.first) }
         if let d = try? await AVURLAsset(url: src).load(.duration).seconds, d.isFinite, d > 0 { dur = d }
-        await player.seek(to: CMTime(seconds: t0, preferredTimescale: 600))
+        t1 = min(t1, dur)
+        segsC = makeSegs()
+        await player.seek(to: CMTime(seconds: t0, preferredTimescale: 600), toleranceBefore: .zero, toleranceAfter: .zero)
         loading = false
     }
     private func saveNames() {
@@ -669,7 +729,7 @@ struct ClipView: View {
                             ForEach(times.ayahs.indices, id: \.self) { i in
                                 let a = times.ayahs[i]
                                 Pill(title: tr("الآية {0}", a[0].ar), on: inPart.contains { $0[0] == a[0] }) {
-                                    t0 = max(0, Double(a[1]) / 1000 - 0.25); t1 = min(dur, max(t0 + 3, min(t0 + ClipEngine.maxLen, Double(a[2]) / 1000 + 0.35)))
+                                    t0 = max(0, Double(a[1]) / 1000 - 0.25); t1 = min(dur, max(t0 + 3, min(t0 + ClipEngine.maxLen, Double(a[2]) / 1000 + 0.35 + max(0.6, o.afo))))
                                     player.seek(to: CMTime(seconds: t0, preferredTimescale: 600), toleranceBefore: .zero, toleranceAfter: .zero)
                                 }
                             }
@@ -705,7 +765,8 @@ struct ClipView: View {
                 }
             }
             row(tr("موضع النص")) { Slider(value: Binding(get: { o.ty < 0 ? 0.8 : o.ty }, set: { v in set { $0.ty = v } }), in: 0.1...0.92) }
-            Button(tr("الموضع التلقائي")) { set { $0.ty = -1 } }.font(F.plex(13)).foregroundStyle(c.gold)
+            Text(tr("اسحب الآيات بإصبعك على المعاينة لتحريكها، وقرّب أو باعد بإصبعين لتكبيرها")).font(F.plex(12)).foregroundStyle(c.muted)
+            Button(tr("الموضع التلقائي")) { set { $0.ty = -1; $0.tx = -1 } }.font(F.plex(13)).foregroundStyle(c.gold)
         }
     }
     private func lookTab() -> some View {
