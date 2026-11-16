@@ -182,7 +182,7 @@ struct IntroView: View {
             let side = g.size.width
             ZStack(alignment: .topLeading) {
                 // the star: four squares drawn with a 600-long dash (viewBox 200), then a soft gold glow
-                Canvas { ctx, size in
+                Canvas(rendersAsynchronously: true) { ctx, size in
                     let u = size.width / 200
                     let glow = k(1.6, 1.4, IntroView.ease)
                     if glow > 0 { ctx.addFilter(.shadow(color: Color(red: 201 / 255, green: 164 / 255, blue: 92 / 255, opacity: 0.45 * glow), radius: 9)) }
@@ -207,7 +207,7 @@ struct IntroView: View {
 
     /// The logo (viewBox 1024), every piece with its own delay and duration as in the site's markup.
     private func logo(k: @escaping (Double, Double, Ease) -> Double) -> some View {
-        Canvas { ctx, size in
+        Canvas(rendersAsynchronously: true) { ctx, size in
             let s = size.width / 1024
             ctx.scaleBy(x: s, y: s)
             ctx.clip(to: Path(ellipseIn: CGRect(x: 0, y: 0, width: 1024, height: 1024)))

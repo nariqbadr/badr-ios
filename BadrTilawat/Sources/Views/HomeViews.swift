@@ -569,6 +569,7 @@ struct LiveStage: View {
     @State private var poster = true
     @State private var pulse = false
     @State private var mosque = Haram.chosen
+    @State private var started = false
     @StateObject private var ctl = LiveCtl()
     var body: some View {
         let l = repo.data?.site.live
@@ -576,7 +577,8 @@ struct LiveStage: View {
         let auto = l?["autoplayHome"].bool(true) ?? true
         ZStack {
             c.surface3
-            if auto && !src.embed.isEmpty { LiveEmbed(id: src.embed, ctl: ctl).id(mosque) }
+            // the video player is made only once the opening has gone (making it is heavy and made the logo stutter)
+            if auto && started && !src.embed.isEmpty { LiveEmbed(id: src.embed, ctl: ctl).id(mosque) }
             RemoteImage(raw: src.poster).opacity(poster || !auto ? 1 : 0).animation(.easeOut(duration: 0.6), value: poster)
             LinearGradient(stops: [.init(color: .black.opacity(0.35), location: 0), .init(color: .clear, location: 0.5), .init(color: .black.opacity(0.8), location: 1)], startPoint: .top, endPoint: .bottom)
                 .contentShape(Rectangle()).onTapGesture { ui.path.append(.liveAt(mosque)) }
@@ -625,7 +627,8 @@ struct LiveStage: View {
         .padding(.horizontal, 16).padding(.vertical, 8)
         .onAppear { mosque = Haram.chosen; withAnimation(.easeInOut(duration: 0.9).repeatForever()) { pulse = true }; DispatchQueue.main.asyncAfter(deadline: .now() + 2.5) { poster = false } }
         .onChange(of: phase) { p in ctl.js(p == .active && active ? "cmd('playVideo')" : "cmd('pauseVideo')") }
-        .onChange(of: active) { a in ctl.js(a && phase == .active ? "cmd('playVideo')" : "cmd('pauseVideo')") }
+        .onChange(of: active) { a in ctl.js(a && phase == .active ? "cmd('playVideo')" : "cmd('pauseVideo')"); if a && !started { DispatchQueue.main.asyncAfter(deadline: .now() + 0.9) { started = true } } }
+        .onAppear { if active && !started { DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) { started = true } } }
         .onDisappear { ctl.js("cmd('pauseVideo')") }
     }
 }

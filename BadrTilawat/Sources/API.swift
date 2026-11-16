@@ -36,12 +36,16 @@ final class Repo: ObservableObject {
         do {
             let (d, resp) = try await session.data(from: url)
             guard (resp as? HTTPURLResponse)?.statusCode == 200 else { offline = true; return }
-            let j = J(data: d)
             if offline { offline = false }
-            if j["same"].bool() { return }
-            guard !j["site"].isNull else { return }
-            data = SiteData(j)
-            try? d.write(to: cacheURL)
+            // the site's data is read off the main thread (a big download: reading it here froze the screen)
+            let cache = cacheURL
+            let sd: SiteData? = await Task.detached(priority: .userInitiated) { () -> SiteData? in
+                let j = J(data: d)
+                if j["same"].bool() || j["site"].isNull { return nil }
+                try? d.write(to: cache)
+                return SiteData(j)
+            }.value
+            if let sd { data = sd }
         } catch { offline = true }
     }
 

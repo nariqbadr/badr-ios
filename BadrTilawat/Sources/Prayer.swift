@@ -136,7 +136,10 @@ final class Prayers: NSObject, ObservableObject, CLLocationManagerDelegate {
                 let m = mode(p.key); if m == "off" { continue }
                 if p.time > now {
                     let n = UNMutableNotificationContent()
-                    n.title = p.key == "sunrise" ? tr("حان وقت الشروق") : tr("حان الآن موعد صلاة {0}", p.name); n.body = tr("حيّ على الصلاة")
+                    n.title = p.key == "sunrise" ? tr("حان وقت الشروق") : tr("حان الآن موعد صلاة {0}", p.name)
+                    // the adhan's voice, and that a tap plays it whole (the notification itself plays 30 s)
+                    let who = Adhan.voice.map { $0.muezzin.isEmpty ? $0.name : $0.muezzin } ?? ""
+                    n.body = m == "adhan" && p.key != "sunrise" ? (who.isEmpty ? tr("انقر للاستماع إلى الأذان كاملًا") : tr("بصوت {0} · انقر للاستماع إلى الأذان كاملًا", who)) : tr("حيّ على الصلاة")
                     n.sound = m == "adhan" ? UNNotificationSound(named: UNNotificationSoundName(Adhan.soundName(p.key == "fajr") ?? "adhan.caf")) : .default
                     if m == "adhan" && p.key != "sunrise" { n.userInfo = ["adhan": p.key] }
                     if #available(iOS 15.0, *) { n.interruptionLevel = .timeSensitive }

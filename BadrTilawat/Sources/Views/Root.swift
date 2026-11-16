@@ -46,7 +46,7 @@ struct RootView: View {
                     ZStack {
                         ForEach(opened, id: \.self) { k in
                             let on = k == ui.tab
-                            screen(k).opacity(on ? 1 : 0).allowsHitTesting(on).accessibilityHidden(!on).environment(\.tabActive, on && ui.path.isEmpty)
+                            screen(k).opacity(on ? 1 : 0).allowsHitTesting(on).accessibilityHidden(!on).environment(\.tabActive, on && ui.path.isEmpty && !intro)
                         }
                     }.frame(maxHeight: .infinity)
                     // a short cross-fade between tabs (the tab bar itself changes at once)
