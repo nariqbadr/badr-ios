@@ -196,6 +196,8 @@ struct PrayerSettings: View {
     @State private var notifDenied = false
     @State private var voice = Adhan.voiceId
     @State private var testAdhan = false
+    @State private var testMsg = ""
+    @ObservedObject private var adhanP = AdhanPlayer.shared
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 12) {
@@ -247,9 +249,20 @@ struct PrayerSettings: View {
                         .padding(12).background(RoundedRectangle(cornerRadius: 14).fill(c.surface.opacity(0.6))).overlay(RoundedRectangle(cornerRadius: 14).stroke(voice == v.id ? c.gold : c.lineSoft))
                     }.buttonStyle(.plain)
                 }
-                GhostButton(title: tr("تجربة الأذان"), icon: "bell") {
-                    Task { let ok = await prayers.testNotification(); ui.say(ok ? tr("سيُرفع الأذان بعد ١٠ ثوانٍ — يمكنك إغلاق التطبيق أو قفل الشاشة") : tr("اسمح للتطبيق بالإشعارات من الإعدادات أولًا")) }
+                // two tests: hear the chosen adhan now, and the real notification in 10 seconds
+                HStack(spacing: 10) {
+                    GhostButton(title: adhanP.playing ? tr("إيقاف") : tr("استماع للأذان"), icon: adhanP.playing ? "stop.fill" : "play.fill") {
+                        if adhanP.playing { adhanP.stop() } else { adhanP.play(fajr: false) }
+                    }.frame(maxWidth: .infinity)
+                    GhostButton(title: tr("تجربة الإشعار"), icon: "bell") {
+                        testMsg = tr("جارٍ التجهيز…")
+                        Task {
+                            let ok = await prayers.testNotification()
+                            testMsg = ok ? tr("سيصل إشعار الأذان بعد ١٠ ثوانٍ — يمكنك إغلاق التطبيق أو قفل الشاشة") : tr("اسمح للتطبيق بالإشعارات من الإعدادات أولًا")
+                        }
+                    }.frame(maxWidth: .infinity)
                 }
+                if !testMsg.isEmpty { Text(testMsg).font(F.plex(13, .semibold)).foregroundStyle(c.gold).frame(maxWidth: .infinity, alignment: .leading) }
                 Text(tr("في الإشعار يُسمع أول ٣٠ ثانية من الأذان (أقصى ما يسمح به الآيفون)، والمس الإشعار لسماعه كاملًا.")).font(F.plex(12)).foregroundStyle(c.muted)
                 GhostButton(title: busy ? tr("جارٍ التحديد…") : tr("حدّد موقعي تلقائيًا"), icon: "location") {
                     busy = true; Task { let ok = await prayers.locate(); busy = false; ui.say(ok ? tr("تم تحديث المواقيت: {0}", prayers.place) : tr("تعذّر تحديد الموقع — اكتب مدينتك")) }
@@ -265,6 +278,7 @@ struct PrayerSettings: View {
         }
         .font(F.plex(15)).background(c.bg2.ignoresSafeArea()).environment(\.layoutDirection, L.dir)
         .fullScreenCover(isPresented: $testAdhan) { AdhanScreen(key: "test") }
+        .onDisappear { if adhanP.playing { adhanP.stop() } }
         .onAppear {
             pre = prayers.preMinutes; on = prayers.alertsOn; iqOn = prayers.iqOn; voice = Adhan.voiceId; Task { await Adhan.prepare(); prayers.schedule() }
             UNUserNotificationCenter.current().getNotificationSettings { s in DispatchQueue.main.async { notifDenied = s.authorizationStatus == .denied } }

@@ -64,6 +64,8 @@ final class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCent
     // show the adhan alert (with its sound) even while the app is open
     // the adhan while the app is open: the full-screen adhan plays the whole adhan instead of the 30 s sound
     func userNotificationCenter(_ center: UNUserNotificationCenter, willPresent notification: UNNotification) async -> UNNotificationPresentationOptions {
+        // the test from the settings: shown as it arrives, with the adhan's own sound (the settings sheet stays open)
+        if notification.request.identifier == "adhan-test" { return [.banner, .sound, .list] }
         if let k = notification.request.content.userInfo["adhan"] as? String {
             await MainActor.run { UIState.shared?.adhan = AdhanKey(key: k); AdhanPlayer.shared.play(fajr: k == "fajr") }
             return [.banner, .list]
