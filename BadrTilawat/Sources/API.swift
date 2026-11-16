@@ -75,7 +75,7 @@ final class Repo: ObservableObject {
         return data?.reciters.first { r in let y = norm(r.name); return y.first == w.first && y.last == w.last }?.image ?? ""
     }
     static func partBase(_ id: String?) -> String? { id?.replacingOccurrences(of: "__s\\d{1,3}$", with: "", options: .regularExpression) }
-    func track(_ id: String?) -> Track? { let b = Repo.partBase(id); return data?.byId[b] ?? quranTrack(b) }
+    func track(_ id: String?) -> Track? { let b = Repo.partBase(id); return b.flatMap { data?.byId[$0] } ?? quranTrack(b) }
     func image(for t: Track) -> String { t.image.isEmpty ? (reciter(t.reciterId)?.image ?? "") : t.image }
     static func withSheikh(_ n: String) -> String {
         let t = n.trimmingCharacters(in: .whitespaces)
