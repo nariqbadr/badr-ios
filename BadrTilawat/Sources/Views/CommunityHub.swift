@@ -392,7 +392,8 @@ struct PagedPosts<Header: View>: View {
             }.padding(.bottom, 90)
         }
         .refreshable { await reload() }
-        .task(id: key) { await reload() }
+        // again when signing in or out: the feed of a signed-in member is not the visitors' one
+        .task(id: key + "|\(cm.me?.id ?? 0)") { await reload() }
         .onChange(of: cm.relRev) { _ in Task { await reload() } }
     }
     private func reload() async {
@@ -553,6 +554,11 @@ struct ThreadView: View {
                     ForEach(t.1) { PostCard(p: $0) }
                     if t.1.isEmpty { Text(tr("لا ردود بعد.")).font(F.plex(14)).foregroundStyle(c.faint).frame(maxWidth: .infinity).padding(24) }
                 } else if let err { Empty(text: err, icon: "search") }
+                else if let p = cm.seen[id] {
+                    // the post at once (from the list it was opened from); its replies follow
+                    PostCard(p: p, big: true)
+                    ProgressView().tint(c.gold).frame(maxWidth: .infinity).padding(24)
+                }
                 else { ProgressView().tint(c.gold).frame(maxWidth: .infinity).padding(40) }
             }.padding(.bottom, 40)
         }

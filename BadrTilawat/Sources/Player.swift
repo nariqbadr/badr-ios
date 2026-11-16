@@ -111,6 +111,19 @@ final class AudioPlayer: ObservableObject {
     }
     var sleepOn: Bool { sleepAt != nil || sleepEndOfTrack }
 
+    /// pages that light the words with the voice (Mushaf, «اقرأ واستمع واحفظ»): they need exact timing
+    var follow = 0 { didSet { if oldValue == 0 && follow > 0 && !curPrecise { preciseNow() } } }
+    private var curPrecise = false
+    /// the same recitation again with exact timing, from where it is (when a following page opens during playback)
+    private func preciseNow() {
+        guard let t = current, OfflineFiles.local(t.id) == nil, let url = Repo.media(t.audio) else { return }
+        let at = position, was = playing
+        curPrecise = true
+        player.replaceCurrentItem(with: AVPlayerItem(asset: AVURLAsset(url: url, options: [AVURLAssetPreferPreciseDurationAndTimingKey: true])))
+        player.seek(to: CMTime(seconds: at, preferredTimescale: 600), toleranceBefore: .zero, toleranceAfter: .zero)
+        if was { player.play(); player.rate = Store.shared.speed }
+    }
+
     // MARK: internals
     private func load() {
         guard let t = current, let url = Repo.media(t.audio) else { return }
@@ -119,7 +132,13 @@ final class AudioPlayer: ObservableObject {
         try? AVAudioSession.sharedInstance().setActive(true)
         // precise timing: with the usual estimate, an MP3's clock drifts after a seek or a resume, and the words
         // lit in «اقرأ واستمع واحفظ» / the Mushaf fall behind or run ahead of the voice
-        let item = AVPlayerItem(asset: AVURLAsset(url: OfflineFiles.local(t.id) ?? url, options: [AVURLAssetPreferPreciseDurationAndTimingKey: true]))
+        // precise timing reads the file through before it plays: kept for saved files and while the words are followed
+        // (Mushaf / «اقرأ واستمع»); otherwise a recitation starts the moment it is tapped
+        let local = OfflineFiles.local(t.id)
+        curPrecise = local != nil || follow > 0
+        let item = AVPlayerItem(asset: AVURLAsset(url: local ?? url, options: [AVURLAssetPreferPreciseDurationAndTimingKey: curPrecise]))
+        item.preferredForwardBufferDuration = 0
+        player.automaticallyWaitsToMinimizeStalling = local == nil ? false : true
         player.replaceCurrentItem(with: item)
         let resume = startAt ?? Store.shared.position(t.id); startAt = nil
         if resume > 0 { player.seek(to: CMTime(seconds: resume, preferredTimescale: 600), toleranceBefore: .zero, toleranceAfter: .zero) }

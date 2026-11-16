@@ -102,6 +102,7 @@ struct MushafView: View {
             if !ready { ProgressView().tint(c.gold).frame(maxWidth: .infinity, maxHeight: .infinity) }
             else { content }
         }
+        .modifier(FollowMark())
         .task { if !ready { await Task.detached { MushafData.load() }.value; ready = true } }
         .onChange(of: page) { UserDefaults.standard.set($0, forKey: "mushafPage") }
         .onChange(of: ma.current) { g in if g > 0 { let p = MushafData.pageOf(g); if p != page { withAnimation { page = p } } } }
@@ -493,5 +494,19 @@ struct ReciterButton: View {
                 }.padding(.bottom, 20)
             }.background(c.bg2.ignoresSafeArea()).environment(\.layoutDirection, L.dir).presentationDetents([.medium, .large])
         }
+    }
+}
+
+
+/// Marks a page that lights the words with the voice while it is on screen (the player then keeps exact timing).
+struct FollowMark: ViewModifier {
+    /// a pushed page (not a tab) counts whenever it is shown
+    var pushed = false
+    @Environment(\.tabActive) private var tabOn
+    private var active: Bool { pushed || tabOn }
+    @State private var on = false
+    private func set(_ v: Bool) { if v != on { on = v; AudioPlayer.shared.follow += v ? 1 : -1 } }
+    func body(content: Content) -> some View {
+        content.onAppear { set(active) }.onDisappear { set(false) }.onChange(of: active) { set($0) }
     }
 }

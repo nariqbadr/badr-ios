@@ -131,7 +131,15 @@ final class Community: ObservableObject {
     private func clear() { HTTPCookieStorage.shared.cookies?.filter { $0.name.hasPrefix("bzc") }.forEach { HTTPCookieStorage.shared.deleteCookie($0) }; csrf = ""; me = nil; unread = 0 }
 
     struct Page { let items: [FeedItem]; let next: Int; let user: Member?; var blocked = false; var pinned: Post? = nil; var people: [Member] = [] }
+    /// posts already seen in a list: a post opens with it at once while its replies load
+    var seen: [Int: Post] = [:]
     private func page(_ j: J) -> Page {
+        let p = pageOf(j)
+        for it in p.items { seen[it.post.id] = it.post }
+        if seen.count > 600 { seen.removeAll() }
+        return p
+    }
+    private func pageOf(_ j: J) -> Page {
         Page(items: j["items"].array.map { FeedItem(key: $0["key"].int, post: Post($0["post"]), repostBy: $0["repostBy"].isNull ? nil : Member($0["repostBy"])) }, next: j["next"].int, user: j["user"].isNull ? nil : Member(j["user"]), blocked: j["blocked"].bool(), pinned: j["pinned"].isNull ? nil : Post(j["pinned"]), people: j["people"].array.map(Member.init))
     }
     func feed(_ tab: String, before: Int) async throws -> Page { page(try await api("c_feed", query: ["tab": tab, "before": "\(before)"])) }

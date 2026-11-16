@@ -1,3 +1,4 @@
+import Network
 import SwiftUI
 import WebKit
 
@@ -571,6 +572,7 @@ struct LiveStage: View {
     @State private var mosque = Haram.chosen
     @State private var started = false
     @StateObject private var ctl = LiveCtl()
+    @ObservedObject private var net = Net.shared
     var body: some View {
         let l = repo.data?.site.live
         let src = Haram.src(mosque)
@@ -578,7 +580,7 @@ struct LiveStage: View {
         ZStack {
             c.surface3
             // the video player is made only once the opening has gone (making it is heavy and made the logo stutter)
-            if auto && started && !src.embed.isEmpty { LiveEmbed(id: src.embed, ctl: ctl).id(mosque) }
+            if auto && started && !src.embed.isEmpty { LiveEmbed(id: src.embed, ctl: ctl).id("\(mosque)-\(net.back)") }
             RemoteImage(raw: src.poster).opacity(poster || !auto ? 1 : 0).animation(.easeOut(duration: 0.6), value: poster)
             LinearGradient(stops: [.init(color: .black.opacity(0.35), location: 0), .init(color: .clear, location: 0.5), .init(color: .black.opacity(0.8), location: 1)], startPoint: .top, endPoint: .bottom)
                 .contentShape(Rectangle()).onTapGesture { ui.path.append(.liveAt(mosque)) }
@@ -634,6 +636,22 @@ struct LiveStage: View {
 }
 
 /// Talks to the muted YouTube player inside the live card.
+/// Whether the phone is online: the live stream starts again by itself when the connection comes back.
+@MainActor
+final class Net: ObservableObject {
+    static let shared = Net()
+    @Published private(set) var back = 0   // goes up each time the connection returns
+    private let mon = NWPathMonitor()
+    private var online = true
+    private init() {
+        mon.pathUpdateHandler = { p in
+            let on = p.status == .satisfied
+            Task { @MainActor in let s = Net.shared; if on && !s.online { s.back += 1 }; s.online = on }
+        }
+        mon.start(queue: DispatchQueue(label: "net"))
+    }
+}
+
 final class LiveCtl: ObservableObject { weak var web: WKWebView?; func js(_ s: String) { web?.evaluateJavaScript(s) } }
 struct LiveEmbed: UIViewRepresentable {
     let id: String; let ctl: LiveCtl

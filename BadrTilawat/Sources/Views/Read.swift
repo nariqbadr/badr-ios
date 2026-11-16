@@ -229,7 +229,7 @@ struct ReadView: View {
     private var path: String { guard let s = src else { return "" }; return s.kind == "track" ? "read/track/\(s.id)" : "read/\(sn)/\(s.id)" }
 
     var body: some View {
-        if let src, sn > 0 { content(src) }
+        if let src, sn > 0 { content(src).modifier(FollowMark(pushed: true)) }
         else { Empty(text: tr("تعذّر العثور على هذه التلاوة."), icon: "waveform").navigationTitle(tr("اقرأ واستمع واحفظ")) }
     }
 
