@@ -26,6 +26,7 @@ struct SeekBar: View {
 /// Docked player bar — the site's bottom player laid out for a phone (like the Android app):
 /// artwork · title · reciter · heart / time — seek bar — time / speed · repeat · prev · ⟲10 · PLAY · 10⟳ · next · shuffle · queue.
 struct MiniPlayer: View {
+    @ObservedObject private var autoTr = AutoTr.shared
     @EnvironmentObject var p: AudioPlayer
     @ObservedObject private var clock = AudioPlayer.shared.clock
     @EnvironmentObject var store: Store
@@ -91,6 +92,7 @@ func speedText(_ s: Float) -> String { s.truncatingRemainder(dividingBy: 1) == 0
 
 /// Full-screen player: blurred artwork, the arch artwork with a slow rosette, all the site's controls.
 struct PlayerView: View {
+    @ObservedObject private var autoTr = AutoTr.shared
     @EnvironmentObject var p: AudioPlayer
     @ObservedObject private var clock = AudioPlayer.shared.clock
     @EnvironmentObject var store: Store

@@ -16,7 +16,7 @@ struct BadrApp: App {
 
     var body: some Scene {
         WindowGroup {
-            RootView()
+            RootView().modifier(AutoTrHost())
                 .environmentObject(repo).environmentObject(store).environmentObject(player).environmentObject(ayah)
                 .environmentObject(prayers).environmentObject(ui).environmentObject(cm).environmentObject(lang)
                 .environment(\.pal, Themes.get(store.theme))

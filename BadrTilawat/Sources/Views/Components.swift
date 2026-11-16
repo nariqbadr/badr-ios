@@ -387,6 +387,8 @@ struct NowMark: View {
 }
 
 struct TrackRow: View {
+    /// redraws when a translated title arrives
+    @ObservedObject private var autoTr = AutoTr.shared
     let t: Track; let list: [Track]
     var rank: Int = 0; var count: Int = 0; var showReciter = true
     @EnvironmentObject var player: AudioPlayer
@@ -410,7 +412,7 @@ struct TrackRow: View {
             }
             VStack(alignment: .leading, spacing: 1) {
                 Text(shortTitleL(t)).font(F.plex(15, .bold)).foregroundStyle(cur ? c.gold : c.text).lineLimit(2).multilineTextAlignment(.leading)
-                if !detail.isEmpty && L.ar { Text(detail).font(F.plex(12)).foregroundStyle(c.gold.opacity(0.78)).lineLimit(2).multilineTextAlignment(.leading) }
+                if !detail.isEmpty { Text(AutoTr.shared.t(detail)).font(F.plex(12)).foregroundStyle(c.gold.opacity(0.78)).lineLimit(2).multilineTextAlignment(.leading) }
                 if showReciter, let n = r?.shown, !n.isEmpty { Text(n).font(F.plex(12.5)).foregroundStyle(c.muted).lineLimit(1) }
                 HStack(spacing: 0) {
                     if isNewTrack(t) { Circle().fill(c.gold).frame(width: 6, height: 6).padding(.trailing, 6) }

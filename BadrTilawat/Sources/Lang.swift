@@ -81,3 +81,12 @@ func tr(_ s: String, _ a: Any...) -> String {
     }
     return r
 }
+
+
+/// A translated template with a styled value in it: «{0} يتابع» → [bold number] + " يتابع" (or "Following {0}" in English).
+/// (putting a Text into the string printed the Text's description instead of the number)
+@MainActor func trText(_ key: String, _ v: Text) -> Text {
+    let t = tr(key)
+    guard let r = t.range(of: "{0}") else { return Text(t) }
+    return Text(String(t[..<r.lowerBound])) + v + Text(String(t[r.upperBound...]))
+}

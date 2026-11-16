@@ -362,7 +362,12 @@ struct AyahOfDay: View {
     @EnvironmentObject var repo: Repo
     /* UI actions only: reading it does not redraw this view on every tab or sheet change */ private var ui: UIState { UIState.shared! }
     @Environment(\.pal) private var c
-    @State private var ref = Calendar.current.component(.weekday, from: Date()) == 6 ? (33, 56) : Quran.daily(Int64(Calendar.current.ordinality(of: .day, in: .era, for: Date()) ?? 1))
+    /// a new ayah each time the app is opened (and when it comes back after a while); on Friday always
+    /// ﴿إن الله وملائكته يصلون على النبي﴾ — kept for the whole visit, even if the home page is made again
+    static func newRef() -> (Int, Int) { Calendar.current.component(.weekday, from: Date()) == 6 ? (33, 56) : Quran.daily(Int64.random(in: 1...Int64(Int32.max))) }
+    nonisolated(unsafe) static var shown = newRef()
+    nonisolated(unsafe) static var leftAt = Date()
+    @State private var ref = AyahOfDay.shown
     @State private var text: String?
     @State private var repeatN = 1
     @State private var tafsir = false
@@ -410,6 +415,11 @@ struct AyahOfDay: View {
             }.padding(.top, 12)
         }
         .task(id: "\(s):\(a)") { text = nil; text = await load(s, a) }
+        .onChange(of: s * 1000 + a) { _ in AyahOfDay.shown = ref }
+        .onReceive(NotificationCenter.default.publisher(for: UIApplication.didEnterBackgroundNotification)) { _ in AyahOfDay.leftAt = Date() }
+        .onReceive(NotificationCenter.default.publisher(for: UIApplication.willEnterForegroundNotification)) { _ in
+            if Date().timeIntervalSince(AyahOfDay.leftAt) > 600, ayah.key == nil { AyahOfDay.shown = AyahOfDay.newRef(); ref = AyahOfDay.shown }
+        }
         .bzSheet(isPresented: $tafsir) { TafsirSheet(s: s, a: a, text: text ?? "").presentationDetents([.medium, .large]) }
         .bzSheet(isPresented: $picking) { AyahPickSheet(s0: s, a0: a) { s2, a2 in picking = false; ayah.stop(); ref = (s2, a2) }.presentationDetents([.medium, .large]) }
     }

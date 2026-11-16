@@ -453,6 +453,7 @@ struct UserView: View {
     /* UI actions only: reading it does not redraw this view on every tab or sheet change */ private var ui: UIState { UIState.shared! }
     @Environment(\.pal) private var c
     @State private var tab = "posts"
+    @State private var askOut = false
     @State private var follow: Bool?
     @State private var followers: Int?
     @State private var relMenu = false
@@ -464,6 +465,10 @@ struct UserView: View {
             if let pg, let u = pg.user { profile(u, pg) }
         }
         .bzSheet(item: $limitFor) { LimitSheet(m: $0) }
+        .confirmationDialog(tr("تسجيل الخروج من المجتمع؟"), isPresented: $askOut, titleVisibility: .visible) {
+            Button(tr("تسجيل الخروج"), role: .destructive) { Task { await cm.logout(); if !ui.path.isEmpty { ui.path.removeLast() } } }
+            Button(tr("إلغاء"), role: .cancel) {}
+        }
     }
     @ViewBuilder private func profile(_ u: Member, _ pg: Community.Page) -> some View {
         let mine = cm.me?.handle == handle
@@ -476,6 +481,7 @@ struct UserView: View {
                 Spacer()
                 if mine {
                     Button { ui.path.append(.blocked) } label: { Ico(name: "shield", size: 24.0).foregroundStyle(c.gold).frame(width: 44, height: 44) }.accessibilityLabel(tr("الحظر والكتم"))
+                    Button { askOut = true } label: { Ico(name: "rectangle.portrait.and.arrow.right", size: 21).foregroundStyle(c.muted).frame(width: 44, height: 44) }.accessibilityLabel(tr("تسجيل الخروج"))
                     GhostButton(title: tr("تعديل الملف"), icon: "pencil") { edit() }
                 } else {
                     if cm.me != nil { Button { relMenu = true } label: { Ico(name: "ellipsis", size: 24.0).foregroundStyle(c.text).frame(width: 44, height: 44) }.accessibilityLabel(tr("المزيد")) }
@@ -502,8 +508,8 @@ struct UserView: View {
                     if u.created > 0 { HStack(spacing: 3) { SiteIcon(name: "calendar", size: 16, color: c.muted); Text(tr("انضم {0}", joined(u.created))).font(F.plex(12.5)).foregroundStyle(c.muted) } }
                 }.padding(.top, 8)
                 HStack(spacing: 16) {
-                    Button { ui.path.append(.people(u.handle, "following")) } label: { Text(tr("{0} يتابع", Text(u.following.ar).bold().foregroundColor(c.text))) }.buttonStyle(.plain)
-                    Button { ui.path.append(.people(u.handle, "followers")) } label: { Text(tr("{0} متابِع", Text((followers ?? u.followers).ar).bold().foregroundColor(c.text))) }.buttonStyle(.plain)
+                    Button { ui.path.append(.people(u.handle, "following")) } label: { trText("{0} يتابع", Text(u.following.ar).bold().foregroundColor(c.text)) }.buttonStyle(.plain)
+                    Button { ui.path.append(.people(u.handle, "followers")) } label: { trText("{0} متابِع", Text((followers ?? u.followers).ar).bold().foregroundColor(c.text)) }.buttonStyle(.plain)
                 }.font(F.plex(14)).foregroundStyle(c.muted).padding(.top, 8)
             }.padding(.horizontal, 16).padding(.top, 8)
             if !pg.blocked { Seg(items: [tr("المنشورات"), tr("الردود"), tr("الوسائط"), tr("الإعجابات")], selected: ["posts", "replies", "media", "likes"].firstIndex(of: tab) ?? 0) { tab = ["posts", "replies", "media", "likes"][$0] }.padding(.horizontal, 12).padding(.vertical, 12) }
