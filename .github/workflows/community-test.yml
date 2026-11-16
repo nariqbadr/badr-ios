@@ -30,5 +30,13 @@ jobs:
               hs = [((x.get('post') or x).get('author') or {}).get('handle') for x in it]
               pin = (j.get('pinned') or {}).get('id') if isinstance(j.get('pinned'), dict) else j.get('pinned')
               print(f, 'ok', j.get('ok'), 'items', len(it), 'pinned', pin, 'authors', hs[:20])
+          j = json.load(open('feed-all.json'))
+          def shape(v, d=0):
+              if isinstance(v, dict): return {k: shape(x, d+1) for k, x in list(v.items())[:40]} if d < 3 else 'dict'
+              if isinstance(v, list): return [shape(v[0], d+1)] if v else []
+              return type(v).__name__
+          print('TOP', list(j.keys()))
+          print('ITEM', json.dumps(shape((j.get('items') or [{}])[0]))[:3000])
+          print('PINNED', json.dumps(shape(j.get('pinned') or {}))[:1500])
           PY
           curl -s -c jar -b jar -F "x=1" "$B&do=c_logout" -o /dev/null
