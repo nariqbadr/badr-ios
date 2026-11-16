@@ -21,11 +21,16 @@ jobs:
           curl -s -c jar -b jar "$B&do=c_me" -o me.json
           for t in all following; do curl -s -c jar -b jar "$B&do=c_feed&tab=$t&before=0" -o feed-$t.json; done
           curl -s "$B&do=c_feed&tab=all&before=0" -o feed-anon.json
+          # exactly as the iPhone app asks (its user agent, CSRF header, no-cache, a time stamp)
+          CS=$(python3 -c "import json;print(json.load(open('me.json')).get('csrf',''))")
+          curl -s -c jar -b jar -A "BadrTilawat/2.10.75 (iOS 26.1; iPhone)" -H "X-BZC-CSRF: $CS" -H "Cache-Control: no-cache" "$B&do=c_feed&tab=all&before=0&_=$(date +%s)000" -o feed-ios.json
+          curl -s -c jar -b jar -A "BadrTilawat/2.10.75 (iOS 26.1; iPhone)" "$B&do=c_me&_=1" -o me-ios.json
+          python3 -c "import json;j=json.load(open('me-ios.json'));print('me-ios', (j.get('me') or {}).get('handle'))"
           python3 - <<'PY'
           import json
           me = json.load(open('me.json')); m = (me.get('me') or {})
           print('me:', m.get('handle'), 'role:', m.get('role'), 'owner:', m.get('owner'), 'keys:', sorted(m.keys())[:30])
-          for f in ['feed-all.json', 'feed-following.json', 'feed-anon.json']:
+          for f in ['feed-all.json', 'feed-following.json', 'feed-anon.json', 'feed-ios.json']:
               j = json.load(open(f)); it = j.get('items') or []
               hs = [((x.get('post') or x).get('author') or {}).get('handle') for x in it]
               pin = (j.get('pinned') or {}).get('id') if isinstance(j.get('pinned'), dict) else j.get('pinned')
