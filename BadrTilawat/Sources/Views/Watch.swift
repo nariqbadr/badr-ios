@@ -205,6 +205,13 @@ final class VideoEngine: NSObject, ObservableObject, AVPictureInPictureControlle
     func pause() { player.pause() }
     /// exact seeks: the default one jumps to the nearest key frame, which can be several seconds away —
     /// «forward 10» then landed only 6 seconds on, or even behind where it started
+    /// the page is left: a playing video continues as sound in the audio player at the same moment
+    func handOffToAudio() {
+        guard let t = track else { close(); return }
+        let at = position, was = playing
+        close()
+        if was && !t.audio.isEmpty { AudioPlayer.shared.play(t, startAt: at) }
+    }
     func seek(_ s: Double) {
         let x = max(0, min(s, duration > 0 ? duration : s))
         seekTarget = x; position = x
@@ -367,7 +374,9 @@ struct WatchView: View {
         .onDisappear { ui.videoFull = false; v.layer.videoGravity = .resizeAspect; if full { full = false; rotate(false) } }
         .onAppear { v.setVisible(true); if let t { v.open(t); v.onEnd = { if auto, let n = next.first { ui.path.append(.watch(n.id)) } } }; bump() }
         .onChange(of: id) { _ in if let t { v.open(t) } }
-        .onDisappear { v.setVisible(false); if !v.pipOn && UIApplication.shared.applicationState == .active && !(ui.path.last.map { if case .watch = $0 { return true } else { return false } } ?? false) { v.close() } }
+        // leaving the video (back, another tab) while it plays: the recitation goes on as sound, from the same moment,
+        // in the mini player (as on the site); paused, it simply closes
+        .onDisappear { v.setVisible(false); if !v.pipOn && UIApplication.shared.applicationState == .active && !(ui.path.last.map { if case .watch = $0 { return true } else { return false } } ?? false) { v.handOffToAudio() } }
         .bzSheet(item: Binding(get: { sheet.map { SheetID(id: $0) } }, set: { sheet = $0?.id })) { s in
             if let t { if s.id == "q" { qualitySheet(t) } else { downloadSheet(t) } }
         }

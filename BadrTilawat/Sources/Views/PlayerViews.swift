@@ -245,6 +245,7 @@ struct TrackMenu: View {
                 let fav = store.favs.contains(t.id)
                 MenuRow(icon: fav ? "heart-f" : "heart", title: fav ? tr("إزالة من المفضلة") : tr("إضافة للمفضلة")) { store.toggleFav(t.id); ui.say(fav ? tr("أُزيلت من المفضلة") : tr("أُضيفت إلى المفضلة")); dismiss() }
                 if t.isVideo { MenuRow(icon: "film", title: tr("مشاهدة الفيديو")) { dismiss(); ui.path.append(.watch(t.id)) } }
+                if t.isVideo && !t.audio.isEmpty { MenuRow(icon: "headphones", title: tr("استماع صوتي"), sub: tr("تشغيل صوت التلاوة فقط مع إمكانية التنقل في التطبيق")) { dismiss(); AudioPlayer.shared.play(t) } }
                 else {
                     MenuRow(icon: "next", title: tr("تشغيل بعد الحالية")) { p.playNext(t); ui.say(tr("ستُشغَّل بعد التلاوة الحالية")); dismiss() }
                     MenuRow(icon: "queue", title: tr("إضافة لقائمة الانتظار")) { p.enqueue(t); ui.say(tr("أُضيفت إلى قائمة الانتظار")); dismiss() }
