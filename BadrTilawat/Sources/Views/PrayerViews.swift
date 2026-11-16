@@ -272,7 +272,7 @@ struct PrayerSettings: View {
 
 /// The qibla page.
 struct QiblaView: View {
-    var body: some View { ScrollView { QiblaFinder().padding(18) }.background(Backdrop()) }
+    var body: some View { ScrollView { QiblaFinder(pushed: true).padding(18) }.background(Backdrop()) }
 }
 
 /// The compass for the qibla: its own heading source (only this screen redraws as the phone turns).
@@ -300,6 +300,10 @@ final class Compass: NSObject, ObservableObject, CLLocationManagerDelegate {
 /// instruction says which way to turn, and when the phone lines up the ring and the pointer turn green, a green glow
 /// breathes behind the dial and the phone taps twice.
 struct QiblaFinder: View {
+    /// its own page (pushed): always on while shown; inside a tab: only while that tab is the one on screen
+    var pushed = false
+    @Environment(\.tabActive) private var tabOn
+    private var active: Bool { pushed || tabOn }
     @EnvironmentObject var prayers: Prayers
     @StateObject private var compass = Compass()
     @Environment(\.pal) private var c
@@ -353,10 +357,12 @@ struct QiblaFinder: View {
                 }
             }
             .frame(maxWidth: 520).frame(maxWidth: .infinity)
-        .onAppear { compass.start(); withAnimation(.easeInOut(duration: 0.7).repeatForever(autoreverses: true)) { glow = true } }
+        // the compass runs only while the qibla is on screen (a hidden tab kept it running, and it vibrated elsewhere)
+        .onAppear { if active { compass.start() }; withAnimation(.easeInOut(duration: 0.7).repeatForever(autoreverses: true)) { glow = true } }
         .onDisappear { compass.stop() }
+        .onChange(of: active) { a in if a { compass.start() } else { compass.stop(); locked = false } }
         .onChange(of: on) { v in
-            if v && !locked {
+            if v && !locked && active && UIApplication.shared.applicationState == .active {
                 locked = true
                 // two taps when the phone lines up (the site's vibrate 60·40·60)
                 let g = UINotificationFeedbackGenerator(); g.notificationOccurred(.success)
