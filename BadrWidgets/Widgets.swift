@@ -1,5 +1,6 @@
 import WidgetKit
 import SwiftUI
+import AppIntents
 
 /// What the app shares with its widgets (App Group): the prayer times ahead, the ayahs of the coming days, what is playing, the theme.
 enum Shared {
@@ -9,14 +10,20 @@ enum Shared {
     struct Ayah: Codable { let day: String; let s: Int; let a: Int; let surah: String; let text: String }
     struct Now: Codable { let title: String; let sub: String; let playing: Bool; let art: String }
     struct Pal: Codable { let bg: String, surface: String, text: String, muted: String, gold: String, onGold: String; let dark: Bool }
+    /// every palette of the app, by name, so each widget can have its own
+    struct PalOpt: Codable { let key: String; let name: String; let pal: Pal }
+    /// the recitations to choose from in the player widget
+    struct TrackOpt: Codable { let id: String; let title: String; let sub: String }
     static func read<T: Decodable>(_ k: String, _ t: T.Type) -> T? { d.data(forKey: k).flatMap { try? JSONDecoder().decode(T.self, from: $0) } }
 }
 
 // MARK: colours (the app's theme, or the site's «ليلي زمردي»)
 struct WPal {
     let bg, surface, text, muted, gold, onGold: Color; let dark: Bool
-    static var current: WPal {
-        let p = Shared.read("w_pal", Shared.Pal.self)
+    static var current: WPal { of(nil) }
+    /// the colour chosen for this widget, or the app's own theme (the default)
+    static func of(_ key: String?) -> WPal {
+        let p = key.flatMap { k in k == "app" ? nil : (Shared.read("w_pals", [Shared.PalOpt].self) ?? []).first { $0.key == k }?.pal } ?? Shared.read("w_pal", Shared.Pal.self)
         func c(_ h: String?, _ def: UInt32) -> Color { Color(hex: h.flatMap { UInt32($0, radix: 16) } ?? def) }
         return WPal(bg: c(p?.bg, 0xFF0C1715), surface: c(p?.surface, 0xFF13241F), text: c(p?.text, 0xFFECE4D2), muted: c(p?.muted, 0xFFA3ADA6), gold: c(p?.gold, 0xFFC9A45C), onGold: c(p?.onGold, 0xFF14201D), dark: p?.dark ?? true)
     }
@@ -39,19 +46,64 @@ struct WCard: ViewModifier {
     }
 }
 
+// MARK: - the widget's settings (long-press → «تعديل الأداة»): its colour, and for the player the recitation
+
+struct ColorEntity: AppEntity {
+    let id: String; let name: String
+    static var typeDisplayRepresentation: TypeDisplayRepresentation { "اللون" }
+    var displayRepresentation: DisplayRepresentation { DisplayRepresentation(title: "\(name)") }
+    static var defaultQuery: ColorQuery { ColorQuery() }
+}
+struct ColorQuery: EntityQuery {
+    static func all() -> [ColorEntity] { [ColorEntity(id: "app", name: "لون التطبيق")] + (Shared.read("w_pals", [Shared.PalOpt].self) ?? []).map { ColorEntity(id: $0.key, name: $0.name) } }
+    func entities(for identifiers: [String]) async throws -> [ColorEntity] { Self.all().filter { identifiers.contains($0.id) } }
+    func suggestedEntities() async throws -> [ColorEntity] { Self.all() }
+    func defaultResult() async -> ColorEntity? { Self.all().first }
+}
+struct TrackEntity: AppEntity {
+    let id: String; let title: String; let sub: String
+    static var typeDisplayRepresentation: TypeDisplayRepresentation { "التلاوة" }
+    var displayRepresentation: DisplayRepresentation { DisplayRepresentation(title: "\(title)", subtitle: "\(sub)") }
+    static var defaultQuery: TrackQuery { TrackQuery() }
+}
+struct TrackQuery: EntityStringQuery {
+    static let now = TrackEntity(id: "now", title: "التلاوة الحالية", sub: "ما يعمل الآن في التطبيق")
+    static func all() -> [TrackEntity] { [now] + (Shared.read("w_tracks", [Shared.TrackOpt].self) ?? []).map { TrackEntity(id: $0.id, title: $0.title, sub: $0.sub) } }
+    func entities(for identifiers: [String]) async throws -> [TrackEntity] { Self.all().filter { identifiers.contains($0.id) } }
+    func entities(matching string: String) async throws -> [TrackEntity] {
+        let q = string.trimmingCharacters(in: .whitespaces)
+        return q.isEmpty ? Self.all() : Self.all().filter { $0.title.localizedCaseInsensitiveContains(q) || $0.sub.localizedCaseInsensitiveContains(q) }
+    }
+    func suggestedEntities() async throws -> [TrackEntity] { Self.all() }
+    func defaultResult() async -> TrackEntity? { Self.now }
+}
+struct ColorIntent: WidgetConfigurationIntent {
+    static var title: LocalizedStringResource { "لون الأداة" }
+    static var description: IntentDescription { IntentDescription("اختر لون الأداة، أو اتركها بلون التطبيق") }
+    @Parameter(title: "اللون") var color: ColorEntity?
+    init() {}
+}
+struct PlayerIntent: WidgetConfigurationIntent {
+    static var title: LocalizedStringResource { "المشغّل" }
+    static var description: IntentDescription { IntentDescription("اختر التلاوة التي تظهر في الأداة ولونها") }
+    @Parameter(title: "التلاوة") var track: TrackEntity?
+    @Parameter(title: "اللون") var color: ColorEntity?
+    init() {}
+}
+
 // MARK: - مواقيت الصلاة
 
-struct PrayerEntry: TimelineEntry { let date: Date; let today: [Shared.Prayer]; let next: Shared.Prayer?; let place: String }
-struct PrayerProvider: TimelineProvider {
+struct PrayerEntry: TimelineEntry { let date: Date; let today: [Shared.Prayer]; let next: Shared.Prayer?; let place: String; var pal = WPal.current }
+struct PrayerProvider: AppIntentTimelineProvider {
     func placeholder(in context: Context) -> PrayerEntry { PrayerEntry(date: Date(), today: [], next: Shared.Prayer(key: "maghrib", name: "المغرب", at: Date().addingTimeInterval(5400).timeIntervalSince1970), place: "القاهرة") }
-    func getSnapshot(in context: Context, completion: @escaping (PrayerEntry) -> Void) { completion(entry(Date())) }
-    func getTimeline(in context: Context, completion: @escaping (Timeline<PrayerEntry>) -> Void) {
+    func snapshot(for c: ColorIntent, in context: Context) async -> PrayerEntry { var e = entry(Date()); e.pal = .of(c.color?.id); return e }
+    func timeline(for c: ColorIntent, in context: Context) async -> Timeline<PrayerEntry> {
         let all = Shared.read("w_prayers", [Shared.Prayer].self) ?? []
-        let now = Date()
+        let now = Date(), pal = WPal.of(c.color?.id)
         // one entry now and one at each prayer of the next day, so «الصلاة القادمة» moves on by itself
         var dates = [now] + all.map { Date(timeIntervalSince1970: $0.at) }.filter { $0 > now && $0 < now.addingTimeInterval(36 * 3600) }
         dates = Array(Set(dates)).sorted()
-        completion(Timeline(entries: dates.map { entry($0) }, policy: .after(dates.last.map { $0.addingTimeInterval(60) } ?? now.addingTimeInterval(3600))))
+        return Timeline(entries: dates.map { var e = entry($0); e.pal = pal; return e }, policy: .after(dates.last.map { $0.addingTimeInterval(60) } ?? now.addingTimeInterval(3600)))
     }
     private func entry(_ at: Date) -> PrayerEntry {
         let all = Shared.read("w_prayers", [Shared.Prayer].self) ?? []
@@ -65,7 +117,7 @@ struct PrayerWidgetView: View {
     let e: PrayerEntry
     @Environment(\.widgetFamily) private var fam
     var body: some View {
-        let p = WPal.current
+        let p = e.pal
         VStack(alignment: .leading, spacing: 4) {
             HStack(alignment: .top) {
                 VStack(alignment: .leading, spacing: 0) {
@@ -104,7 +156,7 @@ struct PrayerWidgetView: View {
 }
 struct PrayerWidget: Widget {
     var body: some WidgetConfiguration {
-        StaticConfiguration(kind: "prayer", provider: PrayerProvider()) { PrayerWidgetView(e: $0) }
+        AppIntentConfiguration(kind: "prayer", intent: ColorIntent.self, provider: PrayerProvider()) { PrayerWidgetView(e: $0) }
             .configurationDisplayName("مواقيت الصلاة").description("الصلاة القادمة والعدّ التنازلي ومواقيت اليوم")
             .supportedFamilies([.systemSmall, .systemMedium])
     }
@@ -112,25 +164,25 @@ struct PrayerWidget: Widget {
 
 // MARK: - آية اليوم
 
-struct AyahEntry: TimelineEntry { let date: Date; let ayah: Shared.Ayah? }
-struct AyahProvider: TimelineProvider {
+struct AyahEntry: TimelineEntry { let date: Date; let ayah: Shared.Ayah?; var pal = WPal.current }
+struct AyahProvider: AppIntentTimelineProvider {
     func placeholder(in context: Context) -> AyahEntry { AyahEntry(date: Date(), ayah: Shared.Ayah(day: "", s: 94, a: 5, surah: "الشرح", text: "فَإِنَّ مَعَ ٱلۡعُسۡرِ يُسۡرًا")) }
-    func getSnapshot(in context: Context, completion: @escaping (AyahEntry) -> Void) { completion(entry(Date())) }
-    func getTimeline(in context: Context, completion: @escaping (Timeline<AyahEntry>) -> Void) {
-        let cal = Calendar.current, now = Date()
+    func snapshot(for c: ColorIntent, in context: Context) async -> AyahEntry { entry(Date(), .of(c.color?.id)) }
+    func timeline(for c: ColorIntent, in context: Context) async -> Timeline<AyahEntry> {
+        let cal = Calendar.current, now = Date(), pal = WPal.of(c.color?.id)
         let days = (0..<7).compactMap { cal.date(byAdding: .day, value: $0, to: cal.startOfDay(for: now)) }
-        completion(Timeline(entries: [entry(now)] + days.dropFirst().map { entry($0) }, policy: .after(days.last ?? now.addingTimeInterval(86400))))
+        return Timeline(entries: [entry(now, pal)] + days.dropFirst().map { entry($0, pal) }, policy: .after(days.last ?? now.addingTimeInterval(86400)))
     }
-    private func entry(_ at: Date) -> AyahEntry {
+    private func entry(_ at: Date, _ pal: WPal) -> AyahEntry {
         let f = DateFormatter(); f.locale = Locale(identifier: "en_US_POSIX"); f.dateFormat = "yyyy-MM-dd"
         let l = Shared.read("w_ayahs", [Shared.Ayah].self) ?? []
-        return AyahEntry(date: at, ayah: l.first { $0.day == f.string(from: at) } ?? l.last)
+        return AyahEntry(date: at, ayah: l.first { $0.day == f.string(from: at) } ?? l.last, pal: pal)
     }
 }
 struct AyahWidgetView: View {
     let e: AyahEntry
     var body: some View {
-        let p = WPal.current
+        let p = e.pal
         VStack(alignment: .leading, spacing: 6) {
             HStack {
                 Text("آية اليوم").font(plex(11.5, .semibold)).foregroundStyle(p.gold)
@@ -149,7 +201,7 @@ struct AyahWidgetView: View {
 }
 struct AyahWidget: Widget {
     var body: some WidgetConfiguration {
-        StaticConfiguration(kind: "ayah", provider: AyahProvider()) { AyahWidgetView(e: $0) }
+        AppIntentConfiguration(kind: "ayah", intent: ColorIntent.self, provider: AyahProvider()) { AyahWidgetView(e: $0) }
             .configurationDisplayName("آية اليوم").description("آية تتغير كل يوم، والمس لتسمعها في التطبيق")
             .supportedFamilies([.systemMedium, .systemLarge])
     }
@@ -157,22 +209,26 @@ struct AyahWidget: Widget {
 
 // MARK: - المشغّل
 
-struct NowEntry: TimelineEntry { let date: Date; let now: Shared.Now? }
-struct NowProvider: TimelineProvider {
+struct NowEntry: TimelineEntry { let date: Date; let now: Shared.Now?; var pal = WPal.current; var id: String? = nil }
+struct NowProvider: AppIntentTimelineProvider {
     func placeholder(in context: Context) -> NowEntry { NowEntry(date: Date(), now: Shared.Now(title: "تلاوة من سورة الكهف", sub: "الشيخ خالد بن سالم باوزير", playing: true, art: "")) }
-    func getSnapshot(in context: Context, completion: @escaping (NowEntry) -> Void) { completion(NowEntry(date: Date(), now: Shared.read("w_now", Shared.Now.self))) }
-    func getTimeline(in context: Context, completion: @escaping (Timeline<NowEntry>) -> Void) {
-        completion(Timeline(entries: [NowEntry(date: Date(), now: Shared.read("w_now", Shared.Now.self))], policy: .never))
+    func snapshot(for c: PlayerIntent, in context: Context) async -> NowEntry { entry(c) }
+    func timeline(for c: PlayerIntent, in context: Context) async -> Timeline<NowEntry> { Timeline(entries: [entry(c)], policy: .never) }
+    /// the recitation chosen for this widget, or what is playing in the app (the default)
+    private func entry(_ c: PlayerIntent) -> NowEntry {
+        let pal = WPal.of(c.color?.id)
+        if let t = c.track, t.id != "now" { return NowEntry(date: Date(), now: Shared.Now(title: t.title, sub: t.sub, playing: false, art: ""), pal: pal, id: t.id) }
+        return NowEntry(date: Date(), now: Shared.read("w_now", Shared.Now.self), pal: pal)
     }
 }
 struct NowWidgetView: View {
     let e: NowEntry
     var body: some View {
-        let p = WPal.current
+        let p = e.pal
         HStack(spacing: 10) {
             ZStack {
                 RoundedRectangle(cornerRadius: 12).fill(LinearGradient(colors: [p.gold, p.gold.opacity(0.35)], startPoint: .topLeading, endPoint: .bottomTrailing))
-                if let d = Shared.d.data(forKey: "w_art"), let i = UIImage(data: d) { Image(uiImage: i).resizable().scaledToFill().clipShape(RoundedRectangle(cornerRadius: 12)) }
+                if e.id == nil, let d = Shared.d.data(forKey: "w_art"), let i = UIImage(data: d) { Image(uiImage: i).resizable().scaledToFill().clipShape(RoundedRectangle(cornerRadius: 12)) }
                 else { Image("Logo").resizable().scaledToFit().padding(6) }
             }.frame(width: 50, height: 50)
             VStack(alignment: .leading, spacing: 2) {
@@ -184,34 +240,35 @@ struct NowWidgetView: View {
         }
         .modifier(WCard(p: p))
         .environment(\.layoutDirection, .rightToLeft)
-        .widgetURL(URL(string: "badr://player"))
+        // a chosen recitation plays at once; otherwise the player opens
+        .widgetURL(URL(string: e.id.map { "badr://play/\($0.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? $0)" } ?? "badr://player"))
     }
 }
 struct NowWidget: Widget {
     var body: some WidgetConfiguration {
-        StaticConfiguration(kind: "player", provider: NowProvider()) { NowWidgetView(e: $0) }
-            .configurationDisplayName("المشغّل").description("التلاوة الحالية — المس لفتح المشغّل")
+        AppIntentConfiguration(kind: "player", intent: PlayerIntent.self, provider: NowProvider()) { NowWidgetView(e: $0) }
+            .configurationDisplayName("المشغّل").description("التلاوة الحالية أو التي تختارها — المس لتشغيلها")
             .supportedFamilies([.systemMedium])
     }
 }
 
 // MARK: - الأذكار
 
-struct DhikrEntry: TimelineEntry { let date: Date; let label: String; let text: String; let count: Int }
-struct DhikrProvider: TimelineProvider {
+struct DhikrEntry: TimelineEntry { let date: Date; let label: String; let text: String; let count: Int; var pal = WPal.current }
+struct DhikrProvider: AppIntentTimelineProvider {
     static let data: [String: [(String, Int)]] = {
         guard let u = Bundle.main.url(forResource: "adhkar", withExtension: "json"), let d = try? Data(contentsOf: u),
               let o = try? JSONSerialization.jsonObject(with: d) as? [String: [[String: Any]]] else { return [:] }
         return o.mapValues { $0.compactMap { x in (x["text"] as? String).map { ($0, (x["count"] as? Int) ?? 1) } }.filter { (12...140).contains($0.0.count) } }
     }()
     func placeholder(in context: Context) -> DhikrEntry { DhikrEntry(date: Date(), label: "أذكار الصباح", text: "سبحان الله وبحمده", count: 100) }
-    func getSnapshot(in context: Context, completion: @escaping (DhikrEntry) -> Void) { completion(entry(Date())) }
-    func getTimeline(in context: Context, completion: @escaping (Timeline<DhikrEntry>) -> Void) {
+    func snapshot(for c: ColorIntent, in context: Context) async -> DhikrEntry { var e = entry(Date()); e.pal = .of(c.color?.id); return e }
+    func timeline(for c: ColorIntent, in context: Context) async -> Timeline<DhikrEntry> {
         // a new dhikr every hour (morning / evening / sleep by the time)
-        let cal = Calendar.current, now = Date()
+        let cal = Calendar.current, now = Date(), pal = WPal.of(c.color?.id)
         let start = cal.dateInterval(of: .hour, for: now)?.start ?? now
         let hours = (0..<12).compactMap { cal.date(byAdding: .hour, value: $0, to: start) }
-        completion(Timeline(entries: [entry(now)] + hours.dropFirst().map { entry($0) }, policy: .after(hours.last ?? now.addingTimeInterval(3600))))
+        return Timeline(entries: ([entry(now)] + hours.dropFirst().map { entry($0) }).map { var e = $0; e.pal = pal; return e }, policy: .after(hours.last ?? now.addingTimeInterval(3600)))
     }
     private func entry(_ at: Date) -> DhikrEntry {
         let cal = Calendar.current, h = cal.component(.hour, from: at)
@@ -224,7 +281,7 @@ struct DhikrProvider: TimelineProvider {
 struct DhikrWidgetView: View {
     let e: DhikrEntry
     var body: some View {
-        let p = WPal.current
+        let p = e.pal
         VStack(alignment: .leading, spacing: 6) {
             Text(e.label).font(plex(11, .semibold)).foregroundStyle(p.gold)
             Text(e.text).font(.custom("Amiri-Bold", size: 16)).foregroundStyle(p.text).minimumScaleFactor(0.55).frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
@@ -241,7 +298,7 @@ struct DhikrWidgetView: View {
 }
 struct DhikrWidget: Widget {
     var body: some WidgetConfiguration {
-        StaticConfiguration(kind: "dhikr", provider: DhikrProvider()) { DhikrWidgetView(e: $0) }
+        AppIntentConfiguration(kind: "dhikr", intent: ColorIntent.self, provider: DhikrProvider()) { DhikrWidgetView(e: $0) }
             .configurationDisplayName("الأذكار").description("أذكار الصباح والمساء والنوم حسب الوقت")
             .supportedFamilies([.systemSmall, .systemMedium])
     }

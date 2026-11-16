@@ -97,6 +97,7 @@ struct RootView: View {
             case "prayer": ui.go(.prayer)
             case "adhkar": ui.go(.adhkar)
             case "player": if player.current != nil { ui.playerOpen = true } else { ui.go(.recitations) }
+            case "play": if p.count >= 2, let t = repo.track(p[1].removingPercentEncoding ?? p[1]) { player.play(t); ui.playerOpen = true } else { ui.go(.recitations) }
             case "ayah": if p.count >= 3, let s = Int(p[1]), let a = Int(p[2]) { ui.tab = "quran"; ui.path = [.surah(s * 1000 + a)] }
             default: ui.go(.home)
             }
@@ -104,7 +105,7 @@ struct RootView: View {
         .bzSheet(item: $ui.menuFor) { t in TrackMenu(t: t).presentationDetents([.medium, .large]) }
         .bzSheet(item: $ui.sheet) { k in sheetView(k).presentationDetents([.large]) }
         .animation(.easeInOut(duration: 0.3), value: ui.drawer)
-        .task { await repo.refresh(); if let t = repo.data?.site.defaultTheme { store.applyDefaultTheme(t) }; if let r = RootView.shot { openShot(r) } }
+        .task { await repo.refresh(); WidgetBridge.tracks(); if let t = repo.data?.site.defaultTheme { store.applyDefaultTheme(t) }; if let r = RootView.shot { openShot(r) } }
         .onAppear { if !opened.contains(ui.tab) { opened.append(ui.tab) } }
         .onChange(of: ui.tab) { t in if !opened.contains(t) { opened.append(t) } }
         .onChange(of: ui.tab) { t in Repo.shared.page = TAB_DEFS.first { $0.key == t }?.label ?? tr("الرئيسية"); Repo.shared.event("page", ["pageLabel": Repo.shared.page]) }

@@ -12,11 +12,13 @@ enum WidgetBridge {
     private struct Ayah: Codable { let day: String; let s: Int; let a: Int; let surah: String; let text: String }
     private struct Now: Codable { let title: String; let sub: String; let playing: Bool; let art: String }
     private struct Pal: Codable { let bg: String, surface: String, text: String, muted: String, gold: String, onGold: String; let dark: Bool }
+    private struct PalOpt: Codable { let key: String; let name: String; let pal: Pal }
+    private struct TrackOpt: Codable { let id: String; let title: String; let sub: String }
     private static func put<T: Encodable>(_ k: String, _ v: T) { if let x = try? JSONEncoder().encode(v) { d?.set(x, forKey: k) } }
 
     /// everything (when the app opens)
     static func refreshAll() {
-        prayers(); theme(); now()
+        prayers(); theme(); now(); tracks()
         Task.detached(priority: .utility) {
             MushafData.load()
             await MainActor.run { ayahs(); WidgetCenter.shared.reloadAllTimelines() }
@@ -46,8 +48,16 @@ enum WidgetBridge {
     static func theme() {
         let p = Themes.get(Store.shared.theme)
         func hex(_ c: Color) -> String { var r: CGFloat = 0, g: CGFloat = 0, b: CGFloat = 0, a: CGFloat = 0; UIColor(c).getRed(&r, green: &g, blue: &b, alpha: &a); return String(format: "%02X%02X%02X%02X", Int(a * 255), Int(r * 255), Int(g * 255), Int(b * 255)) }
-        put("w_pal", Pal(bg: hex(p.bg), surface: hex(p.surface), text: hex(p.text), muted: hex(p.muted), gold: hex(p.gold), onGold: hex(p.onGold), dark: p.dark))
+        func pal(_ p: Palette) -> Pal { Pal(bg: hex(p.bg), surface: hex(p.surface), text: hex(p.text), muted: hex(p.muted), gold: hex(p.gold), onGold: hex(p.onGold), dark: p.dark) }
+        put("w_pal", pal(p))
+        // every palette, so each widget can be given its own colour
+        put("w_pals", Themes.all.map { PalOpt(key: $0.key, name: tr($0.name), pal: pal($0)) })
         WidgetCenter.shared.reloadAllTimelines()
+    }
+    /// the recitations to choose from in the player widget (audio ones, as the site lists them)
+    static func tracks() {
+        guard let d = Repo.shared.data else { return }
+        put("w_tracks", d.recitations.filter { !$0.isVideo }.prefix(400).map { TrackOpt(id: $0.id, title: $0.title, sub: Repo.shared.reciter($0.reciterId)?.name ?? "") })
     }
     private static var lastNow = ""
     private static var lastArt = ""

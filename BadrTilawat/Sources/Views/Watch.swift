@@ -108,7 +108,8 @@ final class VideoEngine: NSObject, ObservableObject, AVPictureInPictureControlle
             DispatchQueue.main.asyncAfter(deadline: .now() + 1.2) {
                 MainActor.assumeIsolated {
                     guard let self, UIApplication.shared.applicationState == .background else { return }
-                    if self.pipOn || self.pip?.isPictureInPictureActive == true { return }
+                    // a playing video goes to the floating window by itself: its picture must stay (taking it off left a grey window)
+                    if self.pipOn || self.pip?.isPictureInPictureActive == true || (self.wasPlaying && self.pip?.isPictureInPicturePossible == true) { return }
                     self.layer.player = nil
                     if self.wasPlaying && self.track != nil { self.player.play() }      // the sound goes on in the background
                 }
@@ -174,8 +175,19 @@ final class VideoEngine: NSObject, ObservableObject, AVPictureInPictureControlle
     }
     func toggle() { if playing { player.pause() } else { start() } }
     func pause() { player.pause() }
-    func seek(_ s: Double) { let x = max(0, min(s, duration > 0 ? duration : s)); player.seek(to: CMTime(seconds: x, preferredTimescale: 600)); position = x; nowPlaying() }
-    func skip(_ d: Double) { seek(position + d) }
+    /// exact seeks: the default one jumps to the nearest key frame, which can be several seconds away —
+    /// «forward 10» then landed only 6 seconds on, or even behind where it started
+    func seek(_ s: Double) {
+        let x = max(0, min(s, duration > 0 ? duration : s))
+        seekTarget = x; position = x
+        player.seek(to: CMTime(seconds: x, preferredTimescale: 600), toleranceBefore: .zero, toleranceAfter: .zero) { [weak self] _ in
+            Task { @MainActor in if self?.seekTarget == x { self?.seekTarget = nil } }
+        }
+        nowPlaying()
+    }
+    /// where a seek is going: repeated taps add up from there, and the clock does not jump back while it runs
+    private var seekTarget: Double?
+    func skip(_ d: Double) { seek((seekTarget ?? position) + d) }
     func setQ(_ q: Int) { let at = position, was = playing; load(q, at: at, play: was) }
     func close() {
         if let t = track { Store.shared.savePosition(t.id, position, duration) }
@@ -187,7 +199,7 @@ final class VideoEngine: NSObject, ObservableObject, AVPictureInPictureControlle
 
     private func tick(_ s: Double) {
         guard let t = track else { return }
-        if s.isFinite { position = s }
+        if s.isFinite && seekTarget == nil { position = s }
         if let d = player.currentItem?.duration.seconds, d.isFinite, d > 0 { duration = d }
         if playing, Date().timeIntervalSince(lastSave) > 5 { lastSave = Date(); Store.shared.savePosition(t.id, position, duration) }
     }
@@ -196,7 +208,11 @@ final class VideoEngine: NSObject, ObservableObject, AVPictureInPictureControlle
     nonisolated func pictureInPictureControllerWillStartPictureInPicture(_ c: AVPictureInPictureController) { DispatchQueue.main.async { MainActor.assumeIsolated { self.pipOn = true } } }
     nonisolated func pictureInPictureControllerDidStartPictureInPicture(_ c: AVPictureInPictureController) { DispatchQueue.main.async { MainActor.assumeIsolated { self.pipOn = true; if self.layer.player == nil { self.layer.player = self.player } } } }
     nonisolated func pictureInPictureController(_ c: AVPictureInPictureController, failedToStartPictureInPictureWithError error: Error) {
-        DispatchQueue.main.async { MainActor.assumeIsolated { self.pipOn = false } }
+        DispatchQueue.main.async { MainActor.assumeIsolated {
+            self.pipOn = false
+            // no floating window after all: the sound goes on in the background without the picture
+            if UIApplication.shared.applicationState == .background { self.layer.player = nil; if self.wasPlaying && self.track != nil { self.player.play() } }
+        } }
     }
     nonisolated func pictureInPictureControllerDidStopPictureInPicture(_ c: AVPictureInPictureController) {
         Task { @MainActor in
@@ -207,7 +223,10 @@ final class VideoEngine: NSObject, ObservableObject, AVPictureInPictureControlle
     }
     nonisolated func pictureInPictureController(_ c: AVPictureInPictureController, restoreUserInterfaceForPictureInPictureStopWithCompletionHandler done: @escaping (Bool) -> Void) {
         Task { @MainActor in
-            if let t = self.track, UIState.shared?.path.last != .watch(t.id) { UIState.shared?.path.append(.watch(t.id)) }
+            // back from the floating window: its picture returns to the page; the page is opened only if it is not already open
+            // (opening a second one put the same video layer in two places and crashed)
+            if self.layer.player == nil { self.layer.player = self.player }
+            if let t = self.track, let ui = UIState.shared, !ui.path.contains(.watch(t.id)) { ui.path.append(.watch(t.id)) }
             done(true)
         }
     }
