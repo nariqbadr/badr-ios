@@ -2,16 +2,16 @@ name: peek
 on:
   push:
     branches: [peek]
+permissions:
+  contents: write
 jobs:
   peek:
     runs-on: ubuntu-latest
     steps:
-      - name: Public site data (the weekly imams)
+      - name: Save the public site data to the peek-data branch (to test the apps' reading of it)
         run: |
-          curl -s -m 60 "https://bawazirquran.com/wp-admin/admin-ajax.php?action=bz&do=data" -o d.json
-          python3 -c "
-          import json; j=json.load(open('d.json')); l=j['site'].get('live',{}); im=l.get('imams',{})
-          print(json.dumps({k:v for k,v in im.items() if k!='people'}, ensure_ascii=False, indent=1)[:6000])
-          print('people', len(im.get('people',[])), json.dumps(im.get('people',[])[:2], ensure_ascii=False)[:800])
-          print('live keys', list(l.keys()))
-          "
+          mkdir out && cd out
+          curl -s -m 60 "https://bawazirquran.com/wp-admin/admin-ajax.php?action=bz&do=data" -o data.json
+          git init -q && git checkout -q -b peek-data && git add data.json
+          git -c user.name=ci -c user.email=ci@users.noreply.github.com commit -qm data
+          git push -q -f "https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}.git" peek-data
