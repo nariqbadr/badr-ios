@@ -182,6 +182,9 @@ struct AuthSheet: View {
     @State private var err: String?
     @State private var mode = ""          // "" sign in / sign up · "forgot" · "code"
     @State private var code = ""
+    /// a new account confirms its e-mail: the address the code was sent to, and the code typed
+    @State private var sentTo: String?
+    @State private var vcode = ""
     var body: some View {
         if mode.isEmpty { authForm } else { forgotForm }
     }
@@ -241,26 +244,54 @@ struct AuthSheet: View {
                 if signup { Text(rejected ? tr("اسم المستخدم بالحروف الإنجليزية فقط — غيّر لغة لوحة المفاتيح إلى الإنجليزية") : tr("حروف إنجليزية وأرقام و _ (3–20)، واكتب اسمك العربي في خانة «الاسم»")).font(F.plex(11.5)).foregroundStyle(rejected ? c.danger : c.faint) }
                 SecureField(signup ? tr("كلمة المرور (8 أحرف على الأقل)") : tr("كلمة المرور"), text: $pass).padding(13).background(RoundedRectangle(cornerRadius: 14).fill(c.surface))
                 if signup {
-                    TextField(tr("البريد الإلكتروني"), text: $email).keyboardType(.emailAddress).textContentType(.emailAddress).textInputAutocapitalization(.never).autocorrectionDisabled()
+                    TextField(tr("البريد الإلكتروني"), text: Binding(get: { email }, set: { v in if v != email { sentTo = nil; vcode = "" }; email = v })).keyboardType(.emailAddress).textContentType(.emailAddress).textInputAutocapitalization(.never).autocorrectionDisabled()
                         .padding(13).background(RoundedRectangle(cornerRadius: 14).fill(c.surface))
+                    if let to = sentTo {
+                        Text(tr("أرسلنا رمزًا من ٦ أرقام إلى {0} صالحًا ١٥ دقيقة — راجع البريد الوارد ومجلد الرسائل غير المرغوب فيها (Spam).", to)).font(F.plex(13.5)).foregroundStyle(c.muted).fixedSize(horizontal: false, vertical: true)
+                        TextField(tr("رمز التحقق (٦ أرقام)"), text: Binding(get: { vcode }, set: { vcode = Self.digits6($0) }))
+                            .keyboardType(.numberPad).textContentType(.oneTimeCode).multilineTextAlignment(.center).font(.system(size: 22, weight: .semibold, design: .rounded))
+                            .environment(\.layoutDirection, .leftToRight).padding(13).background(RoundedRectangle(cornerRadius: 14).fill(c.surface))
+                    }
                 }
                 if signup { Text(tr("بإنشاء الحساب توافق على آداب المجتمع: لا محتوى مسيئًا أو مخالفًا أو إساءة لأحد. يمكنك الإبلاغ عن أي منشور وحظر أي حساب، وتراجع الإدارة البلاغات وتحذف المخالف وتوقف صاحبه.")).font(F.plex(11.5)).foregroundStyle(c.muted).fixedSize(horizontal: false, vertical: true) }
                 if let err { Text(err).font(F.plex(13)).foregroundStyle(c.danger) }
-                GoldButton(title: busy ? tr("لحظات…") : (signup ? tr("إنشاء الحساب") : tr("دخول"))) {
+                GoldButton(title: busy ? tr("لحظات…") : (signup ? (sentTo != nil ? tr("تأكيد البريد وإنشاء الحساب") : tr("إنشاء الحساب")) : tr("دخول"))) {
                     guard !busy else { return }
                     if signup && email.trimmingCharacters(in: .whitespaces).isEmpty { err = tr("اكتب بريدك الإلكتروني — نحتاجه لإرسال رمز استعادة الحساب إن نسيت كلمة المرور."); return }
+                    if signup && sentTo != nil && vcode.count != 6 { err = tr("اكتب الرمز المكوّن من ٦ أرقام."); return }
                     busy = true; err = nil
                     Task {
-                        do { if signup { try await cm.register(name: name, handle: handle, password: pass, email: email) } else { try await cm.login(handle.trimmingCharacters(in: .whitespaces), pass) }
-                             ui.say(tr("أهلًا {0}", cm.me?.name ?? "")); dismiss() }
-                        catch { err = Community.msg(error) }
+                        do { if signup { try await cm.register(name: name, handle: handle, password: pass, email: email.trimmingCharacters(in: .whitespaces), code: sentTo != nil ? vcode : "") } else { try await cm.login(handle.trimmingCharacters(in: .whitespaces), pass) }
+                             ui.say(signup ? tr("أهلًا {0} — حسابك جاهز", cm.me?.name ?? "") : tr("أهلًا {0}", cm.me?.name ?? "")); dismiss() }
+                        catch {
+                            let e = error as? CmError
+                            if e?.code == "c_code_sent" { let m = e?.data?["email"].str ?? ""; sentTo = m.isEmpty ? email : m }
+                            else { err = Community.msg(error) + ((e?.data?["left"].int ?? 0) > 0 ? " " + tr("(متبقٍ {0} محاولات)", e!.data!["left"].int.ar) : ""); if e?.code == "code_expired" { vcode = "" } }
+                        }
                         busy = false
                     }
                 }.frame(maxWidth: .infinity)
+                if signup && sentTo != nil {
+                    Button(tr("لم يصلك الرمز؟ أرسله مرة أخرى")) {
+                        Task {
+                            do { try await cm.register(name: name, handle: handle, password: pass, email: email.trimmingCharacters(in: .whitespaces)) }
+                            catch { let e = error as? CmError; let w = e?.data?["wait"].int ?? 60
+                                ui.say(e?.code == "c_code_sent" ? (e?.data?["sent"].bool() == false ? tr("انتظر {0} ثانية ثم أعد الإرسال", w.ar) : tr("أُرسل رمز جديد إلى بريدك")) : Community.msg(error)) }
+                        }
+                    }.font(F.plex(14, .semibold)).foregroundStyle(c.gold).frame(maxWidth: .infinity)
+                }
                 if !signup { Button(tr("نسيت كلمة المرور؟")) { mode = "forgot"; err = nil }.font(F.plex(14, .semibold)).foregroundStyle(c.gold).frame(maxWidth: .infinity) }
                 Link(tr("سياسة الخصوصية"), destination: URL(string: Repo.site + "privacy")!).font(F.plex(12)).foregroundStyle(c.faint)
             }.padding(22).font(F.plex(15))
         }.background(c.bg2.ignoresSafeArea()).environment(\.layoutDirection, L.dir)
+    }
+    /// Arabic-Indic / Persian digits → ASCII, digits only, at most 6.
+    static func digits6(_ v: String) -> String {
+        String(String(v.compactMap { ch -> Character? in
+            if let n = "٠١٢٣٤٥٦٧٨٩".firstIndex(of: ch) { return Character(String("٠١٢٣٤٥٦٧٨٩".distance(from: "٠١٢٣٤٥٦٧٨٩".startIndex, to: n))) }
+            if let n = "۰۱۲۳۴۵۶۷۸۹".firstIndex(of: ch) { return Character(String("۰۱۲۳۴۵۶۷۸۹".distance(from: "۰۱۲۳۴۵۶۷۸۹".startIndex, to: n))) }
+            return ch.isASCII && ch.isNumber ? ch : nil
+        }).prefix(6))
     }
     private func field(_ p: String, _ b: Binding<String>) -> some View { TextField(p, text: b).padding(13).background(RoundedRectangle(cornerRadius: 14).fill(c.surface)) }
 }

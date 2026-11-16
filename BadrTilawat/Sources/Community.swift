@@ -133,7 +133,8 @@ final class Community: ObservableObject {
     func forgotSend(_ login: String) async throws { _ = try await api("forgot_send", form: ["who": "member", "login": login]) }
     func forgotReset(_ login: String, code: String, password: String) async throws -> String {
         let j = try await api("forgot_reset", form: ["who": "member", "login": login, "code": code, "password": password]); return j["login"].str.isEmpty ? login : j["login"].str }
-    func register(name: String, handle: String, password: String, email: String) async throws { session(try await api("c_register", form: ["name": name, "handle": handle, "password": password, "email": email])) }
+    /// Without [code] the site e-mails a 6-digit code and throws CmError("c_code_sent"); then the same form again with the code.
+    func register(name: String, handle: String, password: String, email: String, code: String = "") async throws { session(try await api("c_register", form: ["name": name, "handle": handle, "password": password, "email": email, "code": code])) }
     func logout() async { _ = try? await api("c_logout", form: [:], retry: false); clear() }
     func deleteAccount(_ password: String) async throws { _ = try await api("c_delete_account", form: ["password": password], retry: false); clear() }
     private func clear() { HTTPCookieStorage.shared.cookies?.filter { $0.name.hasPrefix("bzc") }.forEach { HTTPCookieStorage.shared.deleteCookie($0) }; csrf = ""; me = nil; unread = 0 }
