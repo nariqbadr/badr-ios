@@ -137,9 +137,15 @@ enum Haram {
     /// Notifications for the followed imams' prayers this week (both mosques).
     @MainActor static func schedule() {
         let c = UNUserNotificationCenter.current()
-        c.getPendingNotificationRequests { reqs in
-            let old = reqs.map(\.identifier).filter { $0.hasPrefix("imam-") }
-            c.removePendingNotificationRequests(withIdentifiers: old)
+        // the new alerts are added only after the old ones are removed (before, the removal could land after the
+        // additions and wipe them)
+        var adds: [UNNotificationRequest] = []
+        defer {
+            let list = adds
+            c.getPendingNotificationRequests { reqs in
+                c.removePendingNotificationRequests(withIdentifiers: reqs.map(\.identifier).filter { $0.hasPrefix("imam-") })
+                for r in list { c.add(r) }
+            }
         }
         let f = follows; guard !f.isEmpty else { return }
         let now = Date()
@@ -157,7 +163,7 @@ enum Haram {
                     guard f.contains(s.imam) || asBackup, let who = person(asBackup ? s.backup : s.imam) else { continue }
                     let iq = TimeInterval((jum ? khutbahMin : iqamaMin(k, p)) * 60)
                     let fire = whenMode == 0 ? at : whenMode == 1 ? at.addingTimeInterval(iq - 600) : at.addingTimeInterval(-1800)
-                    guard fire > now, n < 60 else { continue }
+                    guard fire > now, n < 16 else { continue }
                     let name = jum ? tr("الجمعة") : prayerName(p), m = mosque(k)
                     let mins = Int((at.addingTimeInterval(iq).timeIntervalSince(fire)) / 60)
                     let whenTxt = mins > 1 ? tr("بعد {0} دقيقة", mins.ar) : tr("الآن")
@@ -166,7 +172,7 @@ enum Haram {
                     content.body = tr("{0} في {1} ({2} بتوقيت {3}){4}. اضغط لمشاهدة البث المباشر.", whenTxt, m.name, clock(at.addingTimeInterval(iq)), m.city, asBackup ? tr(" — إمامًا احتياطيًا") : "")
                     content.sound = .default; content.userInfo = ["open": "live/\(k)"]
                     let comps = Calendar.current.dateComponents([.year, .month, .day, .hour, .minute], from: fire)
-                    c.add(UNNotificationRequest(identifier: "imam-\(k)-\(ymd(day))-\(p)", content: content, trigger: UNCalendarNotificationTrigger(dateMatching: comps, repeats: false)))
+                    adds.append(UNNotificationRequest(identifier: "imam-\(k)-\(ymd(day))-\(p)", content: content, trigger: UNCalendarNotificationTrigger(dateMatching: comps, repeats: false)))
                     n += 1
                 }
             }

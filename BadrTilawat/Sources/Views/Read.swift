@@ -44,7 +44,7 @@ struct OptMenu<V: Hashable>: View {
 /// Index of «اقرأ واستمع واحفظ»: continue, the site's analysed recitations (filtered by reciter), and the recited mushaf.
 struct ReadIndexView: View {
     @EnvironmentObject var repo: Repo
-    @EnvironmentObject var ui: UIState
+    /* UI actions only: reading it does not redraw this view on every tab or sheet change */ private var ui: UIState { UIState.shared! }
     @EnvironmentObject var player: AudioPlayer
     @Environment(\.pal) private var c
     @State private var who = ""
@@ -193,7 +193,7 @@ func readWordStarts(_ toks: [String], _ wt: [[Int]]) -> [Int]? {
 struct ReadView: View {
     let a: String, b: String
     @EnvironmentObject var repo: Repo
-    @EnvironmentObject var ui: UIState
+    /* UI actions only: reading it does not redraw this view on every tab or sheet change */ private var ui: UIState { UIState.shared! }
     @EnvironmentObject var player: AudioPlayer
     @Environment(\.pal) private var c
     @State private var items: [RItem]?

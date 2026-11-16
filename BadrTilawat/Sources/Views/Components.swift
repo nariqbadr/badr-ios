@@ -391,7 +391,7 @@ struct TrackRow: View {
     var rank: Int = 0; var count: Int = 0; var showReciter = true
     @EnvironmentObject var player: AudioPlayer
     @EnvironmentObject var store: Store
-    @EnvironmentObject var ui: UIState
+    /* UI actions only: reading it does not redraw this view on every tab or sheet change */ private var ui: UIState { UIState.shared! }
     @Environment(\.pal) private var c
     var body: some View {
         let cur = player.current?.id == t.id
@@ -440,7 +440,7 @@ struct TrackRow: View {
 struct TrackCard: View {
     let t: Track; let list: [Track]
     @EnvironmentObject var player: AudioPlayer
-    @EnvironmentObject var ui: UIState
+    /* UI actions only: reading it does not redraw this view on every tab or sheet change */ private var ui: UIState { UIState.shared! }
     @Environment(\.pal) private var c
     var body: some View {
         let cur = player.current?.id == t.id

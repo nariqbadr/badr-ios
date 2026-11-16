@@ -3,7 +3,7 @@ import WebKit
 
 struct HomeView: View {
     @EnvironmentObject var repo: Repo
-    @EnvironmentObject var ui: UIState
+    /* UI actions only: reading it does not redraw this view on every tab or sheet change */ private var ui: UIState { UIState.shared! }
     @EnvironmentObject var store: Store
     @EnvironmentObject var player: AudioPlayer
     @Environment(\.pal) private var c
@@ -74,7 +74,7 @@ struct QuickHead: View {
     @EnvironmentObject var repo: Repo
     @EnvironmentObject var store: Store
     @EnvironmentObject var prayers: Prayers
-    @EnvironmentObject var ui: UIState
+    /* UI actions only: reading it does not redraw this view on every tab or sheet change */ private var ui: UIState { UIState.shared! }
     @Environment(\.pal) private var c
     var body: some View {
         let h = Calendar.current.component(.hour, from: Date())
@@ -104,7 +104,7 @@ struct QuickHead: View {
 /// The home shortcuts: full rows of four; the person can pick their own (4 or 8, in their order), as on the site.
 struct QuickTiles: View {
     @EnvironmentObject var repo: Repo
-    @EnvironmentObject var ui: UIState
+    /* UI actions only: reading it does not redraw this view on every tab or sheet change */ private var ui: UIState { UIState.shared! }
     @Environment(\.pal) private var c
     @AppStorage("homeTiles") private var mineRaw = ""
     @State private var edit = false
@@ -223,7 +223,7 @@ struct ResumeCard: View {
 struct ReciterRow: View {
     let rs: [Reciter]; var active = ""
     @EnvironmentObject var repo: Repo
-    @EnvironmentObject var ui: UIState
+    /* UI actions only: reading it does not redraw this view on every tab or sheet change */ private var ui: UIState { UIState.shared! }
     @Environment(\.pal) private var c
     var body: some View {
         ScrollView(.horizontal, showsIndicators: false) {
@@ -245,7 +245,7 @@ struct ReciterRow: View {
 /// «استكشف أيضًا»: two tiles a row.
 struct ExploreTiles: View {
     @EnvironmentObject var repo: Repo
-    @EnvironmentObject var ui: UIState
+    /* UI actions only: reading it does not redraw this view on every tab or sheet change */ private var ui: UIState { UIState.shared! }
     @ObservedObject private var amb = Ambient.shared
     @Environment(\.pal) private var c
     var body: some View {
@@ -309,7 +309,7 @@ struct HomeFooter: View {
 }
 
 struct DuaCard: View {
-    @EnvironmentObject var ui: UIState
+    /* UI actions only: reading it does not redraw this view on every tab or sheet change */ private var ui: UIState { UIState.shared! }
     @Environment(\.pal) private var c
     @State private var i = Int(Date().timeIntervalSince1970 / 86400) % Quran.duas.count
     var body: some View {
@@ -328,7 +328,7 @@ struct DuaCard: View {
 /// A video recitation as a 16:9 card.
 struct VideoCard: View {
     let t: Track
-    @EnvironmentObject var ui: UIState
+    /* UI actions only: reading it does not redraw this view on every tab or sheet change */ private var ui: UIState { UIState.shared! }
     @Environment(\.pal) private var c
     var body: some View {
         let r = Repo.shared.reciter(t.reciterId), top = t.video?.q.first?.h ?? 0
@@ -359,7 +359,7 @@ struct AyahOfDay: View {
     @EnvironmentObject var ayah: AyahPlayer
     @EnvironmentObject var store: Store
     @EnvironmentObject var repo: Repo
-    @EnvironmentObject var ui: UIState
+    /* UI actions only: reading it does not redraw this view on every tab or sheet change */ private var ui: UIState { UIState.shared! }
     @Environment(\.pal) private var c
     @State private var ref = Calendar.current.component(.weekday, from: Date()) == 6 ? (33, 56) : Quran.daily(Int64(Calendar.current.ordinality(of: .day, in: .era, for: Date()) ?? 1))
     @State private var text: String?
@@ -465,7 +465,7 @@ struct ReciterPhotos: View {
 struct TafsirSheet: View {
     let s: Int, a: Int, text: String
     @EnvironmentObject var repo: Repo
-    @EnvironmentObject var ui: UIState
+    /* UI actions only: reading it does not redraw this view on every tab or sheet change */ private var ui: UIState { UIState.shared! }
     @Environment(\.pal) private var c
     @AppStorage("tafsirEd") private var ed = L.quran[L.code]?.0 ?? "ar.muyassar"
     @State private var t: String?
@@ -512,7 +512,7 @@ extension Array { subscript(safe i: Int) -> Element? { indices.contains(i) ? sel
 /// Prayer strip on the home screen (like the site): the city and the hijri date, the day's times, the time left to the next.
 struct PrayerBand: View {
     @EnvironmentObject var prayers: Prayers
-    @EnvironmentObject var ui: UIState
+    /* UI actions only: reading it does not redraw this view on every tab or sheet change */ private var ui: UIState { UIState.shared! }
     @Environment(\.pal) private var c
     var body: some View {
         TimelineView(.periodic(from: .now, by: 1)) { ctx in
@@ -562,7 +562,7 @@ struct PrayerBand: View {
 struct LiveStage: View {
     @Environment(\.tabActive) private var active
     @EnvironmentObject var repo: Repo
-    @EnvironmentObject var ui: UIState
+    /* UI actions only: reading it does not redraw this view on every tab or sheet change */ private var ui: UIState { UIState.shared! }
     @Environment(\.pal) private var c
     @Environment(\.scenePhase) private var phase
     @State private var sound = false

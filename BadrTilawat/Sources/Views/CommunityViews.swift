@@ -6,7 +6,7 @@ struct PeopleView: View {
     let handle: String
     @State var list: String
     @EnvironmentObject var cm: Community
-    @EnvironmentObject var ui: UIState
+    /* UI actions only: reading it does not redraw this view on every tab or sheet change */ private var ui: UIState { UIState.shared! }
     @Environment(\.pal) private var c
     @State private var rows: [Member] = []
     @State private var next = 0
@@ -107,7 +107,7 @@ struct PeopleView: View {
 struct ComposeView: View {
     let embed: String
     @EnvironmentObject var cm: Community
-    @EnvironmentObject var ui: UIState
+    /* UI actions only: reading it does not redraw this view on every tab or sheet change */ private var ui: UIState { UIState.shared! }
     @Environment(\.pal) private var c
     @State private var text = ""
     @State private var media: [CMedia] = []
@@ -169,7 +169,7 @@ struct ComposeView: View {
 
 struct AuthSheet: View {
     @EnvironmentObject var cm: Community
-    @EnvironmentObject var ui: UIState
+    /* UI actions only: reading it does not redraw this view on every tab or sheet change */ private var ui: UIState { UIState.shared! }
     @Environment(\.pal) private var c
     @Environment(\.dismiss) private var dismiss
     @State private var signup = false
@@ -269,7 +269,7 @@ struct AuthSheet: View {
 struct LimitSheet: View {
     let m: Member
     @EnvironmentObject var cm: Community
-    @EnvironmentObject var ui: UIState
+    /* UI actions only: reading it does not redraw this view on every tab or sheet change */ private var ui: UIState { UIState.shared! }
     @Environment(\.pal) private var c
     @Environment(\.dismiss) private var dismiss
     @State private var hours: Double = 24
@@ -311,7 +311,7 @@ struct LimitSheet: View {
 }
 struct EditProfileSheet: View {
     @EnvironmentObject var cm: Community
-    @EnvironmentObject var ui: UIState
+    /* UI actions only: reading it does not redraw this view on every tab or sheet change */ private var ui: UIState { UIState.shared! }
     @Environment(\.pal) private var c
     @Environment(\.dismiss) private var dismiss
     @State private var name = ""
@@ -377,7 +377,7 @@ var REL_DONE: [String: (String, String)] { ["block": (tr("حُظر الحساب 
 /// «الحظر والكتم»: the accounts I blocked or muted, with undo.
 struct BlockedView: View {
     @EnvironmentObject var cm: Community
-    @EnvironmentObject var ui: UIState
+    /* UI actions only: reading it does not redraw this view on every tab or sheet change */ private var ui: UIState { UIState.shared! }
     @Environment(\.pal) private var c
     @State private var kind = "block"
     @State private var list: [Member]?

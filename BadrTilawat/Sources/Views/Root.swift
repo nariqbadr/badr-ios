@@ -49,6 +49,8 @@ struct RootView: View {
                             screen(k).opacity(on ? 1 : 0).allowsHitTesting(on).accessibilityHidden(!on).environment(\.tabActive, on && ui.path.isEmpty)
                         }
                     }.frame(maxHeight: .infinity)
+                    // a short cross-fade between tabs (the tab bar itself changes at once)
+                    .animation(.easeOut(duration: 0.18), value: ui.tab)
                 }
                 .safeAreaInset(edge: .bottom, spacing: 0) { Color.clear.frame(height: barH) }
                 .background(Backdrop())

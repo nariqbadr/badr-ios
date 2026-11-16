@@ -506,7 +506,7 @@ private struct ClipPreview: UIViewRepresentable {
 struct ClipView: View {
     let trackId: String
     @EnvironmentObject var repo: Repo
-    @EnvironmentObject var ui: UIState
+    /* UI actions only: reading it does not redraw this view on every tab or sheet change */ private var ui: UIState { UIState.shared! }
     @Environment(\.pal) private var c
     @State private var o = ClipOpts.load()
     @State private var player = AVPlayer()

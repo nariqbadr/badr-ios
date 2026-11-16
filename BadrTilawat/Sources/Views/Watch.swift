@@ -264,7 +264,7 @@ private func fmtT(_ s: Double) -> String { let x = Int(max(0, s.isFinite ? s : 0
 struct WatchView: View {
     let id: String
     @EnvironmentObject var repo: Repo
-    @EnvironmentObject var ui: UIState
+    /* UI actions only: reading it does not redraw this view on every tab or sheet change */ private var ui: UIState { UIState.shared! }
     @EnvironmentObject var store: Store
     @ObservedObject private var v = VideoEngine.shared
     @ObservedObject private var dl = VideoDownloads.shared

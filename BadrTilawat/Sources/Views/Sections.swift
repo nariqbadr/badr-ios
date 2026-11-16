@@ -114,7 +114,7 @@ struct FiqhView: View {
 /// «عن الشيخ»: portrait in the arch, intro, biography, milestones and gallery (all from the dashboard).
 struct AboutView: View {
     @EnvironmentObject var repo: Repo
-    @EnvironmentObject var ui: UIState
+    /* UI actions only: reading it does not redraw this view on every tab or sheet change */ private var ui: UIState { UIState.shared! }
     @Environment(\.pal) private var c
     @State private var photo: String?
     var body: some View {
@@ -235,7 +235,7 @@ struct ThemeSheet: View {
 
 struct NameSheet: View {
     @EnvironmentObject var store: Store
-    @EnvironmentObject var ui: UIState
+    /* UI actions only: reading it does not redraw this view on every tab or sheet change */ private var ui: UIState { UIState.shared! }
     @Environment(\.pal) private var c
     @Environment(\.dismiss) private var dismiss
     @State private var v = ""
@@ -258,7 +258,7 @@ struct NameSheet: View {
 
 struct NoticesSheet: View {
     @EnvironmentObject var repo: Repo
-    @EnvironmentObject var ui: UIState
+    /* UI actions only: reading it does not redraw this view on every tab or sheet change */ private var ui: UIState { UIState.shared! }
     @Environment(\.pal) private var c
     @Environment(\.dismiss) private var dismiss
     var body: some View {

@@ -15,7 +15,7 @@ func sortTracks(_ l: [Track], _ mode: String, _ plays: [String: Int]) -> [Track]
 struct RecitationsView: View {
     @EnvironmentObject var repo: Repo
     @EnvironmentObject var player: AudioPlayer
-    @EnvironmentObject var ui: UIState
+    /* UI actions only: reading it does not redraw this view on every tab or sheet change */ private var ui: UIState { UIState.shared! }
     @Environment(\.pal) private var c
     @State private var q = ""
     @State private var rec = ""
@@ -112,7 +112,7 @@ struct KindTabs: View {
 /// The first video, large.
 struct VideoHero: View {
     let t: Track
-    @EnvironmentObject var ui: UIState
+    /* UI actions only: reading it does not redraw this view on every tab or sheet change */ private var ui: UIState { UIState.shared! }
     @Environment(\.pal) private var c
     var body: some View {
         let r = Repo.shared.reciter(t.reciterId)
@@ -173,7 +173,7 @@ struct LibraryView: View {
     @EnvironmentObject var repo: Repo
     @EnvironmentObject var store: Store
     @EnvironmentObject var player: AudioPlayer
-    @EnvironmentObject var ui: UIState
+    /* UI actions only: reading it does not redraw this view on every tab or sheet change */ private var ui: UIState { UIState.shared! }
     @Environment(\.pal) private var c
     @State private var tab = "favs"
     @State private var openList: String?
@@ -279,7 +279,7 @@ struct LibraryView: View {
 /// One search for everything: reciters, recitations, fiqh lessons and surahs (like the Android app).
 struct SearchView: View {
     @EnvironmentObject var repo: Repo
-    @EnvironmentObject var ui: UIState
+    /* UI actions only: reading it does not redraw this view on every tab or sheet change */ private var ui: UIState { UIState.shared! }
     @Environment(\.pal) private var c
     @State private var q = ""
     @FocusState private var focus: Bool

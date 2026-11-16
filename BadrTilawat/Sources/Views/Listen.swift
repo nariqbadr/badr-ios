@@ -261,7 +261,7 @@ private struct ReciterQuranView: View {
     let recs: [QuranRec]; let r: QuranRec; let back: (() -> Void)?
     @EnvironmentObject var repo: Repo
     @EnvironmentObject var player: AudioPlayer
-    @EnvironmentObject var ui: UIState
+    /* UI actions only: reading it does not redraw this view on every tab or sheet change */ private var ui: UIState { UIState.shared! }
     @ObservedObject private var dl = QuranDownloads.shared
     @Environment(\.pal) private var c
     @State private var q = ""
@@ -483,7 +483,7 @@ private struct ReciterQuranView: View {
 /// Entry card (home, recitations page, Quran tab): «القرآن الكريم كاملًا».
 struct QuranFullBanner: View {
     @EnvironmentObject var repo: Repo
-    @EnvironmentObject var ui: UIState
+    /* UI actions only: reading it does not redraw this view on every tab or sheet change */ private var ui: UIState { UIState.shared! }
     @Environment(\.pal) private var c
     var body: some View {
         let recs = repo.quranRecs()

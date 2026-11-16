@@ -58,7 +58,7 @@ enum Wird {
 }
 
 struct WirdSheet: View {
-    @EnvironmentObject var ui: UIState
+    /* UI actions only: reading it does not redraw this view on every tab or sheet change */ private var ui: UIState { UIState.shared! }
     @EnvironmentObject var store: Store
     @EnvironmentObject var prayers: Prayers
     @Environment(\.pal) private var c
@@ -115,7 +115,7 @@ struct WirdSheet: View {
 }
 
 private struct WirdStart: View {
-    @EnvironmentObject var ui: UIState
+    /* UI actions only: reading it does not redraw this view on every tab or sheet change */ private var ui: UIState { UIState.shared! }
     @Environment(\.pal) private var c
     @Environment(\.dismiss) private var dismiss
     @State private var page = "\(Wird.next)"
@@ -345,7 +345,6 @@ struct AdhanScreen: View {
     var body: some View {
         ZStack(alignment: .topLeading) {
             RadialGradient(colors: [c.gold.opacity(0.14), c.bg], center: .center, startRadius: 10, endRadius: 600).ignoresSafeArea()
-            Button { ap.stop(); dismiss() } label: { Ico(name: "xmark", size: 21.6).foregroundStyle(c.text).frame(width: 44, height: 44) }.padding(12).accessibilityLabel(tr("إغلاق"))
             ScrollView {
                 VStack(spacing: 6) {
                     Text(test ? tr("تجربة") : tr("حان الآن موعد صلاة")).font(F.plex(18)).foregroundStyle(c.muted)
@@ -360,6 +359,9 @@ struct AdhanScreen: View {
                     Hadith(words: tr("«إذا سَمِعتُمُ النِّداءَ، فقولوا مِثلَ ما يقولُ المُؤَذِّنُ»")).padding(.top, 26)
                 }.padding(24).frame(maxWidth: 440).frame(maxWidth: .infinity).padding(.top, 70)
             }
+            // the close button above the scrolling page (it sat under it, and taps went to the page)
+            Button { ap.stop(); UIState.shared?.adhan = nil; dismiss() } label: { Ico(name: "xmark", size: 21.6).foregroundStyle(c.text).frame(width: 44, height: 44).contentShape(Rectangle()) }
+                .padding(12).accessibilityLabel(tr("إغلاق"))
         }
         .environment(\.layoutDirection, L.dir)
         .onAppear { withAnimation(.easeInOut(duration: 0.9).repeatForever()) { pulse = true } }

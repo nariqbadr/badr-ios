@@ -46,7 +46,7 @@ struct BadgeChips: View {
 /// Text with @mentions, #tags and links (tappable).
 struct RichText: View {
     let t: String; var size: CGFloat = 16
-    @EnvironmentObject var ui: UIState
+    /* UI actions only: reading it does not redraw this view on every tab or sheet change */ private var ui: UIState { UIState.shared! }
     @Environment(\.pal) private var c
     var body: some View {
         Text(attr).font(F.plex(size)).foregroundStyle(c.text).lineSpacing(5).fixedSize(horizontal: false, vertical: true)
@@ -184,7 +184,7 @@ struct VideoPostPlayer: View {
 struct PostCard: View {
     let p: Post; var repostBy: Member? = nil; var big = false
     @EnvironmentObject var cm: Community
-    @EnvironmentObject var ui: UIState
+    /* UI actions only: reading it does not redraw this view on every tab or sheet change */ private var ui: UIState { UIState.shared! }
     @Environment(\.pal) private var c
     @State private var more = false
     @State private var repostMenu = false
@@ -315,7 +315,7 @@ struct CommunityView: View {
     var user: String? = nil
     var arg = ""
     @EnvironmentObject var cm: Community
-    @EnvironmentObject var ui: UIState
+    /* UI actions only: reading it does not redraw this view on every tab or sheet change */ private var ui: UIState { UIState.shared! }
     @Environment(\.pal) private var c
     @State private var auth = false
     @State private var edit = false
@@ -408,7 +408,7 @@ struct PagedPosts<Header: View>: View {
 
 struct FeedView: View {
     @EnvironmentObject var cm: Community
-    @EnvironmentObject var ui: UIState
+    /* UI actions only: reading it does not redraw this view on every tab or sheet change */ private var ui: UIState { UIState.shared! }
     @Environment(\.pal) private var c
     @State private var tab = "all"
     @State private var sug: (people: [Member], tags: [(String, Int)])?
@@ -449,7 +449,7 @@ struct FeedView: View {
 struct UserView: View {
     let handle: String; let edit: () -> Void
     @EnvironmentObject var cm: Community
-    @EnvironmentObject var ui: UIState
+    /* UI actions only: reading it does not redraw this view on every tab or sheet change */ private var ui: UIState { UIState.shared! }
     @Environment(\.pal) private var c
     @State private var tab = "posts"
     @State private var follow: Bool?
@@ -532,7 +532,7 @@ struct UserView: View {
 struct ThreadView: View {
     let id: Int
     @EnvironmentObject var cm: Community
-    @EnvironmentObject var ui: UIState
+    /* UI actions only: reading it does not redraw this view on every tab or sheet change */ private var ui: UIState { UIState.shared! }
     @Environment(\.pal) private var c
     @State private var t: (Post, [Post], [Post])?
     @State private var err: String?
@@ -562,7 +562,7 @@ struct ThreadView: View {
 
 struct NotifsView: View {
     @EnvironmentObject var cm: Community
-    @EnvironmentObject var ui: UIState
+    /* UI actions only: reading it does not redraw this view on every tab or sheet change */ private var ui: UIState { UIState.shared! }
     @Environment(\.pal) private var c
     @State private var list: [Notif]?
     @State private var err: String?
@@ -599,7 +599,7 @@ struct NotifsView: View {
 struct CmSearchView: View {
     let q0: String
     @EnvironmentObject var cm: Community
-    @EnvironmentObject var ui: UIState
+    /* UI actions only: reading it does not redraw this view on every tab or sheet change */ private var ui: UIState { UIState.shared! }
     @Environment(\.pal) private var c
     @State private var q = ""
     @State private var sent = ""

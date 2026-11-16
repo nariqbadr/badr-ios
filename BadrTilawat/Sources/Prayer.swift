@@ -116,10 +116,16 @@ final class Prayers: NSObject, ObservableObject, CLLocationManagerDelegate {
     /// iOS keeps at most 64 pending notifications: the next ~8 days of prayers are scheduled (refreshed each time the app opens).
     func schedule() {
         let c = UNUserNotificationCenter.current()
-        c.removeAllPendingNotificationRequests()
         WidgetBridge.prayers()
         let wird = Wird.requests()
-        guard alertsOn else { wird.forEach { c.add($0) }; return }
+        /// replaces this app's prayer and wird alerts, and leaves the imams' alerts (Haram.schedule) alone
+        func replace(_ reqs: [UNNotificationRequest]) {
+            c.getPendingNotificationRequests { old in
+                c.removePendingNotificationRequests(withIdentifiers: old.map(\.identifier).filter { !$0.hasPrefix("imam-") })
+                for r in reqs { c.add(r) }
+            }
+        }
+        guard alertsOn else { replace(wird); return }
         let pre = preMinutes
         var reqs: [UNNotificationRequest] = []
         let now = Date()
@@ -141,7 +147,8 @@ final class Prayers: NSObject, ObservableObject, CLLocationManagerDelegate {
                 }
             }
         }
-        for r in reqs.prefix(60 - wird.count) + wird { c.add(r) }
+        // iOS keeps 64: the imams' alerts keep up to 16 of them
+        replace(Array(reqs.prefix(48 - wird.count)) + wird)
     }
     private func trigger(_ d: Date) -> UNCalendarNotificationTrigger {
         UNCalendarNotificationTrigger(dateMatching: Calendar.current.dateComponents([.year, .month, .day, .hour, .minute], from: d), repeats: false)

@@ -88,7 +88,7 @@ final class UIState: ObservableObject {
     @Published var videoFull = false
     private var toastTask: Task<Void, Never>?
     /// for code outside the views (the video engine, downloads)
-    static weak var shared: UIState?
+    static var shared: UIState?
     init() { UIState.shared = self }
 
     func go(_ r: Route) {

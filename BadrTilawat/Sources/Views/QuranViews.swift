@@ -2,7 +2,7 @@ import SwiftUI
 
 /// «القرآن»: the mushaf, read-and-listen and the surah index in one place (like the Android app).
 struct QuranView: View {
-    @EnvironmentObject var ui: UIState
+    /* UI actions only: reading it does not redraw this view on every tab or sheet change */ private var ui: UIState { UIState.shared! }
     @EnvironmentObject var repo: Repo
     @Environment(\.pal) private var c
     @State private var q = ""
@@ -75,7 +75,7 @@ struct BigTile: View {
 
 /// «الورد اليومي» on the Quran page: today's portion, the khatma's progress, «اقرأ الورد» and «أتممت».
 struct WirdCard: View {
-    @EnvironmentObject var ui: UIState
+    /* UI actions only: reading it does not redraw this view on every tab or sheet change */ private var ui: UIState { UIState.shared! }
     @EnvironmentObject var store: Store
     @Environment(\.pal) private var c
     @State private var msg: String?
@@ -118,7 +118,7 @@ struct SurahView: View {
     let s0: Int
     init(s: Int) { s0 = s }
     @EnvironmentObject var repo: Repo
-    @EnvironmentObject var ui: UIState
+    /* UI actions only: reading it does not redraw this view on every tab or sheet change */ private var ui: UIState { UIState.shared! }
     @EnvironmentObject var ayah: AyahPlayer
     @EnvironmentObject var store: Store
     @Environment(\.pal) private var c

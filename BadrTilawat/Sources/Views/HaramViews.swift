@@ -95,7 +95,7 @@ struct FollowButton: View {
 struct HaramLiveView: View {
     var start: String = ""
     @EnvironmentObject var repo: Repo
-    @EnvironmentObject var ui: UIState
+    /* UI actions only: reading it does not redraw this view on every tab or sheet change */ private var ui: UIState { UIState.shared! }
     @Environment(\.pal) private var c
     @StateObject private var ctl = LiveCtl()
     @State private var mosque = Haram.chosen

@@ -3,7 +3,7 @@ import UserNotifications
 
 /// Adhkar like the site: one dhikr at a time with a big counter (or the full list); the counts reset every day.
 struct AdhkarView: View {
-    @EnvironmentObject var ui: UIState
+    /* UI actions only: reading it does not redraw this view on every tab or sheet change */ private var ui: UIState { UIState.shared! }
     @Environment(\.pal) private var c
     @State private var tab = { let h = Calendar.current.component(.hour, from: Date()); return (3...12).contains(h) ? "morning" : (13...20).contains(h) ? "evening" : "sleep" }()
     @AppStorage("adhkarList") private var listMode = false
@@ -98,7 +98,7 @@ struct AdhkarView: View {
 /// Prayer times page (like the Android app): the next prayer with a countdown ring, today's times with each alert, settings, the qibla.
 struct PrayerView: View {
     @EnvironmentObject var prayers: Prayers
-    @EnvironmentObject var ui: UIState
+    /* UI actions only: reading it does not redraw this view on every tab or sheet change */ private var ui: UIState { UIState.shared! }
     @Environment(\.pal) private var c
     @State private var modes: [String: String] = [:]
     var body: some View {
@@ -200,7 +200,7 @@ func icon(_ m: String) -> String { m == "adhan" ? "volume" : m == "notify" ? "be
 /// Location + adhan settings (like adhan apps).
 struct PrayerSettings: View {
     @EnvironmentObject var prayers: Prayers
-    @EnvironmentObject var ui: UIState
+    /* UI actions only: reading it does not redraw this view on every tab or sheet change */ private var ui: UIState { UIState.shared! }
     @Environment(\.pal) private var c
     @Environment(\.dismiss) private var dismiss
     @State private var city = ""

@@ -29,7 +29,7 @@ struct MiniPlayer: View {
     @EnvironmentObject var p: AudioPlayer
     @ObservedObject private var clock = AudioPlayer.shared.clock
     @EnvironmentObject var store: Store
-    @EnvironmentObject var ui: UIState
+    /* UI actions only: reading it does not redraw this view on every tab or sheet change */ private var ui: UIState { UIState.shared! }
     @Environment(\.pal) private var c
     @State private var drag: Double?
     var body: some View {
@@ -94,7 +94,7 @@ struct PlayerView: View {
     @EnvironmentObject var p: AudioPlayer
     @ObservedObject private var clock = AudioPlayer.shared.clock
     @EnvironmentObject var store: Store
-    @EnvironmentObject var ui: UIState
+    /* UI actions only: reading it does not redraw this view on every tab or sheet change */ private var ui: UIState { UIState.shared! }
     @EnvironmentObject var repo: Repo
     @ObservedObject private var amb = Ambient.shared
     @Environment(\.pal) private var c
@@ -222,7 +222,7 @@ struct TrackMenu: View {
     let t: Track
     @EnvironmentObject var p: AudioPlayer
     @EnvironmentObject var store: Store
-    @EnvironmentObject var ui: UIState
+    /* UI actions only: reading it does not redraw this view on every tab or sheet change */ private var ui: UIState { UIState.shared! }
     @EnvironmentObject var repo: Repo
     @Environment(\.pal) private var c
     @Environment(\.dismiss) private var dismiss

@@ -37,7 +37,7 @@ final class Repo: ObservableObject {
             let (d, resp) = try await session.data(from: url)
             guard (resp as? HTTPURLResponse)?.statusCode == 200 else { offline = true; return }
             let j = J(data: d)
-            offline = false
+            if offline { offline = false }
             if j["same"].bool() { return }
             guard !j["site"].isNull else { return }
             data = SiteData(j)

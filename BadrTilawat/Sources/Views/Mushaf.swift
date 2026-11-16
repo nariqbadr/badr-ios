@@ -73,7 +73,7 @@ final class MushafAudio: ObservableObject {
 /// Mushaf: 604 pages, swiped like a printed mushaf (right to left); opens on the last page read.
 struct MushafView: View {
     @EnvironmentObject var repo: Repo
-    @EnvironmentObject var ui: UIState
+    /* UI actions only: reading it does not redraw this view on every tab or sheet change */ private var ui: UIState { UIState.shared! }
     @EnvironmentObject var player: AudioPlayer
     @EnvironmentObject var ayah: AyahPlayer
     @EnvironmentObject var store: Store
@@ -329,7 +329,7 @@ struct MushafPage: View {
 struct AyahMenu: View {
     let g: Int; let page: Int; let seekMs: Int?
     let onPlay: () -> Void; let onTrack: (Int) -> Void; let onMark: (Int) -> Void
-    @EnvironmentObject var ui: UIState
+    /* UI actions only: reading it does not redraw this view on every tab or sheet change */ private var ui: UIState { UIState.shared! }
     @Environment(\.pal) private var c
     @State private var tafsir = false
     var body: some View {

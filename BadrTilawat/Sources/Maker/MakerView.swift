@@ -57,7 +57,7 @@ final class MakerAudio {
 struct MakerView: View {
     var s0 = 0, a0 = 0
     @EnvironmentObject var repo: Repo
-    @EnvironmentObject var ui: UIState
+    /* UI actions only: reading it does not redraw this view on every tab or sheet change */ private var ui: UIState { UIState.shared! }
     @Environment(\.pal) private var c
     @State private var o = MakerOpts()
     @State private var ready = false
