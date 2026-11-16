@@ -9,6 +9,12 @@ final class Repo: ObservableObject {
     static let ajax = site + "wp-admin/admin-ajax.php"
     static var version: String { Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "1.0" }
     static var build: Int { Int(Bundle.main.infoDictionary?["CFBundleVersion"] as? String ?? "1") ?? 1 }
+    /// «iPhone 15 Pro»-style name for the dashboard's device list (the hardware code, e.g. iPhone16,1)
+    static let deviceModel: String = {
+        var u = utsname(); uname(&u)
+        let code = withUnsafeBytes(of: &u.machine) { b in String(decoding: b.prefix { $0 != 0 }, as: UTF8.self) }
+        return code.hasPrefix("iPhone") || code.hasPrefix("iPad") ? code : "iPhone"
+    }()
     static let ua = "BadrTilawat/\(version) (iOS \(UIDevice.current.systemVersion); iPhone)"
 
     @Published private(set) var data: SiteData?
@@ -112,7 +118,7 @@ final class Repo: ObservableObject {
     nonisolated func event(_ type: String, _ fields: [String: String] = [:]) {
         Task { @MainActor in
             var f: [String: String] = ["type": type, "device": "mobile", "visitor": Store.shared.visitorId, "src": "app",
-                                       "appVer": "ios-" + Repo.version, "appCode": "\(Repo.build)", "model": "iPhone", "android": "",
+                                       "appVer": "ios-" + Repo.version, "appCode": "\(Repo.build)", "model": Repo.deviceModel, "android": "", "ios": UIDevice.current.systemVersion,
                                        "timezone": TimeZone.current.identifier, "pageLabel": self.page]
             let place = Store.shared.str("place").components(separatedBy: tr("، ")).filter { !$0.isEmpty }
             if place.count >= 2 { f["city"] = place.first; f["country"] = place.last } else if let c = place.first { f["country"] = c }
