@@ -116,7 +116,7 @@ final class Prayers: NSObject, ObservableObject, CLLocationManagerDelegate {
     func iqMin(_ k: String) -> Int { min(90, max(1, Int(Store.shared.str("iq_" + k, "\(Prayers.iqDef[k] ?? 15)")) ?? 15)) }
     func setIqMin(_ k: String, _ m: Int) { Store.shared.set("iq_" + k, "\(min(90, max(1, m)))"); schedule() }
     /// the iqama time of a prayer, or nil (off, sunrise, its alert off, or Friday's dhuhr)
-    func iqamaAt(_ p: Prayer) -> Date? {
+    func iqamaAt(_ p: PrayerTime) -> Date? {
         guard iqOn, Prayers.iqDef[p.key] != nil, mode(p.key) != "off" else { return nil }
         if p.key == "dhuhr" && Calendar.current.component(.weekday, from: p.time) == 6 { return nil }
         return p.time.addingTimeInterval(Double(iqMin(p.key) * 60))
