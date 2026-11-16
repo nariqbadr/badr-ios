@@ -114,7 +114,7 @@ struct MushafView: View {
                 if followG > 0 && player.playing && followG != lastFollow {
                     lastFollow = followG; let p = MushafData.pageOf(followG); if p != page { withAnimation { page = p } }
                 }
-                try? await Task.sleep(nanoseconds: 300_000_000)
+                try? await Task.sleep(nanoseconds: 150_000_000)
             }
         }
     }
@@ -297,7 +297,10 @@ struct MushafPage: View {
         }
     }
     private func word(_ t: Tok, _ font: CGFloat) -> some View {
+        // the ayah being read: gold words on a gold band (as on the site), the band reaching over the gaps between words
         Text(t.w).font(.custom(MushafData.font, size: font)).foregroundStyle(t.mark || t.g == hi ? c.gold : c.text).lineLimit(1).fixedSize()
+            .background(RoundedRectangle(cornerRadius: font * 0.3).fill(c.gold.opacity(t.g == hi ? 0.22 : 0)).padding(.horizontal, -font * 0.22).padding(.vertical, -font * 0.05))
+            .animation(.easeOut(duration: 0.35), value: t.g == hi)
             .contentShape(Rectangle()).onTapGesture { onAyah(t.g) }
     }
     private func title(_ s: Int, _ font: CGFloat) -> some View {

@@ -33,6 +33,8 @@ struct BadrApp: App {
                 Repo.shared.event("heartbeat"); prayers.schedule(); Haram.schedule()
                 Task { await Adhan.prepare(); prayers.schedule() }
                 WidgetBridge.refreshAll()
+                // the Mushaf's pages read ahead in the background: it opens at once
+                Task.detached(priority: .utility) { MushafData.load() }
             }
         }
     }
