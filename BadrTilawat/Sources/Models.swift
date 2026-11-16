@@ -23,15 +23,17 @@ struct Track: Identifiable, Hashable {
         audio = j["audio"].str; image = j["image"].str; description = j["description"].str; downloadable = j["downloadable"].bool(true)
         order = j["order"].int; createdAt = j["createdAt"].str; publishAt = j["publishAt"].str; tags = j["tags"].strings
         featured = j["featured"].bool(); durationSec = j["durationSec"].int; location = j["location"].str; duration = j["duration"].str
+        stamp = Fmt.parse(publishAt) ?? Fmt.parse(createdAt) ?? .distantPast
     }
     /// A recitation made in the app (a surah of «القرآن الكريم كاملًا»).
     init(id: String, reciterId: String, title: String, surah: String, surahNumber: Int, audio: String, image: String, durationSec: Int) {
         self.id = id; self.reciterId = reciterId; self.title = title; self.surah = surah; self.surahNumber = surahNumber; self.audio = audio; self.image = image
         description = ""; downloadable = true; order = 0; createdAt = ""; publishAt = ""; tags = []; featured = false; self.durationSec = durationSec
-        location = ""; duration = ""; ayahStart = 0; ayahEnd = 0; recordedAt = ""; video = nil
+        location = ""; duration = ""; ayahStart = 0; ayahEnd = 0; recordedAt = ""; video = nil; stamp = .distantPast
     }
     /// newest first (publish date, else creation date)
-    var stamp: Date { Fmt.parse(publishAt) ?? Fmt.parse(createdAt) ?? .distantPast }
+    /// read once (it was read again on every sort, many times per screen)
+    let stamp: Date
     var durationText: String { !duration.isEmpty ? duration : Fmt.dur(durationSec) }
 }
 
@@ -130,8 +132,15 @@ struct SiteData {
         let qf = j["quranFull"]; quranFull = (qf["id"].str, qf["name"].str, qf["base"].str, qf["dur"].dict.mapValues { $0.int })
         adhans = j["adhans"].array.map { ($0["id"].str, $0["name"].str, $0["muezzin"].str, $0["url"].str, $0["fajr"].str) }
         raw = j
+        sortedTracks = recitations.sorted { $0.stamp != $1.stamp ? $0.stamp > $1.stamp : $0.order > $1.order }
+        byId = Dictionary(recitations.map { ($0.id, $0) }, uniquingKeysWith: { a, _ in a })
+        reciterById = Dictionary(reciters.map { ($0.id, $0) }, uniquingKeysWith: { a, _ in a })
     }
-    var sortedTracks: [Track] { recitations.sorted { $0.stamp != $1.stamp ? $0.stamp > $1.stamp : $0.order > $1.order } }
+    /// sorted once when the data arrives (it was sorted again on every redraw of every list)
+    let sortedTracks: [Track]
+    /// found at once by id (lists looked every recitation and reader up one by one)
+    let byId: [String: Track]
+    let reciterById: [String: Reciter]
 }
 
 enum Fmt {
@@ -146,8 +155,15 @@ enum Fmt {
         if sec <= 0 { return "" }
         return sec >= 3600 ? String(format: "%d:%02d:%02d", sec / 3600, sec % 3600 / 60, sec % 60) : String(format: "%d:%02d", sec / 60, sec % 60)
     }
-    static func time(_ d: Date) -> String { let f = DateFormatter(); f.locale = L.locale; f.dateFormat = "h:mm a"; return f.string(from: d) }
-    static func date(_ d: Date) -> String { let f = DateFormatter(); f.locale = L.locale; f.dateStyle = .medium; return f.string(from: d) }
+    // formatters are slow to make: one per language, kept
+    nonisolated(unsafe) private static var fmts: [String: DateFormatter] = [:]
+    private static func fmt(_ k: String, _ make: (DateFormatter) -> Void) -> DateFormatter {
+        let key = k + "|" + L.locale.identifier
+        if let f = fmts[key] { return f }
+        let f = DateFormatter(); f.locale = L.locale; make(f); fmts[key] = f; return f
+    }
+    static func time(_ d: Date) -> String { fmt("t") { $0.dateFormat = "h:mm a" }.string(from: d) }
+    static func date(_ d: Date) -> String { fmt("d") { $0.dateStyle = .medium }.string(from: d) }
     static func ago(_ d: Date) -> String {
         let s = Int(Date().timeIntervalSince(d))
         if s < 60 { return "الآن" }; if s < 3600 { return "قبل \((s / 60).ar) د" }; if s < 86400 { return "قبل \((s / 3600).ar) س" }

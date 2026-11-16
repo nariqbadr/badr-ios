@@ -7,7 +7,7 @@ final class Store: ObservableObject {
     static let shared = Store()
     private let d = UserDefaults.standard
 
-    @Published var theme: String { didSet { d.set(theme, forKey: "theme"); themeChosen = true; d.set(true, forKey: "themeChosen"); WidgetBridge.theme() } }
+    @Published var theme: String { didSet { d.set(theme, forKey: "theme"); themeChosen = true; d.set(true, forKey: "themeChosen"); DispatchQueue.main.asyncAfter(deadline: .now() + 1) { WidgetBridge.theme() } } }
     private(set) var themeChosen: Bool
     @Published var name: String { didSet { d.set(name, forKey: "name") } }
     @Published var favs: [String] { didSet { d.set(favs, forKey: "favs") } }

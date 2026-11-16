@@ -30,9 +30,15 @@ struct BadrApp: App {
         .onChange(of: phase) { p in
             if p == .active {
                 Task { await repo.refresh(); if let t = repo.data?.site.defaultTheme { store.applyDefaultTheme(t) } }
-                Repo.shared.event("heartbeat"); prayers.schedule(); Haram.schedule()
-                Task { await Adhan.prepare(); prayers.schedule() }
-                WidgetBridge.refreshAll()
+                Repo.shared.event("heartbeat")
+                // the rest waits a moment: coming back (or returning from the floating video) answers at once
+                Task {
+                    try? await Task.sleep(nanoseconds: 1_200_000_000)
+                    Haram.schedule()
+                    await Adhan.prepare(); prayers.schedule()
+                    try? await Task.sleep(nanoseconds: 600_000_000)
+                    WidgetBridge.refreshAll()
+                }
                 // the Mushaf's pages read ahead in the background: it opens at once
                 Task.detached(priority: .utility) { MushafData.load() }
             }

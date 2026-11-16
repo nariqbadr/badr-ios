@@ -107,7 +107,10 @@ struct RootView: View {
         .animation(.easeInOut(duration: 0.3), value: ui.drawer)
         .task { await repo.refresh(); WidgetBridge.tracks(); if let t = repo.data?.site.defaultTheme { store.applyDefaultTheme(t) }; if let r = RootView.shot { openShot(r) } }
         .onAppear { if !opened.contains(ui.tab) { opened.append(ui.tab) } }
-        .onChange(of: ui.tab) { t in if !opened.contains(t) { opened.append(t) } }
+        // the last three tabs stay alive: more of them made every change redraw many hidden pages
+        .onChange(of: ui.tab) { t in opened.removeAll { $0 == t }; opened.append(t); if opened.count > 3 { opened.removeFirst(opened.count - 3) } }
+        // a new colour: only the open tab is drawn again now, the others when they are opened
+        .onChange(of: store.theme) { _ in opened = [ui.tab] }
         .onChange(of: ui.tab) { t in Repo.shared.page = TAB_DEFS.first { $0.key == t }?.label ?? tr("الرئيسية"); Repo.shared.event("page", ["pageLabel": Repo.shared.page]) }
     }
 

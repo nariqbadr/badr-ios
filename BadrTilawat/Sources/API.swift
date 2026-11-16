@@ -61,7 +61,7 @@ final class Repo: ObservableObject {
         return URL(string: site + path)
     }
 
-    func reciter(_ id: String?) -> Reciter? { data?.reciters.first { $0.id == id } }
+    func reciter(_ id: String?) -> Reciter? { id.flatMap { data?.reciterById[$0] } }
     /// a part of a longer recording (one surah of a whole juz…) is listed as "<id>__s<surah>"
     /// A reciter's photo for a choice («آية اليوم», the mushaf): the dashboard's photo for that name, the site reciter's, the recording's.
     func recImg(_ v: String, _ label: String) -> String {
@@ -75,7 +75,7 @@ final class Repo: ObservableObject {
         return data?.reciters.first { r in let y = norm(r.name); return y.first == w.first && y.last == w.last }?.image ?? ""
     }
     static func partBase(_ id: String?) -> String? { id?.replacingOccurrences(of: "__s\\d{1,3}$", with: "", options: .regularExpression) }
-    func track(_ id: String?) -> Track? { let b = Repo.partBase(id); return data?.recitations.first { $0.id == b } ?? quranTrack(b) }
+    func track(_ id: String?) -> Track? { let b = Repo.partBase(id); return data?.byId[b] ?? quranTrack(b) }
     func image(for t: Track) -> String { t.image.isEmpty ? (reciter(t.reciterId)?.image ?? "") : t.image }
     static func withSheikh(_ n: String) -> String {
         let t = n.trimmingCharacters(in: .whitespaces)

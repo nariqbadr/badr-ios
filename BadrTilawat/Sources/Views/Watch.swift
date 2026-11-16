@@ -61,6 +61,23 @@ final class VideoDownloads: NSObject, ObservableObject, URLSessionDownloadDelega
 /// (the picture is taken off the player while in the background), and the floating window opens by itself when the app
 /// is left while the video plays.
 @MainActor
+final class VideoClock: ObservableObject {
+    @Published var position: Double = 0
+    @Published var duration: Double = 0
+}
+
+/// The time bar and the time under the video: the only parts that change every moment.
+private struct VideoTimeBar: View {
+    @ObservedObject var clock: VideoClock
+    let onSeek: (Double) -> Void
+    var body: some View { SeekLine(pos: clock.position, dur: clock.duration, seek: onSeek) }
+}
+private struct VideoTimeText: View {
+    @ObservedObject var clock: VideoClock
+    var body: some View { Text("\(fmtT(clock.position)) / \(fmtT(clock.duration))").font(.system(size: 12, weight: .medium).monospacedDigit()).foregroundStyle(.white) }
+}
+
+@MainActor
 final class VideoEngine: NSObject, ObservableObject, AVPictureInPictureControllerDelegate {
     static let shared = VideoEngine()
     let player = AVPlayer()
@@ -71,9 +88,13 @@ final class VideoEngine: NSObject, ObservableObject, AVPictureInPictureControlle
     @Published private(set) var playing = false
     @Published private(set) var buffering = false
     @Published private(set) var failed = false
-    @Published var position: Double = 0
-    @Published private(set) var duration: Double = 0
+    /// the time: only the time bar watches it (the whole video page redrew four times a second)
+    let clock = VideoClock()
+    var position: Double = 0 { didSet { if clock.position != position { clock.position = position } } }
+    private(set) var duration: Double = 0 { didSet { if clock.duration != duration { clock.duration = duration } } }
     @Published private(set) var pipOn = false
+    /// the video has begun (its poster is shown until then)
+    @Published private(set) var started = false
     @Published private(set) var size = CGSize(width: 16, height: 9)
     var onEnd: (() -> Void)?
     private var timeObs: Any?
@@ -109,7 +130,7 @@ final class VideoEngine: NSObject, ObservableObject, AVPictureInPictureControlle
                 MainActor.assumeIsolated {
                     guard let self, UIApplication.shared.applicationState == .background else { return }
                     // a playing video goes to the floating window by itself: its picture must stay (taking it off left a grey window)
-                    if self.pipOn || self.pip?.isPictureInPictureActive == true || (self.wasPlaying && self.pip?.isPictureInPicturePossible == true) { return }
+                    if self.pipOn || self.pip?.isPictureInPictureActive == true || (self.pageVisible && self.wasPlaying && self.pip?.isPictureInPicturePossible == true) { return }
                     self.layer.player = nil
                     if self.wasPlaying && self.track != nil { self.player.play() }      // the sound goes on in the background
                 }
@@ -121,7 +142,7 @@ final class VideoEngine: NSObject, ObservableObject, AVPictureInPictureControlle
         if AVPictureInPictureController.isPictureInPictureSupported() {
             pip = AVPictureInPictureController(playerLayer: layer)
             pip?.delegate = self
-            pip?.canStartPictureInPictureAutomaticallyFromInline = true
+            pip?.canStartPictureInPictureAutomaticallyFromInline = false
         }
     }
 
@@ -138,7 +159,7 @@ final class VideoEngine: NSObject, ObservableObject, AVPictureInPictureControlle
         guard t.isVideo else { return }
         if track?.id == t.id { return }
         AudioPlayer.shared.pause(); AyahPlayer.shared.stop()
-        track = t; failed = false
+        track = t; failed = false; started = false
         duration = Double(t.durationSec)
         if let v = t.video, v.w > 0, v.h > 0 { size = CGSize(width: v.w, height: v.h) }
         let start = Store.shared.position(t.id)
@@ -195,11 +216,17 @@ final class VideoEngine: NSObject, ObservableObject, AVPictureInPictureControlle
         MPNowPlayingInfoCenter.default().nowPlayingInfo = nil
         try? AVAudioSession.sharedInstance().setCategory(.playback, mode: .spokenAudio)
     }
+    /// the floating window opens by itself only from the video page itself (from anywhere else its picture is not
+    /// on screen, and the window stayed grey with a spinner)
+    /// counted: the next video's page appears before the last one's goes
+    private var pages = 0
+    var pageVisible: Bool { pages > 0 }
+    func setVisible(_ on: Bool) { pages = max(0, pages + (on ? 1 : -1)); pip?.canStartPictureInPictureAutomaticallyFromInline = pages > 0 }
     func startPip() { if let p = pip, p.isPictureInPicturePossible { p.startPictureInPicture() } }
 
     private func tick(_ s: Double) {
         guard let t = track else { return }
-        if s.isFinite && seekTarget == nil { position = s }
+        if s.isFinite && seekTarget == nil { position = s; if s > 0.3 && !started { started = true } }
         if let d = player.currentItem?.duration.seconds, d.isFinite, d > 0 { duration = d }
         if playing, Date().timeIntervalSince(lastSave) > 5 { lastSave = Date(); Store.shared.savePosition(t.id, position, duration) }
     }
@@ -330,9 +357,9 @@ struct WatchView: View {
         .navigationTitle(full ? "" : tr("تلاوة مرئية"))
         .onChange(of: full) { f in ui.videoFull = f; v.layer.videoGravity = f ? .resizeAspectFill : .resizeAspect }
         .onDisappear { ui.videoFull = false; v.layer.videoGravity = .resizeAspect; if full { full = false; rotate(false) } }
-        .onAppear { if let t { v.open(t); v.onEnd = { if auto, let n = next.first { ui.path.append(.watch(n.id)) } } }; bump() }
+        .onAppear { v.setVisible(true); if let t { v.open(t); v.onEnd = { if auto, let n = next.first { ui.path.append(.watch(n.id)) } } }; bump() }
         .onChange(of: id) { _ in if let t { v.open(t) } }
-        .onDisappear { if !v.pipOn && UIApplication.shared.applicationState == .active && !(ui.path.last.map { if case .watch = $0 { return true } else { return false } } ?? false) { v.close() } }
+        .onDisappear { v.setVisible(false); if !v.pipOn && UIApplication.shared.applicationState == .active && !(ui.path.last.map { if case .watch = $0 { return true } else { return false } } ?? false) { v.close() } }
         .bzSheet(item: Binding(get: { sheet.map { SheetID(id: $0) } }, set: { sheet = $0?.id })) { s in
             if let t { if s.id == "q" { qualitySheet(t) } else { downloadSheet(t) } }
         }
@@ -346,7 +373,7 @@ struct WatchView: View {
         ZStack {
             Color.black
             VideoSurface(layer: v.layer)
-            if v.position < 0.2 && !v.playing, let u = t.video?.poster, !u.isEmpty { RemoteImage(raw: u, mode: .fit).allowsHitTesting(false) }
+            if !v.started && !v.playing, let u = t.video?.poster, !u.isEmpty { RemoteImage(raw: u, mode: .fit).allowsHitTesting(false) }
             // double tap: left side goes back 10 seconds, right side forward (like every video player)
             HStack(spacing: 0) {
                 Color.clear.contentShape(Rectangle()).onTapGesture(count: 2) { v.skip(-10); flash = (false, Date()); bump() }.onTapGesture { withAnimation { controls.toggle() }; if controls { bump() } }
@@ -369,9 +396,9 @@ struct WatchView: View {
             }.environment(\.layoutDirection, .leftToRight)
             VStack(spacing: 6) {
                 Spacer()
-                SeekLine(pos: v.position, dur: v.duration) { v.seek($0); bump() }
+                VideoTimeBar(clock: v.clock) { v.seek($0); bump() }
                 HStack(spacing: 14) {
-                    Text("\(fmtT(v.position)) / \(fmtT(v.duration))").font(.system(size: 12, weight: .medium).monospacedDigit()).foregroundStyle(.white)
+                    VideoTimeText(clock: v.clock)
                     Spacer()
                     Button { sheet = "q" } label: { Text(qLabel(v.h)).font(.system(size: 12, weight: .bold)).foregroundStyle(.white).padding(.horizontal, 8).padding(.vertical, 3).background(Capsule().stroke(.white.opacity(0.7))) }
                     if v.pip != nil { Button { v.startPip() } label: { Ico(name: "pip.enter", size: 20).foregroundStyle(.white) } }
