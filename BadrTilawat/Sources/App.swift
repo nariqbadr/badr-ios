@@ -84,6 +84,10 @@ final class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCent
 /// Shared UI state: the open menus, sheets and the selected tab.
 @MainActor
 final class UIState: ObservableObject {
+    /// a video recitation: from another video's page it takes that page's place (it piled up page over page before)
+    func openWatch(_ id: String) {
+        if case .watch = path.last { path[path.count - 1] = .watch(id) } else { path.append(.watch(id)) }
+    }
     @Published var tab = "home"
     @Published var path: [Route] = []
     @Published var drawer = false

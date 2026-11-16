@@ -116,7 +116,7 @@ struct VideoHero: View {
     @Environment(\.pal) private var c
     var body: some View {
         let r = Repo.shared.reciter(t.reciterId)
-        Button { ui.path.append(.watch(t.id)) } label: {
+        Button { ui.openWatch(t.id) } label: {
             ZStack {
                 RemoteImage(raw: t.cover.isEmpty ? r?.image : t.cover)
                 LinearGradient(stops: [.init(color: .black.opacity(0.25), location: 0), .init(color: .clear, location: 0.45), .init(color: Color(hex: 0xEB050C0A), location: 1)], startPoint: .top, endPoint: .bottom)

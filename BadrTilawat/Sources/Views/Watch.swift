@@ -267,7 +267,7 @@ final class VideoEngine: NSObject, ObservableObject, AVPictureInPictureControlle
             // back from the floating window: its picture returns to the page; the page is opened only if it is not already open
             // (opening a second one put the same video layer in two places and crashed)
             if self.layer.player == nil { self.layer.player = self.player }
-            if let t = self.track, let ui = UIState.shared, !ui.path.contains(.watch(t.id)) { ui.path.append(.watch(t.id)) }
+            if let t = self.track, let ui = UIState.shared, !ui.path.contains(.watch(t.id)) { ui.openWatch(t.id) }
             done(true)
         }
     }
@@ -362,7 +362,7 @@ struct WatchView: View {
                                 HStack { Text(tr("التالي")).font(F.plex(16, .bold)).foregroundStyle(c.text); Spacer()
                                     Toggle(isOn: $auto) { Text(tr("تشغيل تلقائي")).font(F.plex(13)).foregroundStyle(c.muted) }.toggleStyle(.switch).tint(c.gold).fixedSize()
                                         .onChange(of: auto) { Store.shared.set("videoAuto", $0) } }
-                                ForEach(next.prefix(20)) { n in VideoRow(t: n) { ui.path.append(.watch(n.id)) } }
+                                ForEach(next.prefix(20)) { n in VideoRow(t: n) { ui.openWatch(n.id) } }
                             }
                         }.padding(16).padding(.bottom, 120)
                     }
@@ -372,7 +372,7 @@ struct WatchView: View {
         .navigationTitle(full ? "" : tr("تلاوة مرئية"))
         .onChange(of: full) { f in ui.videoFull = f; v.layer.videoGravity = f ? .resizeAspectFill : .resizeAspect }
         .onDisappear { ui.videoFull = false; v.layer.videoGravity = .resizeAspect; if full { full = false; rotate(false) } }
-        .onAppear { v.setVisible(true); if let t { v.open(t); v.onEnd = { if auto, let n = next.first { ui.path.append(.watch(n.id)) } } }; bump() }
+        .onAppear { v.setVisible(true); if let t { v.open(t); v.onEnd = { if auto, let n = next.first { ui.openWatch(n.id) } } }; bump() }
         .onChange(of: id) { _ in if let t { v.open(t) } }
         // leaving the video (back, another tab) while it plays: the recitation goes on as sound, from the same moment,
         // in the mini player (as on the site); paused, it simply closes

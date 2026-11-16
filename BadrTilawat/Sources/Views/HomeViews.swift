@@ -333,7 +333,7 @@ struct VideoCard: View {
     @Environment(\.pal) private var c
     var body: some View {
         let r = Repo.shared.reciter(t.reciterId), top = t.video?.q.first?.h ?? 0
-        Button { ui.path.append(.watch(t.id)) } label: {
+        Button { ui.openWatch(t.id) } label: {
             VStack(alignment: .leading, spacing: 0) {
                 ZStack {
                     RemoteImage(raw: t.cover.isEmpty ? r?.image : t.cover)

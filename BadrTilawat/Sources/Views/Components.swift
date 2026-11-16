@@ -434,7 +434,7 @@ struct TrackRow: View {
         .animation(.easeOut(duration: 0.25), value: cur)
     }
     private func play(_ cur: Bool) {
-        if t.isVideo { ui.path.append(.watch(t.id)) } else if cur { player.toggle() } else { player.play(t, in: list.filter { !$0.isVideo }) }
+        if t.isVideo { ui.openWatch(t.id) } else if cur { player.toggle() } else { player.play(t, in: list.filter { !$0.isVideo }) }
     }
 }
 
@@ -481,7 +481,7 @@ struct TrackCard: View {
             }
         }
         .contentShape(Rectangle())
-        .onTapGesture { if t.isVideo { ui.path.append(.watch(t.id)) } else if cur { player.toggle() } else { player.play(t, in: list.filter { !$0.isVideo }) } }
+        .onTapGesture { if t.isVideo { ui.openWatch(t.id) } else if cur { player.toggle() } else { player.play(t, in: list.filter { !$0.isVideo }) } }
     }
 }
 

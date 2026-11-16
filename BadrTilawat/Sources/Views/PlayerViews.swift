@@ -244,7 +244,7 @@ struct TrackMenu: View {
                 Rectangle().fill(c.lineSoft).frame(height: 1).padding(.vertical, 6)
                 let fav = store.favs.contains(t.id)
                 MenuRow(icon: fav ? "heart-f" : "heart", title: fav ? tr("إزالة من المفضلة") : tr("إضافة للمفضلة")) { store.toggleFav(t.id); ui.say(fav ? tr("أُزيلت من المفضلة") : tr("أُضيفت إلى المفضلة")); dismiss() }
-                if t.isVideo { MenuRow(icon: "film", title: tr("مشاهدة الفيديو")) { dismiss(); ui.path.append(.watch(t.id)) } }
+                if t.isVideo { MenuRow(icon: "film", title: tr("مشاهدة الفيديو")) { dismiss(); ui.openWatch(t.id) } }
                 if t.isVideo && !t.audio.isEmpty { MenuRow(icon: "headphones", title: tr("استماع صوتي"), sub: tr("تشغيل صوت التلاوة فقط مع إمكانية التنقل في التطبيق")) { dismiss(); AudioPlayer.shared.play(t) } }
                 else {
                     MenuRow(icon: "next", title: tr("تشغيل بعد الحالية")) { p.playNext(t); ui.say(tr("ستُشغَّل بعد التلاوة الحالية")); dismiss() }
@@ -254,7 +254,7 @@ struct TrackMenu: View {
                 if feat("listenLater") { MenuRow(icon: "clock", title: store.later.contains(t.id) ? tr("إزالة من «استمع لاحقًا»") : tr("استمع لاحقًا")) { let on = store.toggleLater(t.id); ui.say(on ? tr("أُضيفت إلى استمع لاحقًا") : tr("أُزيلت من استمع لاحقًا")); dismiss() } }
                 if s?.sec("community") != false { MenuRow(icon: "quote", title: tr("اقتبسها في المجتمع"), sub: tr("انشر التلاوة في منشور مع تعليقك")) { dismiss(); ui.path.append(.compose("track:" + t.id)) } }
                 if feat("shareLinks") { MenuRow(icon: "share", title: tr("مشاركة")) { dismiss(); share("\(t.title) — \(r?.name ?? "")\n\(Repo.site)track/\(Repo.enc(t.id))") } }
-                if t.isVideo && t.downloadable { MenuRow(icon: "download", title: tr("تحميل الفيديو"), sub: tr("اختر الجودة واحفظه للمشاهدة دون إنترنت")) { dismiss(); ui.path.append(.watch(t.id)) } }
+                if t.isVideo && t.downloadable { MenuRow(icon: "download", title: tr("تحميل الفيديو"), sub: tr("اختر الجودة واحفظه للمشاهدة دون إنترنت")) { dismiss(); ui.openWatch(t.id) } }
                 if feat("offline") && s?.allowDownloads != false && t.downloadable && !t.isVideo {
                     let have = OfflineFiles.local(t.id) != nil
                     MenuRow(icon: "offline", title: have ? tr("حذف من «بدون إنترنت»") : tr("حفظ للاستماع بدون إنترنت")) {
