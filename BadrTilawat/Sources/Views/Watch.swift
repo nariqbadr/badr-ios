@@ -137,7 +137,11 @@ final class VideoEngine: NSObject, ObservableObject, AVPictureInPictureControlle
             }
         })
         obs.append(nc.addObserver(forName: UIApplication.willEnterForegroundNotification, object: nil, queue: .main) { [weak self] _ in
-            MainActor.assumeIsolated { self?.layer.player = self?.player }
+            MainActor.assumeIsolated {
+                self?.layer.player = self?.player
+                // its page takes the picture back (it could come back black)
+                (self?.layer.superlayer?.delegate as? UIView)?.setNeedsLayout()
+            }
         })
         // back in the app: the floating window returns to the video page by itself (as YouTube does)
         obs.append(nc.addObserver(forName: UIApplication.didBecomeActiveNotification, object: nil, queue: .main) { [weak self] _ in
@@ -310,9 +314,16 @@ final class VideoEngine: NSObject, ObservableObject, AVPictureInPictureControlle
 /// The layer in SwiftUI.
 private struct VideoSurface: UIViewRepresentable {
     let layer: AVPlayerLayer
-    final class Host: UIView { var pl: AVPlayerLayer?; override func layoutSubviews() { super.layoutSubviews(); pl?.frame = bounds } }
+    /// the one video layer is shared by every video page: whichever page comes on screen takes it back
+    /// (back to an earlier page, or back into the app, showed a black picture with the sound playing)
+    final class Host: UIView {
+        var pl: AVPlayerLayer?
+        func claim() { guard let pl, window != nil else { return }; if pl.superlayer !== layer { layer.addSublayer(pl) }; CATransaction.begin(); CATransaction.setDisableActions(true); pl.frame = bounds; CATransaction.commit() }
+        override func layoutSubviews() { super.layoutSubviews(); claim() }
+        override func didMoveToWindow() { super.didMoveToWindow(); claim() }
+    }
     func makeUIView(context: Context) -> Host { let v = Host(); v.backgroundColor = .black; v.layer.addSublayer(layer); v.pl = layer; return v }
-    func updateUIView(_ v: Host, context: Context) { if layer.superlayer !== v.layer { v.layer.addSublayer(layer); v.pl = layer }; v.setNeedsLayout() }
+    func updateUIView(_ v: Host, context: Context) { v.pl = layer; v.claim(); v.setNeedsLayout() }
 }
 
 private func qLabel(_ h: Int) -> String { h > 0 ? "\(h)p" : tr("صوت فقط") }
