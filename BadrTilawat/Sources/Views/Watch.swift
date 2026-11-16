@@ -139,6 +139,13 @@ final class VideoEngine: NSObject, ObservableObject, AVPictureInPictureControlle
         obs.append(nc.addObserver(forName: UIApplication.willEnterForegroundNotification, object: nil, queue: .main) { [weak self] _ in
             MainActor.assumeIsolated { self?.layer.player = self?.player }
         })
+        // back in the app: the floating window returns to the video page by itself (as YouTube does)
+        obs.append(nc.addObserver(forName: UIApplication.didBecomeActiveNotification, object: nil, queue: .main) { [weak self] _ in
+            MainActor.assumeIsolated {
+                guard let self, let p = self.pip, p.isPictureInPictureActive, self.pageVisible else { return }
+                p.stopPictureInPicture()
+            }
+        })
         if AVPictureInPictureController.isPictureInPictureSupported() {
             pip = AVPictureInPictureController(playerLayer: layer)
             pip?.delegate = self
@@ -316,6 +323,7 @@ struct WatchView: View {
     @ObservedObject private var dl = VideoDownloads.shared
     @Environment(\.pal) private var c
     @State private var controls = true
+    @State private var lastTap: (right: Bool, at: Date)?
     @State private var hideTask: Task<Void, Never>?
     @State private var full = false
     @State private var sheet: String?
@@ -367,6 +375,18 @@ struct WatchView: View {
     }
     private struct SheetID: Identifiable { let id: String }
 
+    private func tapped(_ right: Bool) {
+        let now = Date()
+        if let l = lastTap, l.right == right, now.timeIntervalSince(l.at) < 0.3 {
+            lastTap = nil
+            v.skip(right ? 10 : -10); flash = (right, now)
+            controls = true; bump()
+            return
+        }
+        lastTap = (right, now)
+        withAnimation(.easeOut(duration: 0.15)) { controls.toggle() }
+        if controls { bump() }
+    }
     private func bump() { controls = true; hideTask?.cancel(); hideTask = Task { try? await Task.sleep(nanoseconds: 3_500_000_000); if !Task.isCancelled, v.playing { withAnimation { controls = false } } } }
 
     @ViewBuilder private func stage(_ t: Track) -> some View {
@@ -375,9 +395,11 @@ struct WatchView: View {
             VideoSurface(layer: v.layer)
             if !v.started && !v.playing, let u = t.video?.poster, !u.isEmpty { RemoteImage(raw: u, mode: .fit).allowsHitTesting(false) }
             // double tap: left side goes back 10 seconds, right side forward (like every video player)
+            // one tap shows / hides the controls at once; a second tap on the same side within a moment skips 10 s
+            // (a separate double-tap gesture made every single tap wait to see whether a second one followed)
             HStack(spacing: 0) {
-                Color.clear.contentShape(Rectangle()).onTapGesture(count: 2) { v.skip(-10); flash = (false, Date()); bump() }.onTapGesture { withAnimation { controls.toggle() }; if controls { bump() } }
-                Color.clear.contentShape(Rectangle()).onTapGesture(count: 2) { v.skip(10); flash = (true, Date()); bump() }.onTapGesture { withAnimation { controls.toggle() }; if controls { bump() } }
+                Color.clear.contentShape(Rectangle()).onTapGesture { tapped(false) }
+                Color.clear.contentShape(Rectangle()).onTapGesture { tapped(true) }
             }.environment(\.layoutDirection, .leftToRight)
             if v.buffering { ProgressView().tint(.white).scaleEffect(1.3) }
             if v.failed { Text(tr("تعذّر تشغيل الفيديو. جرّب جودة أقل.")).font(F.plex(14)).foregroundStyle(.white).padding(10).background(Capsule().fill(.black.opacity(0.6))) }
