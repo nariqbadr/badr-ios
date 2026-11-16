@@ -399,7 +399,7 @@ struct AyahOfDay: View {
                 PlayCircle(playing: mine && ayah.playing, size: 58) { if mine && ayah.playing { ayah.stop() } else { ayah.play(rv, s, a, repeat: repeatN) } }
                 VStack(alignment: .leading, spacing: 2) {
                     ProgressView(value: mine ? ayah.progress : 0).tint(c.gold).padding(.vertical, 10)
-                    Text(mine ? ayah.status : tr("اختر القارئ واضغط تشغيل")).font(F.plex(11)).foregroundStyle(c.muted).lineLimit(1)
+                    Text(mine ? ayah.status : tr("اختر القارئ واضغط تشغيل")).font(F.plex(11)).foregroundStyle(c.muted).lineLimit(4).fixedSize(horizontal: false, vertical: true)
                 }
             }.padding(.top, 6)
             ReciterPhotos(opts: ayah.options(s, a).map { RecChoice(value: $0.value, label: $0.label, img: repo.recImg($0.value, $0.label)) }, value: rv) { store.ayahReciter = $0; ayah.stop() }.padding(.top, 10)

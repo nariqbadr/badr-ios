@@ -249,6 +249,24 @@ final class AyahPlayer: ObservableObject {
         for sr in d.surahReciters { let v = "sr:" + sr.id; let n = d.site.reciterName(v); if !n.hideAyah { out.append(Option(value: v, label: Repo.withSheikh(n.name.isEmpty ? sr.name : n.name), ok: (d.readableSr[sr.id] ?? []).contains(s))) } }
         return out
     }
+    /// What this voice has recorded, for the «not available» line: «المتاح بصوته: سورة الجن (١–١٠)، سورة الملك …»
+    func available(_ rv: String) -> String {
+        guard let d = Repo.shared.data else { return "" }
+        var parts: [String] = []
+        if rv.hasPrefix("tk:") {
+            let id = String(rv.dropFirst(3))
+            var seen = Set<String>()
+            for (tid, v) in d.readableTracks.sorted(by: { $0.value.first ?? 0 < $1.value.first ?? 0 }) where v.count >= 3 && Repo.shared.track(tid)?.reciterId == id {
+                let p = tr("سورة {0}", Quran.surahs[max(0, min(113, v[0] - 1))]) + " (" + v[1].ar + "–" + v[2].ar + ")"
+                if seen.insert(p).inserted { parts.append(p) }
+            }
+        } else if rv.hasPrefix("sr:") {
+            parts = (d.readableSr[String(rv.dropFirst(3))] ?? []).sorted().map { tr("سورة {0}", Quran.surahs[max(0, min(113, $0 - 1))]) }
+        }
+        guard !parts.isEmpty else { return "" }
+        let shown = parts.prefix(6).joined(separator: tr("، "))
+        return "\n" + tr("المتاح بصوته: {0}", shown) + (parts.count > 6 ? " " + tr("و{0} غيرها", (parts.count - 6).ar) : "")
+    }
     func label(_ v: String, _ s: Int = 1, _ a: Int = 1) -> String { options(s, a).first { $0.value == v }?.label ?? "" }
 
     private func url(_ rv: String, _ s: Int, _ a: Int) -> URL? {
@@ -273,7 +291,7 @@ final class AyahPlayer: ObservableObject {
         try? AVAudioSession.sharedInstance().setActive(true)
         player.replaceCurrentItem(with: AVPlayerItem(url: u)); player.play()
         key = "\(s):\(a)|\(rv)"; playing = true; repeatN = r; left = r == 0 ? Int.max : r; self.then = then
-        status = main == nil ? tr("هذه الآية غير متاحة بهذا الصوت — تُشغَّل بصوت الشيخ ياسر الدوسري") : (r == 0 ? tr("تكرار مستمر") : label(rv, s, a))
+        status = main == nil ? tr("هذه الآية غير متاحة بهذا الصوت — تُشغَّل بصوت الشيخ ياسر الدوسري") + available(rv) : (r == 0 ? tr("تكرار مستمر") : label(rv, s, a))
         Repo.shared.event("ayah", ["s": "\(s)", "a": "\(a)"])
     }
     func stop() { player.pause(); playing = false; key = nil; then = nil }
