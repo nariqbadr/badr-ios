@@ -11,7 +11,12 @@ jobs:
       - name: Save the public site data to the peek-data branch (to test the apps' reading of it)
         run: |
           mkdir out && cd out
-          curl -s -m 60 "https://bawazirquran.com/wp-admin/admin-ajax.php?action=bz&do=data" -o data.json
-          git init -q && git checkout -q -b peek-data && git add data.json
+          B="https://bawazirquran.com/wp-admin/admin-ajax.php?action=bz"
+          curl -s -m 60 "$B&do=data" -o data.json
+          curl -s -m 60 "$B&do=c_feed&tab=all&before=0" -o feed-all.json
+          curl -s -m 60 "$B&do=c_feed&tab=latest&before=0" -o feed-latest.json
+          curl -s -m 60 "$B&do=c_suggest" -o suggest.json
+          for h in $(python3 -c "import json;print(' '.join(p.get('handle','') for p in json.load(open('suggest.json')).get('data',json.load(open('suggest.json'))).get('people',[])[:8]))" 2>/dev/null); do curl -s -m 30 "$B&do=c_user&handle=$h&tab=posts&before=0" -o "user-$h.json"; done
+          git init -q && git checkout -q -b peek-data && git add .
           git -c user.name=ci -c user.email=ci@users.noreply.github.com commit -qm data
           git push -q -f "https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}.git" peek-data
