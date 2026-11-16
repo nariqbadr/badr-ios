@@ -420,6 +420,8 @@ struct FeedView: View {
             Rectangle().fill(c.lineSoft).frame(height: 1)
         }
         .task { sug = try? await cm.suggest() }
+        // not signed in as far as the app knows (a missed check at launch): ask the site again
+        .task { if cm.me == nil { await cm.loadMe() } }
     }
     private func suggestions(_ s: (people: [Member], tags: [(String, Int)])) -> some View {
         Panel(pad: 12, lattice: false) {

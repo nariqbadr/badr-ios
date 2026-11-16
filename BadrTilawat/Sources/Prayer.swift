@@ -156,7 +156,7 @@ final class Prayers: NSObject, ObservableObject, CLLocationManagerDelegate {
         /// replaces this app's prayer and wird alerts, and leaves the imams' alerts (Haram.schedule) alone
         func replace(_ reqs: [UNNotificationRequest]) {
             c.getPendingNotificationRequests { old in
-                c.removePendingNotificationRequests(withIdentifiers: old.map(\.identifier).filter { !$0.hasPrefix("imam-") })
+                c.removePendingNotificationRequests(withIdentifiers: old.map(\.identifier).filter { !$0.hasPrefix("imam-") && $0 != "adhan-test" })
                 for r in reqs { c.add(r) }
             }
         }

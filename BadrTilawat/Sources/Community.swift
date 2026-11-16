@@ -88,7 +88,11 @@ final class Community: ObservableObject {
     func api(_ action: String, query: [String: String] = [:], form: [String: String]? = nil, file: (name: String, mime: String, data: Data)? = nil, retry: Bool = true) async throws -> J {
         var u = Repo.ajax + "?action=bz&do=" + action
         for (k, v) in query { u += "&\(k)=" + Repo.enc(v) }
-        var req = URLRequest(url: URL(string: u)!)
+        // always fresh from the server, as the site does (cache: no-store): a stored copy of the visitors' feed was shown
+        // to a signed-in member, who then saw only a few posts
+        u += "&_=\(Int(Date().timeIntervalSince1970 * 1000))"
+        var req = URLRequest(url: URL(string: u)!, cachePolicy: .reloadIgnoringLocalAndRemoteCacheData)
+        req.setValue("no-cache", forHTTPHeaderField: "Cache-Control")
         if !csrf.isEmpty { req.setValue(csrf, forHTTPHeaderField: "X-BZC-CSRF") }
         if form != nil || file != nil {
             let b = "----bz\(UUID().uuidString)"
@@ -115,7 +119,11 @@ final class Community: ObservableObject {
     }
 
     func loadMe() async {
-        guard let j = try? await api("c_me", retry: false) else { return }
+        // tried again on a failure: a missed answer left the app signed out for the whole visit (the feed then showed
+        // only the visitors' posts)
+        var j: J?
+        for i in 0..<3 { j = try? await api("c_me", retry: false); if j != nil { break }; try? await Task.sleep(nanoseconds: UInt64(800_000_000 * (i + 1))) }
+        guard let j else { return }
         csrf = j["csrf"].str; me = j["me"].isNull ? nil : Member(j["me"]); unread = j["unread"].int
         allowSignup = j["cfg"]["allowSignup"].bool(true)
     }
