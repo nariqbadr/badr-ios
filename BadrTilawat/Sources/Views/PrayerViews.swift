@@ -377,7 +377,7 @@ struct QiblaFinder: View {
     @Environment(\.tabActive) private var tabOn
     /// on the prayer page: only while the compass itself is on screen (scrolled to) and no sheet covers it —
     /// it ran from the top of the page and under the settings sheet, turning and vibrating as the phone moved
-    @State private var seen = false
+    @State private var seen = true   // until measured (if the measure never comes, it works as before)
     @State private var covered = false
     private var active: Bool { pushed || (tabOn && seen && !covered) }
     @EnvironmentObject var prayers: Prayers
@@ -394,6 +394,13 @@ struct QiblaFinder: View {
         return Int((2 * 6371 * asin(sqrt(h))).rounded())
     }
 
+    /// a good part of it is in view
+    private func measure(_ f: CGRect) {
+        guard !pushed, f.height > 0 else { return }
+        let h = UIScreen.main.bounds.height
+        let v = f.minY < h - 100 && f.maxY > 100
+        if v != seen { seen = v }
+    }
     var body: some View {
         let b = prayers.qibla()
         let hd = compass.heading
@@ -435,13 +442,10 @@ struct QiblaFinder: View {
             .frame(maxWidth: 520).frame(maxWidth: .infinity)
         // the compass runs only while the qibla is on screen (a hidden tab kept it running, and it vibrated elsewhere)
         .background(GeometryReader { g in
-            Color.clear.preference(key: QiblaSeen.self, value: g.frame(in: .global))
+            Color.clear
+                .onAppear { measure(g.frame(in: .global)) }
+                .onChange(of: g.frame(in: .global).minY) { _ in measure(g.frame(in: .global)) }
         })
-        .onPreferenceChange(QiblaSeen.self) { f in
-            let h = UIScreen.main.bounds.height
-            let v = f.height > 0 && f.minY < h - 120 && f.maxY > 120   // a good part of it is in view
-            if v != seen { seen = v }
-        }
         .onReceive(UIState.shared!.$sheet) { s in covered = s != nil }
         .onAppear { if active { compass.start() }; withAnimation(.easeInOut(duration: 0.7).repeatForever(autoreverses: true)) { glow = true } }
         .onDisappear { compass.stop() }
@@ -517,11 +521,4 @@ struct QiblaFinder: View {
         .frame(width: side, height: side)
         .animation(.linear(duration: 0.08), value: hd)
     }
-}
-
-
-/// where the qibla compass is on screen (it runs only when in view)
-struct QiblaSeen: PreferenceKey {
-    static var defaultValue: CGRect = .zero
-    static func reduce(value: inout CGRect, nextValue: () -> CGRect) { value = nextValue() }
 }
