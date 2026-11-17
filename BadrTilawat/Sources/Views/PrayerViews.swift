@@ -254,7 +254,7 @@ struct PrayerSettings: View {
                                 }.buttonStyle(.plain).accessibilityLabel(playingIt ? tr("إيقاف") : tr("استماع"))
                             }
                             Button { iqVoice = v.id; Adhan.setIqVoice(v.id); ui.say(v.id.isEmpty ? tr("ستصلك الإقامة بصوت التنبيه العادي") : tr("حُفظ صوت الإقامة")) } label: {
-                                HStack { VStack(alignment: .leading) { Text(v.name).font(F.plex(14.5, .semibold)).foregroundStyle(c.text); if !v.muezzin.isEmpty { Text(v.id.isEmpty ? v.muezzin : tr("المقيم: {0}", v.muezzin)).font(F.plex(12)).foregroundStyle(c.muted) } }
+                                HStack { VStack(alignment: .leading) { Text(v.name).font(F.plex(14.5, .semibold)).foregroundStyle(c.text); if !v.muezzin.isEmpty { Text(v.muezzin).font(F.plex(12)).foregroundStyle(c.muted) } }
                                     Spacer(); Image(systemName: iqVoice == v.id ? "checkmark.circle.fill" : "circle").foregroundStyle(iqVoice == v.id ? c.gold : c.faint) }.contentShape(Rectangle())
                             }.buttonStyle(.plain)
                         }
@@ -268,7 +268,7 @@ struct PrayerSettings: View {
                 Text(tr("صوت الأذان")).font(F.plex(15, .semibold))
                 ForEach(Adhan.voices, id: \.id) { v in
                     Button { voice = v.id; Adhan.setVoice(v.id) } label: {
-                        HStack { VStack(alignment: .leading) { Text(v.name).font(F.plex(14.5, .semibold)).foregroundStyle(c.text); if !v.muezzin.isEmpty { Text(tr("المؤذن: {0}", v.muezzin)).font(F.plex(12)).foregroundStyle(c.muted) } }
+                        HStack { VStack(alignment: .leading) { Text(v.name).font(F.plex(14.5, .semibold)).foregroundStyle(c.text); Text(v.muezzin).font(F.plex(12)).foregroundStyle(c.muted) }
                             Spacer(); Image(systemName: voice == v.id ? "checkmark.circle.fill" : "circle").foregroundStyle(voice == v.id ? c.gold : c.faint) }
                         .padding(12).background(RoundedRectangle(cornerRadius: 14).fill(c.surface.opacity(0.6))).overlay(RoundedRectangle(cornerRadius: 14).stroke(voice == v.id ? c.gold : c.lineSoft))
                     }.buttonStyle(.plain)
