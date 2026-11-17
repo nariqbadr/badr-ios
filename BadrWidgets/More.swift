@@ -342,8 +342,33 @@ struct DayRect: View {
 struct DayWidget: Widget {
     var body: some WidgetConfiguration {
         AppIntentConfiguration(kind: "day", intent: DayIntent.self, provider: DayProvider()) { DayWidgetView(e: $0) }
-            .configurationDisplayName("التاريخ ومواقيت الصلاة").description("التاريخ الهجري واليوم بالخط، مع مواقيت الصلاة والعدّ التنازلي")
+            .configurationDisplayName("التاريخ ومواقيت الصلاة").description("التاريخ الهجري ومواقيت الصلاة والعدّ التنازلي — صغير ومتوسط وكبير، وعلى شاشة القفل")
             .supportedFamilies([.systemSmall, .systemMedium, .systemLarge, .accessoryRectangular, .accessoryInline])
+    }
+}
+
+/// «اليوم بالخط» and «إطار المصحف» as widgets of their own, so they show in the widget gallery as they are
+struct DayStyleProvider: AppIntentTimelineProvider {
+    let style: DayStyle
+    func placeholder(in context: Context) -> DayEntry { DayEntry(date: Date(), style: style) }
+    func snapshot(for c: ColorIntent, in context: Context) async -> DayEntry { DayEntry(date: Date(), pal: .of(c.color?.id), style: style) }
+    func timeline(for c: ColorIntent, in context: Context) async -> Timeline<DayEntry> {
+        let now = Date(), pal = WPal.of(c.color?.id), ds = PDay.dates(now)
+        return Timeline(entries: ds.map { DayEntry(date: $0, pal: pal, style: style) }, policy: .after(ds.last.map { $0.addingTimeInterval(60) } ?? now.addingTimeInterval(3600)))
+    }
+}
+struct DayCalligWidget: Widget {
+    var body: some WidgetConfiguration {
+        AppIntentConfiguration(kind: "dayCallig", intent: ColorIntent.self, provider: DayStyleProvider(style: .callig)) { DayWidgetView(e: $0) }
+            .configurationDisplayName("اليوم بالخط ومواقيت الصلاة").description("اسم اليوم بالخط مع التاريخ الهجري، ومواقيت الصلاة")
+            .supportedFamilies([.systemMedium])
+    }
+}
+struct DayFrameWidget: Widget {
+    var body: some WidgetConfiguration {
+        AppIntentConfiguration(kind: "dayFrame", intent: ColorIntent.self, provider: DayStyleProvider(style: .frame)) { DayWidgetView(e: $0) }
+            .configurationDisplayName("إطار المصحف").description("التاريخ الهجري في إطار مزدوج، ومواقيت الصلاة والعدّ التنازلي")
+            .supportedFamilies([.systemMedium])
     }
 }
 
@@ -712,7 +737,11 @@ struct WirdWidget: Widget {
 @main
 struct BadrWidgets: WidgetBundle {
     var body: some Widget {
-        DayWidget(); PrayerWidget(); RamadanWidget(); AyahWidget(); NowWidget()
-        DhikrWidget(); TasbihWidget(); IbadaWidget(); WuduWidget(); WirdWidget()
+        DayWidget(); DayCalligWidget(); DayFrameWidget(); PrayerWidget(); RamadanWidget()
+        AyahWidget(); NowWidget(); DhikrWidget(); MoreWidgets()
     }
+}
+/// a bundle holds ten at most: the rest in this one
+struct MoreWidgets: WidgetBundle {
+    var body: some Widget { TasbihWidget(); IbadaWidget(); WuduWidget(); WirdWidget() }
 }

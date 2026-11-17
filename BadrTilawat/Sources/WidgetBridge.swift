@@ -38,7 +38,7 @@ enum WidgetBridge {
             for x in p.forDay(day) { out.append(Prayer(key: x.key, name: x.key == "dhuhr" && cal.component(.weekday, from: x.time) == 6 ? tr("الجمعة") : x.name, at: x.time.timeIntervalSince1970, iq: p.iqamaAt(x)?.timeIntervalSince1970)) }
         } }
         put("w_prayers", out); d?.set(p.place, forKey: "w_place")
-        for k in ["prayer", "day", "ramadan"] { WidgetCenter.shared.reloadTimelines(ofKind: k) }
+        for k in ["prayer", "day", "dayCallig", "dayFrame", "ramadan"] { WidgetCenter.shared.reloadTimelines(ofKind: k) }
     }
     /// the ayah of each of the next 7 days (the same one «آية اليوم» shows)
     static func ayahs() {
