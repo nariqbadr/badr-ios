@@ -94,7 +94,7 @@ struct PlayerIntent: WidgetConfigurationIntent {
 
 // MARK: - آية اليوم
 
-struct AyahEntry: TimelineEntry { let date: Date; let ayah: Shared.Ayah?; var pal = WPal.current }
+struct AyahEntry: TimelineEntry { let date: Date; let ayah: Shared.Ayah?; var pal = WPal.current; var short: Shared.Ayah? = nil }
 struct AyahProvider: AppIntentTimelineProvider {
     func placeholder(in context: Context) -> AyahEntry { AyahEntry(date: Date(), ayah: Shared.Ayah(day: "", s: 94, a: 5, surah: "الشرح", text: "فَإِنَّ مَعَ ٱلۡعُسۡرِ يُسۡرًا")) }
     func snapshot(for c: ColorIntent, in context: Context) async -> AyahEntry { entry(Date(), .of(c.color?.id)) }
@@ -106,12 +106,31 @@ struct AyahProvider: AppIntentTimelineProvider {
     private func entry(_ at: Date, _ pal: WPal) -> AyahEntry {
         let f = DateFormatter(); f.locale = Locale(identifier: "en_US_POSIX"); f.dateFormat = "yyyy-MM-dd"
         let l = Shared.read("w_ayahs", [Shared.Ayah].self) ?? []
-        return AyahEntry(date: at, ayah: l.first { $0.day == f.string(from: at) } ?? l.last, pal: pal)
+        let sh = Shared.read("w_short", [Shared.Ayah].self) ?? []
+        return AyahEntry(date: at, ayah: l.first { $0.day == f.string(from: at) } ?? l.last, pal: pal, short: sh.first { $0.day == f.string(from: at) } ?? sh.last)
     }
 }
 struct AyahWidgetView: View {
     let e: AyahEntry
+    @Environment(\.widgetFamily) private var fam
     var body: some View {
+        if fam == .accessoryRectangular || fam == .accessoryInline { lock } else { home }
+    }
+    /// lock screen: «﴿ سَلَٰمٞ قَوۡلٗا مِّن رَّبّٖ رَّحِيمٖ ﴾»
+    private var lock: some View {
+        let a = e.short ?? e.ayah
+        return Group {
+            if fam == .accessoryInline { Text(a.map { "﴿\($0.text)﴾" } ?? "آية اليوم") }
+            else {
+                Text(a.map { "﴿ \($0.text) ﴾" } ?? "﴿ فَإِنَّ مَعَ ٱلۡعُسۡرِ يُسۡرًا ﴾").font(.custom("AmiriQuran-Regular", size: 17)).multilineTextAlignment(.center)
+                    .lineLimit(3).minimumScaleFactor(0.5).frame(maxWidth: .infinity, maxHeight: .infinity)
+            }
+        }
+        .containerBackground(for: .widget) { Color.clear }
+        .environment(\.layoutDirection, .rightToLeft)
+        .widgetURL(URL(string: a.map { "badr://ayah/\($0.s)/\($0.a)" } ?? "badr://home"))
+    }
+    private var home: some View {
         let p = e.pal
         VStack(alignment: .leading, spacing: 6) {
             HStack {
@@ -133,7 +152,7 @@ struct AyahWidget: Widget {
     var body: some WidgetConfiguration {
         AppIntentConfiguration(kind: "ayah", intent: ColorIntent.self, provider: AyahProvider()) { AyahWidgetView(e: $0) }
             .configurationDisplayName("آية اليوم").description("آية تتغير كل يوم، والمس لتسمعها في التطبيق")
-            .supportedFamilies([.systemMedium, .systemLarge])
+            .supportedFamilies([.systemMedium, .systemLarge, .accessoryRectangular, .accessoryInline])
     }
 }
 
@@ -234,7 +253,3 @@ struct DhikrWidget: Widget {
     }
 }
 
-@main
-struct BadrWidgets: WidgetBundle {
-    var body: some Widget { PrayerWidget(); AyahWidget(); NowWidget(); DhikrWidget() }
-}
