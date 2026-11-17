@@ -14,11 +14,13 @@ struct Track: Identifiable, Hashable {
     let ayahStart: Int, ayahEnd: Int, recordedAt: String
     /// A video recitation: its copies by height (largest first) and the cover frame; `audio` is its sound-only copy.
     let video: VideoInfo?
+    /// the collection it belongs to («تلاوات ١٤٢٥هـ»…), or ""
+    let collection: String
     var isVideo: Bool { !(video?.q.isEmpty ?? true) }
     /// The picture for lists and the lock screen: the chosen image, else the video's cover frame.
     var cover: String { image.isEmpty ? (video?.poster ?? "") : image }
     init(_ j: J) {
-        ayahStart = j["ayahStart"].int; ayahEnd = j["ayahEnd"].int; recordedAt = j["recordedAt"].str
+        ayahStart = j["ayahStart"].int; ayahEnd = j["ayahEnd"].int; recordedAt = j["recordedAt"].str; collection = j["collection"].str
         let v = j["video"]; let qs = v["q"].array.map { VideoQ(h: $0["h"].int, url: $0["url"].str, size: Int64($0["size"].double ?? 0)) }.filter { !$0.url.isEmpty }
         video = qs.isEmpty ? nil : VideoInfo(q: qs.sorted { $0.h > $1.h }, poster: v["poster"].str, w: v["w"].int, h: v["h"].int, audioSize: Int64(v["audioSize"].double ?? 0))
         id = j["id"].str; reciterId = j["reciterId"].str; title = j["title"].str; surah = j["surah"].str; surahNumber = j["surahNumber"].int
@@ -31,7 +33,7 @@ struct Track: Identifiable, Hashable {
     init(id: String, reciterId: String, title: String, surah: String, surahNumber: Int, audio: String, image: String, durationSec: Int) {
         self.id = id; self.reciterId = reciterId; self.title = title; self.surah = surah; self.surahNumber = surahNumber; self.audio = audio; self.image = image
         description = ""; downloadable = true; order = 0; createdAt = ""; publishAt = ""; tags = []; featured = false; self.durationSec = durationSec
-        location = ""; duration = ""; ayahStart = 0; ayahEnd = 0; recordedAt = ""; video = nil; stamp = .distantPast
+        location = ""; duration = ""; ayahStart = 0; ayahEnd = 0; recordedAt = ""; video = nil; collection = ""; stamp = .distantPast
     }
     /// newest first (publish date, else creation date)
     /// read once (it was read again on every sort, many times per screen)
@@ -57,8 +59,17 @@ struct AppUpdate { let latestVersion: String, latestCode: Int, minCode: Int, for
 }
 struct AppNotice { let enabled: Bool, style: String, title: String, text: String, image: String, link: String, linkLabel: String, id: String }
 
+/// A group of recitations made in the dashboard (a year, a Ramadan, a mosque…): its own row and page.
+struct TrackCollection: Identifiable, Hashable {
+    let id: String, name: String, reciterId: String, icon: String, desc: String, featured: Bool
+    init(_ j: J) { id = j["id"].str; name = j["name"].str.trimmingCharacters(in: .whitespaces); reciterId = j["reciterId"].str; icon = j["icon"].str; desc = j["desc"].str; featured = j["featured"].bool() }
+    /// «تلاوات ١٤٢٥هـ» → «١٤٢٥هـ» on a recitation's line
+    var short: String { name.replacingOccurrences(of: "^(تلاوات|مجموعة)\\s+", with: "", options: .regularExpression) }
+}
+
 struct Site {
     let j: J
+    var collections: [TrackCollection] { j["collections"].array.map(TrackCollection.init).filter { !$0.id.isEmpty && !$0.name.isEmpty } }
     var title: String { j["title"].str.isEmpty ? "تلاوات الشيخ خالد بن سالم باوزير" : j["title"].str }
     var subtitle: String { j["subtitle"].str }
     var tagline: String { j["tagline"].str }

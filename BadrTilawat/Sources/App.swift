@@ -120,7 +120,7 @@ enum SheetKind: String, Identifiable { case prayer, theme, name, notices, wird, 
 
 enum Route: Hashable {
     case home, recitations, quran, adhkar, community, library, fiqh, live, about, timeline, prayer, search, qibla
-    case reciter(String), surah(Int), mushaf, compose(String), user(String), people(String, String), thread(Int)
+    case reciter(String), collection(String), surah(Int), mushaf, compose(String), user(String), people(String, String), thread(Int)
     case watch(String), clip(String), listen, maker(Int, Int), blocked, readIndex, read(String, String), cm(String), widgets
     case imams(String), imamAlerts, liveAt(String)
     var tabKey: String? {
@@ -135,6 +135,7 @@ enum Route: Hashable {
         case "": return .home
         case "track": return p.count > 1 ? (Repo.shared.track(p[1])?.isVideo == true ? .watch(p[1]) : .recitations) : .recitations
         case "reciter": return p.count > 1 ? .reciter(p[1]) : .recitations
+        case "collection": return p.count > 1 ? .collection(p[1]) : .recitations
         case "quran", "surah": return p.count > 1 ? Int(p[1]).map { .surah($0) } ?? .quran : .quran
         case "mushaf": return .mushaf
         case "community": return p.count > 2 && p[1] == "p" ? Int(p[2]).map { .thread($0) } : .community

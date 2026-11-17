@@ -156,6 +156,7 @@ struct RootView: View {
     private func title(_ r: Route) -> String {
         switch r {
         case .reciter(let id): return repo.reciter(id).map { nm($0.name) } ?? tr("القارئ")
+        case .collection(let id): return repo.collection(id)?.name ?? tr("مجموعة")
         case .surah(let n): return tr("سورة {0}", Quran.surahs[max(0, min(113, n - 1))])
         case .mushaf: return tr("المصحف")
         case .search: return tr("البحث")
@@ -222,6 +223,7 @@ struct RootView: View {
     @ViewBuilder private func pushed(_ r: Route) -> some View {
         switch r {
         case .reciter(let id): ReciterView(id: id)
+        case .collection(let id): CollectionView(id: id)
         case .surah(let s): SurahView(s: s)
         case .mushaf: MushafView()
         case .search: SearchView()

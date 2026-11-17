@@ -390,7 +390,7 @@ struct TrackRow: View {
     /// redraws when a translated title arrives
     @ObservedObject private var autoTr = AutoTr.shared
     let t: Track; let list: [Track]
-    var rank: Int = 0; var count: Int = 0; var showReciter = true
+    var rank: Int = 0; var count: Int = 0; var showReciter = true; var inCol = false
     @EnvironmentObject var player: AudioPlayer
     @EnvironmentObject var store: Store
     /* UI actions only: reading it does not redraw this view on every tab or sheet change */ private var ui: UIState { UIState.shared! }
@@ -415,6 +415,10 @@ struct TrackRow: View {
                 if !detail.isEmpty { Text(AutoTr.shared.t(detail)).font(F.plex(12)).foregroundStyle(c.gold.opacity(0.78)).lineLimit(2).multilineTextAlignment(.leading) }
                 if showReciter, let n = r?.shown, !n.isEmpty { Text(n).font(F.plex(12.5)).foregroundStyle(c.muted).lineLimit(1) }
                 HStack(spacing: 0) {
+                    // its collection («١٤٢٥هـ»), as on the site — not inside the collection's own page
+                    if !inCol, !t.collection.isEmpty, let col = Repo.shared.collection(t.collection) {
+                        Text(col.short).font(F.plex(10.5, .semibold)).foregroundStyle(c.gold).lineLimit(1).padding(.horizontal, 7).overlay(Capsule().stroke(c.gold.opacity(0.4))).padding(.trailing, 6)
+                    }
                     if isNewTrack(t) { Circle().fill(c.gold).frame(width: 6, height: 6).padding(.trailing, 6) }
                     if OfflineFiles.local(t.id) != nil { Image(systemName: "arrow.down.circle.fill").font(.system(size: 12)).foregroundStyle(c.ok).padding(.trailing, 4) }
                     Text(meta).font(F.plex(12)).foregroundStyle(c.faint).lineLimit(1)

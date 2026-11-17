@@ -34,6 +34,8 @@ struct RecitationsView: View {
             LazyVStack(alignment: .leading, spacing: 0) {
                 if vids > 0 { KindTabs(kind: kind, nAll: all.count, nAudio: all.count - vids, nVideo: vids) { kind = $0; RecKind.value = $0; rec = "" }.padding(.horizontal, 16).padding(.vertical, 6) }
                 if !kv && repo.data?.site.sec("mushaf") != false { QuranFullBanner().padding(.horizontal, 16).padding(.vertical, 6) }
+                // «المجموعات» (a year, a Ramadan, a mosque…), for the chosen reciter — as on the site and Android
+                if !kv { let cols = repo.collections(rec); if !cols.isEmpty { CollectionsRow(cols: cols, showReciter: rec.isEmpty) } }
                 SearchField(text: $q, hint: tr("ابحث بالسورة أو القارئ أو المكان")).padding(.horizontal, 16).padding(.vertical, 8)
                 ScrollView(.horizontal, showsIndicators: false) {
                     HStack(spacing: 8) {
@@ -158,6 +160,8 @@ struct ReciterView: View {
                             Chip(text: nil, icon: "share") { share(tr("تلاوات {0}\n{1}reciter/{2}", r.name, Repo.site, Repo.enc(r.id))) }
                         }.padding(.top, 16)
                     }.frame(maxWidth: .infinity).padding(20)
+                    let cols = repo.collections(id)
+                    if !cols.isEmpty { CollectionsRow(cols: cols, showReciter: false) }
                     HStack { Text(tr("{0} تلاوة", list.count.ar)).font(F.plex(12.5)).foregroundStyle(c.muted); Spacer(); OptMenu(label: "", value: sort, opts: SORTS) { sort = $0 } }.padding(.leading, 18).padding(.trailing, 12).padding(.bottom, 4)
                     if list.isEmpty { Empty(text: tr("لا توجد تلاوات منشورة لهذا القارئ بعد.")) }
                     ForEach(list) { t in TrackRow(t: t, list: audio, showReciter: false) }
@@ -338,5 +342,113 @@ struct SearchView: View {
         }
         .onAppear { DispatchQueue.main.asyncAfter(deadline: .now() + 0.25) { focus = true } }
         .task(id: q) { if q.trimmingCharacters(in: .whitespaces).count >= 2 { try? await Task.sleep(nanoseconds: 1_200_000_000); if !Task.isCancelled { Repo.shared.event("search", ["q": q.trimmingCharacters(in: .whitespaces)]) } } }
+    }
+}
+
+
+// MARK: - «المجموعات»
+extension Repo {
+    /// the collections that have recitations (for one reciter when [rid] is given): the featured first, then the dashboard's order
+    func collections(_ rid: String = "") -> [TrackCollection] {
+        guard let d = data else { return [] }
+        let l = d.site.collections.filter { c in d.recitations.contains { $0.collection == c.id && (rid.isEmpty || $0.reciterId == rid) } }
+        return l.filter(\.featured) + l.filter { !$0.featured }
+    }
+    func collection(_ id: String?) -> TrackCollection? { data?.site.collections.first { $0.id == id } }
+    func collectionTracks(_ id: String) -> [Track] { (data?.recitations ?? []).filter { $0.collection == id } }
+}
+private func colIcon(_ k: String) -> String { ["moon", "book", "mic", "heart", "bookmark"].contains(k) ? k : "calendar" }
+private func colHours(_ s: Int) -> String { let h = s / 3600, m = Int((Double(s % 3600) / 60).rounded()); return h > 0 ? (h == 1 ? tr("ساعة") : h == 2 ? tr("ساعتان") : tr("{0} ساعات", h.ar)) : m > 0 ? tr("{0} دقيقة", m.ar) : "" }
+
+/// The collections as a row of cards (the featured one framed in gold), each opening its page.
+struct CollectionsRow: View {
+    let cols: [TrackCollection]; let showReciter: Bool
+    @EnvironmentObject var repo: Repo
+    /* UI actions only */ private var ui: UIState { UIState.shared! }
+    @Environment(\.pal) private var c
+    var body: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            SectionHead(title: tr("المجموعات"))
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 10) {
+                    ForEach(cols) { col in
+                        let l = repo.collectionTracks(col.id)
+                        let who = showReciter ? (repo.reciter(col.reciterId).map { nm(noSheikh($0.name)) } ?? col.desc) : col.desc
+                        let sub = [who, tr("{0} تلاوة", l.count.ar)].filter { !$0.isEmpty }.joined(separator: " · ")
+                        Button { ui.path.append(.collection(col.id)) } label: {
+                            ZStack(alignment: .topTrailing) {
+                                VStack(alignment: .leading, spacing: 2) {
+                                    SiteIcon(name: colIcon(col.icon), size: 20, color: c.gold).frame(width: 38, height: 38).background(RoundedRectangle(cornerRadius: 12).fill(c.gold.opacity(0.14)))
+                                    Text(col.name).font(F.plex(15, .bold)).foregroundStyle(c.text).lineLimit(2).multilineTextAlignment(.leading).padding(.top, 8)
+                                    Text(sub).font(F.plex(12.5)).foregroundStyle(c.muted).lineLimit(1)
+                                }.frame(width: 144, alignment: .leading)
+                                if l.contains(where: isNewTrack) { Text(tr("جديد")).font(F.plex(11, .bold)).foregroundStyle(c.onGold).padding(.horizontal, 8).padding(.vertical, 1).background(Capsule().fill(c.goldBrush)) }
+                            }
+                            .padding(14).background(RoundedRectangle(cornerRadius: 18).fill(col.featured ? c.surface2 : c.surface))
+                            .overlay(RoundedRectangle(cornerRadius: 18).stroke(col.featured ? c.gold : c.lineSoft, lineWidth: col.featured ? 1.5 : 1))
+                        }.buttonStyle(Press())
+                    }
+                }.padding(.horizontal, 16).padding(.vertical, 2)
+            }
+        }
+    }
+}
+
+/// A collection's page: its name, reciter, count and length; «تشغيل الكل», «حفظ الكل»; the recitations in mushaf order.
+struct CollectionView: View {
+    let id: String
+    @EnvironmentObject var repo: Repo
+    @EnvironmentObject var player: AudioPlayer
+    @ObservedObject private var dl = DownloadProgress.shared
+    /* UI actions only */ private var ui: UIState { UIState.shared! }
+    @Environment(\.pal) private var c
+    @State private var f = "mushaf"
+    @State private var savedTick = 0
+    var body: some View {
+        if let col = repo.collection(id) {
+            let all = repo.collectionTracks(id)
+            let r = repo.reciter(col.reciterId)
+            let _ = savedTick
+            let saved = Set(all.filter { OfflineFiles.local($0.id) != nil }.map(\.id))
+            let prayer = all.contains { $0.tags.contains("في الصلاة") }
+            let base = f == "prayer" ? all.filter { $0.tags.contains("في الصلاة") } : f == "saved" ? all.filter { saved.contains($0.id) } : all
+            let list = f == "new" ? base.sorted { $0.stamp > $1.stamp } : base.sorted { ($0.surahNumber > 0 ? $0.surahNumber : 999, $0.stamp) < ($1.surahNumber > 0 ? $1.surahNumber : 999, $1.stamp) }
+            let audio = list.filter { !$0.isVideo }
+            let todo = all.filter { !$0.isVideo && $0.downloadable && !saved.contains($0.id) }
+            let busy = all.contains { dl.of($0.id) != nil }
+            ScrollView {
+                LazyVStack(alignment: .leading, spacing: 0) {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(tr("مجموعة")).font(F.plex(12.5, .semibold)).foregroundStyle(c.gold)
+                        Text(col.name).font(F.amiri(32)).foregroundStyle(c.text)
+                        Text([r.map { nm($0.name) } ?? col.desc, tr("{0} تلاوة", all.count.ar), colHours(all.reduce(0) { $0 + $1.durationSec })].filter { !$0.isEmpty }.joined(separator: " · "))
+                            .font(F.plex(14)).foregroundStyle(c.muted).padding(.bottom, 14)
+                        HStack(spacing: 8) {
+                            GoldButton(title: tr("تشغيل الكل"), icon: "play") { if let t = audio.first { player.play(t, in: audio) } }
+                            if repo.data?.site.feat("offline") != false && repo.data?.site.allowDownloads != false {
+                                GhostButton(title: busy ? tr("جارٍ الحفظ…") : todo.isEmpty ? tr("محفوظة كلها") : tr("حفظ الكل"), icon: "download") {
+                                    guard !todo.isEmpty, !busy else { return }
+                                    Task { for t in todo { _ = await OfflineFiles.save(t); savedTick += 1 }; ui.say(tr("حُفظت — يمكنك سماعها بدون إنترنت")) }
+                                }
+                            }
+                            Chip(text: nil, icon: "share") { share(tr("{0}\n{1}collection/{2}", col.name, Repo.site, Repo.enc(col.id))) }
+                        }
+                    }
+                    .padding(18).frame(maxWidth: .infinity, alignment: .leading)
+                    .background(RoundedRectangle(cornerRadius: 22).fill(c.surface2)).overlay(RoundedRectangle(cornerRadius: 22).stroke(c.line))
+                    .padding(16)
+                    ScrollView(.horizontal, showsIndicators: false) {
+                        HStack(spacing: 8) {
+                            Pill(title: tr("بترتيب المصحف"), on: f == "mushaf") { f = "mushaf" }
+                            Pill(title: tr("الأحدث"), on: f == "new") { f = "new" }
+                            if prayer { Pill(title: tr("في الصلاة"), on: f == "prayer") { f = "prayer" } }
+                            if !saved.isEmpty { Pill(title: tr("المحفوظة"), on: f == "saved") { f = "saved" } }
+                        }.padding(.horizontal, 16)
+                    }.padding(.bottom, 6)
+                    if list.isEmpty { Empty(text: tr("لا توجد تلاوات هنا.")) }
+                    ForEach(list) { t in TrackRow(t: t, list: audio, showReciter: r == nil, inCol: true) }
+                }.padding(.bottom, 24)
+            }
+        } else { Empty(text: tr("المجموعة غير موجودة")) }
     }
 }
