@@ -375,7 +375,11 @@ struct QiblaFinder: View {
     /// its own page (pushed): always on while shown; inside a tab: only while that tab is the one on screen
     var pushed = false
     @Environment(\.tabActive) private var tabOn
-    private var active: Bool { pushed || tabOn }
+    /// on the prayer page: only while the compass itself is on screen (scrolled to) and no sheet covers it —
+    /// it ran from the top of the page and under the settings sheet, turning and vibrating as the phone moved
+    @State private var seen = false
+    @State private var covered = false
+    private var active: Bool { pushed || (tabOn && seen && !covered) }
     @EnvironmentObject var prayers: Prayers
     @StateObject private var compass = Compass()
     @Environment(\.pal) private var c
@@ -430,6 +434,15 @@ struct QiblaFinder: View {
             }
             .frame(maxWidth: 520).frame(maxWidth: .infinity)
         // the compass runs only while the qibla is on screen (a hidden tab kept it running, and it vibrated elsewhere)
+        .background(GeometryReader { g in
+            Color.clear.preference(key: QiblaSeen.self, value: g.frame(in: .global))
+        })
+        .onPreferenceChange(QiblaSeen.self) { f in
+            let h = UIScreen.main.bounds.height
+            let v = f.height > 0 && f.minY < h - 120 && f.maxY > 120   // a good part of it is in view
+            if v != seen { seen = v }
+        }
+        .onReceive(UIState.shared!.$sheet) { s in covered = s != nil }
         .onAppear { if active { compass.start() }; withAnimation(.easeInOut(duration: 0.7).repeatForever(autoreverses: true)) { glow = true } }
         .onDisappear { compass.stop() }
         .onChange(of: active) { a in if a { compass.start() } else { compass.stop(); locked = false } }
@@ -504,4 +517,11 @@ struct QiblaFinder: View {
         .frame(width: side, height: side)
         .animation(.linear(duration: 0.08), value: hd)
     }
+}
+
+
+/// where the qibla compass is on screen (it runs only when in view)
+struct QiblaSeen: PreferenceKey {
+    static var defaultValue: CGRect = .zero
+    static func reduce(value: inout CGRect, nextValue: () -> CGRect) { value = nextValue() }
 }
