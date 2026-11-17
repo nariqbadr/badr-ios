@@ -65,6 +65,8 @@ final class Repo: ObservableObject {
         if s.isEmpty { return nil }
         if s.hasPrefix("http://") || s.hasPrefix("https://") { return URL(string: s) ?? URL(string: s.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? s) }
         if s.hasPrefix("//") { return URL(string: "https:" + s) }
+        // an imam's photo from the theme, as older saved data names it («@imams/x.jpg»)
+        if s.hasPrefix("@imams/") { return URL(string: site + "wp-content/themes/bawazir-library-premium-v2/assets/img/" + s.dropFirst()) }
         let path = s.split(separator: "/").map { enc(String($0)) }.joined(separator: "/")
         return URL(string: site + path)
     }

@@ -58,8 +58,12 @@ struct RemoteImage: View {
         .task(id: raw) {
             guard let u = Repo.media(raw) else { img = nil; return }
             if let i = ImageCache.shared.cached(u) { img = i; return }
-            let i = await ImageCache.shared.load(u)
-            if img == nil { withAnimation(.easeOut(duration: 0.25)) { img = i } } else { img = i }
+            // a photo that fails (a weak connection) is tried again by itself, a few times
+            for k in 0..<5 {
+                if let i = await ImageCache.shared.load(u) { if img == nil { withAnimation(.easeOut(duration: 0.25)) { img = i } } else { img = i }; return }
+                if Task.isCancelled { return }
+                try? await Task.sleep(nanoseconds: UInt64(2_500_000_000) * UInt64(k + 1))
+            }
         }
     }
 }
