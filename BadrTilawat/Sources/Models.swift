@@ -110,6 +110,8 @@ struct SiteData {
     /// analysed recitations: trackId → [surah, from, to]; whole-surah reciters → surahs
     let readableTracks: [String: [Int]]
     let readableSr: [String: [Int]]
+    /// a long VBR recording's exact (constant-bitrate) copy: its version; played instead so a resume lands on the right second
+    let readablePlay: [String: Int]
     /// «استمع كاملًا»: the whole-Quran recordings (nil: an older site that only sends quranFull)
     let quranFulls: [QuranRec]?
     let quranFull: (id: String, name: String, base: String, dur: [String: Int])
@@ -130,6 +132,7 @@ struct SiteData {
         surahReciters = j["surahReciters"].array.map { ($0["id"].str, $0["name"].str) }
         readableTracks = j["readable"]["tracks"].dict.mapValues { $0.array.map { $0.int } }
         readableSr = j["readable"]["sr"].dict.mapValues { $0.array.map { $0.int } }
+        readablePlay = j["readable"]["play"].dict.mapValues { $0.int }
         quranFulls = j["quranFulls"].isNull ? nil : j["quranFulls"].array.map(QuranRec.init)
         let qf = j["quranFull"]; quranFull = (qf["id"].str, qf["name"].str, qf["base"].str, qf["dur"].dict.mapValues { $0.int })
         adhans = j["adhans"].array.map { ($0["id"].str, $0["name"].str, $0["muezzin"].str, $0["url"].str, $0["fajr"].str) }

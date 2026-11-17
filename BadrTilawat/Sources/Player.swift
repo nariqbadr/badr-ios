@@ -140,7 +140,15 @@ final class AudioPlayer: ObservableObject {
         try? AVAudioSession.sharedInstance().setActive(true)
         // precise timing (exact word lighting after a seek) only for saved files: online it reads the file through before playing
         let local = OfflineFiles.local(t.id)
-        let item = AVPlayerItem(asset: AVURLAsset(url: local ?? url, options: [AVURLAssetPreferPreciseDurationAndTimingKey: local != nil]))
+        // a long VBR recording has an exact copy on the site (like Android): played instead, so going on from the second it
+        // stopped at lands on that very word — an estimated seek in a VBR file can be many seconds off
+        var exact: URL?
+        if local == nil, let v = Repo.shared.data?.readablePlay[t.id], v > 0, let id = t.id.addingPercentEncoding(withAllowedCharacters: .alphanumerics) {
+            exact = URL(string: Repo.ajax + "?action=bz&do=track_audio&id=\(id)&v=\(v)")
+        }
+        var opts: [String: Any] = [AVURLAssetPreferPreciseDurationAndTimingKey: local != nil]
+        if exact != nil, #available(iOS 17.0, *) { opts[AVURLAssetOverrideMIMETypeKey] = "audio/mpeg" }
+        let item = AVPlayerItem(asset: AVURLAsset(url: local ?? exact ?? url, options: opts))
         item.preferredForwardBufferDuration = 0
         player.automaticallyWaitsToMinimizeStalling = local == nil ? false : true
         player.replaceCurrentItem(with: item)
