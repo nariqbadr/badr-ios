@@ -698,9 +698,14 @@ struct ClipView: View {
         }
         .navigationTitle(tr("اصنع مقطعًا")).navigationBarTitleDisplayMode(.inline)
         .environment(\.layoutDirection, L.dir)
-        .task(id: o.font + "|" + o.ifont + "|" + o.L.values.map(\.font).sorted().joined()) { await loadCustomFonts() }
+        .task(id: fontKey) { await loadCustomFonts() }
     }
 
+    /// the fonts in use (custom ones are downloaded when it changes)
+    private var fontKey: String {
+        let pieces: [String] = o.L.values.map { $0.font }.sorted()
+        return ([o.font, o.ifont] + pieces).joined(separator: "|")
+    }
     /// a change shows at once; it is kept a moment later (saving on every step of a slider made it stutter)
     private func set(_ f: (inout ClipOpts) -> Void) {
         var n = o; f(&n); o = n
@@ -717,19 +722,8 @@ struct ClipView: View {
                     // A tap plays / pauses.
                     .overlay { GeometryReader { gp in Color.clear.contentShape(Rectangle())
                         .onTapGesture { togglePlay() }
-                        .gesture(DragGesture(minimumDistance: 3).onChanged { d in
-                            let gw = max(1, gp.size.width), gh = max(1, gp.size.height)
-                            if dragKey == nil {
-                                let k = hit(CGPoint(x: d.startLocation.x / gw, y: d.startLocation.y / gh), FR)
-                                dragKey = k; dragFrom = place(k, FR); sel = k; if k.hasPrefix("i_") { ied = String(k.dropFirst(2)) }
-                            }
-                            guard let k = dragKey, let from = dragFrom else { return }
-                            move(k, from, d.translation.width / gw, d.translation.height / gh)
-                        }.onEnded { _ in dragKey = nil; dragFrom = nil })
-                        .modifier(Pinch(begin: { p in
-                            let k = dragKey ?? p.map { hit(CGPoint(x: $0.x / max(1, gp.size.width), y: $0.y / max(1, gp.size.height)), FR) } ?? (sel.isEmpty ? (o.show ? "ayah" : "video") : sel)
-                            pinchKey = k; pinchFrom = size(k); sel = k; if k.hasPrefix("i_") { ied = String(k.dropFirst(2)) }
-                        }, change: { m in if let k = pinchKey, let base = pinchFrom { scale(k, base, m) } }, end: { pinchKey = nil; pinchFrom = nil }))
+                        .gesture(dragGesture(gp.size, FR))
+                        .modifier(Pinch(begin: { p in pinchBegin(p, gp.size, FR) }, change: { m in pinchChange(m) }, end: { pinchKey = nil; pinchFrom = nil }))
                     } }
     }
 
@@ -782,6 +776,27 @@ struct ClipView: View {
     private func fmt(_ s: Double) -> String { let x = Int(max(0, s)); return String(format: "%d:%02d", x / 60, x % 60) }
 
     // MARK: moving the pieces by hand
+    private func dragGesture(_ sz: CGSize, _ FR: CGSize) -> some Gesture {
+        DragGesture(minimumDistance: 3).onChanged { d in dragChange(d, sz, FR) }.onEnded { _ in dragKey = nil; dragFrom = nil }
+    }
+    private func dragChange(_ d: DragGesture.Value, _ sz: CGSize, _ FR: CGSize) {
+        let gw: Double = max(1, sz.width), gh: Double = max(1, sz.height)
+        if dragKey == nil {
+            let k = hit(CGPoint(x: d.startLocation.x / gw, y: d.startLocation.y / gh), FR)
+            dragKey = k; dragFrom = place(k, FR); pick(k)
+        }
+        guard let k = dragKey, let from = dragFrom else { return }
+        move(k, from, d.translation.width / gw, d.translation.height / gh)
+    }
+    private func pinchBegin(_ p: CGPoint?, _ sz: CGSize, _ FR: CGSize) {
+        var k: String
+        if let dk = dragKey { k = dk }
+        else if let p { k = hit(CGPoint(x: p.x / max(1, sz.width), y: p.y / max(1, sz.height)), FR) }
+        else { k = sel.isEmpty ? (o.show ? "ayah" : "video") : sel }
+        pinchKey = k; pinchFrom = size(k); pick(k)
+    }
+    private func pinchChange(_ m: Double) { if let k = pinchKey, let base = pinchFrom { scale(k, base, m) } }
+    private func pick(_ k: String) { sel = k; if k.hasPrefix("i_") { ied = String(k.dropFirst(2)) } }
     private var selName: String { sel == "ayah" ? tr("الآيات") : sel == "info" ? tr("البيانات") : sel == "video" ? tr("الفيديو") : sel.hasPrefix("i_") ? ILayer.label(String(sel.dropFirst(2))) : "" }
     /// the piece under the finger: a detail, the names line, the ayahs, else the video
     private func hit(_ q: CGPoint, _ FR: CGSize) -> String {
