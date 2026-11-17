@@ -738,7 +738,7 @@ struct WirdWidget: Widget {
 struct BadrWidgets: WidgetBundle {
     var body: some Widget {
         DayWidget(); DayCalligWidget(); DayFrameWidget(); PrayerWidget(); RamadanWidget()
-        AyahWidget(); NowWidget(); DhikrWidget(); MoreWidgets()
+        AyahWidget(); NowWidget(); DhikrWidget(); MoreWidgets().body
     }
 }
 /// a bundle holds ten at most: the rest in this one
