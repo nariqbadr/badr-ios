@@ -273,13 +273,15 @@ enum Adhan {
     /// iOS plays at most 30 s of a notification sound, from the app's Library/Sounds: the chosen voice is cut there once.
     static var soundsDir: URL { let d = FileManager.default.urls(for: .libraryDirectory, in: .userDomainMask)[0].appendingPathComponent("Sounds"); try? FileManager.default.createDirectory(at: d, withIntermediateDirectories: true); return d }
     static func soundName(_ fajr: Bool) -> String? {
-        let n = "bz-\(voiceId.filter { $0.isLetter || $0.isNumber })\(fajr && !(voice?.fajr.isEmpty ?? true) ? "-f" : "").caf"
+        let n = "bz2-\(voiceId.filter { $0.isLetter || $0.isNumber })\(fajr && !(voice?.fajr.isEmpty ?? true) ? "-f" : "").caf"
         return FileManager.default.fileExists(atPath: soundsDir.appendingPathComponent(n).path) ? n : nil
     }
     static func prepare() async {
+        // the quieter clips of older versions are removed once (they are rebuilt louder as «bz2-»)
+        if let old = try? FileManager.default.contentsOfDirectory(atPath: soundsDir.path) { for f in old where f.hasPrefix("bz-") { try? FileManager.default.removeItem(at: soundsDir.appendingPathComponent(f)) } }
         for fajr in [false, true] {
             if fajr && (voice?.fajr.isEmpty ?? true) { continue }
-            let n = "bz-\(voiceId.filter { $0.isLetter || $0.isNumber })\(fajr ? "-f" : "").caf"
+            let n = "bz2-\(voiceId.filter { $0.isLetter || $0.isNumber })\(fajr ? "-f" : "").caf"
             let dst = soundsDir.appendingPathComponent(n)
             if FileManager.default.fileExists(atPath: dst.path) { continue }
             guard let u = url(fajr), let (tmp, r) = try? await URLSession.shared.download(from: u), (r as? HTTPURLResponse)?.statusCode == 200 else { continue }
@@ -288,21 +290,33 @@ enum Adhan {
             try? FileManager.default.removeItem(at: src)
         }
     }
-    /// the first 29 s, mono 22 kHz, with a short fade at the end
+    /// the first 29 s (iOS plays at most 30 s in a notification), mono 44.1 kHz, made as loud as the recording allows — the peak
+    /// raised to full scale and a gentle limiter on top (+4 dB), since a notification sounds at the ringer volume, below the
+    /// media volume the adhan is heard at in the app — with a short fade at the end
     nonisolated static func cut(_ src: URL, _ dst: URL) {
+        let sr = 44100.0
         guard let inF = try? AVAudioFile(forReading: src) else { return }
         let inFmt = inF.processingFormat
-        let outFmt = AVAudioFormat(commonFormat: .pcmFormatFloat32, sampleRate: 22050, channels: 1, interleaved: false)!
+        let outFmt = AVAudioFormat(commonFormat: .pcmFormatFloat32, sampleRate: sr, channels: 1, interleaved: false)!
         let frames = AVAudioFrameCount(min(Double(inF.length), 29 * inFmt.sampleRate))
         guard let ib = AVAudioPCMBuffer(pcmFormat: inFmt, frameCapacity: frames), (try? inF.read(into: ib, frameCount: frames)) != nil,
-              let conv = AVAudioConverter(from: inFmt, to: outFmt), let ob = AVAudioPCMBuffer(pcmFormat: outFmt, frameCapacity: AVAudioFrameCount(29 * 22050 + 1024)) else { return }
+              let conv = AVAudioConverter(from: inFmt, to: outFmt), let ob = AVAudioPCMBuffer(pcmFormat: outFmt, frameCapacity: AVAudioFrameCount(29 * sr + 2048)) else { return }
         var fed = false
         _ = conv.convert(to: ob, error: nil) { _, st in if fed { st.pointee = .endOfStream; return nil }; fed = true; st.pointee = .haveData; return ib }
-        let n = Int(ob.frameLength), fade = min(n, 22050 * 3 / 2)
-        if let p = ob.floatChannelData?[0] { for i in 0..<fade { p[n - 1 - i] *= Float(i) / Float(fade) } }
+        let n = Int(ob.frameLength), fade = min(n, Int(sr * 1.5))
+        if let p = ob.floatChannelData?[0], n > 0 {
+            var peak: Float = 0
+            for i in 0..<n { peak = max(peak, abs(p[i])) }
+            if peak > 0.0001 {
+                // normalise to full scale (at most ×8), then +4 dB through a soft (tanh) limiter that never clips
+                let g = min(8, 1 / peak) * 1.58, k: Float = tanh(1.58)
+                for i in 0..<n { p[i] = tanh(p[i] * g) / k * 0.98 }
+            }
+            for i in 0..<fade { p[n - 1 - i] *= Float(i) / Float(fade) }
+        }
         let tmp = dst.deletingPathExtension().appendingPathExtension("tmp.caf")
         try? FileManager.default.removeItem(at: tmp)
-        guard let outF = try? AVAudioFile(forWriting: tmp, settings: [AVFormatIDKey: kAudioFormatLinearPCM, AVSampleRateKey: 22050, AVNumberOfChannelsKey: 1, AVLinearPCMBitDepthKey: 16, AVLinearPCMIsFloatKey: false], commonFormat: .pcmFormatFloat32, interleaved: false),
+        guard let outF = try? AVAudioFile(forWriting: tmp, settings: [AVFormatIDKey: kAudioFormatLinearPCM, AVSampleRateKey: sr, AVNumberOfChannelsKey: 1, AVLinearPCMBitDepthKey: 16, AVLinearPCMIsFloatKey: false], commonFormat: .pcmFormatFloat32, interleaved: false),
               (try? outF.write(from: ob)) != nil else { return }
         try? FileManager.default.moveItem(at: tmp, to: dst)
     }
