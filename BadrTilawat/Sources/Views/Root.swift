@@ -97,6 +97,8 @@ struct RootView: View {
             switch p[0] {
             case "prayer": ui.go(.prayer)
             case "adhkar": ui.go(.adhkar)
+            case "wird": ui.sheet = .wird
+            case "mushaf": ui.tab = "quran"; ui.path = []
             case "player": if player.current != nil { ui.playerOpen = true } else { ui.go(.recitations) }
             case "play": if p.count >= 2, let t = repo.track(p[1].removingPercentEncoding ?? p[1]) { player.play(t); ui.playerOpen = true } else { ui.go(.recitations) }
             case "ayah": if p.count >= 3, let s = Int(p[1]), let a = Int(p[2]) { ui.tab = "quran"; ui.path = [.surah(s * 1000 + a)] }

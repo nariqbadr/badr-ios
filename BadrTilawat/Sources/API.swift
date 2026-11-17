@@ -17,7 +17,9 @@ final class Repo: ObservableObject {
     }()
     static let ua = "BadrTilawat/\(version) (iOS \(UIDevice.current.systemVersion); iPhone)"
 
-    @Published private(set) var data: SiteData?
+    @Published private(set) var data: SiteData? { didSet { gen &+= 1 } }
+    /// changes with each new data (for caches of things worked out from it)
+    private(set) var gen = 0
     @Published private(set) var offline = false
     /// the screen shown now («يتصفح» in the dashboard)
     var page = tr("الرئيسية")

@@ -373,7 +373,7 @@ struct AyahOfDay: View {
     @State private var tafsir = false
     @State private var picking = false
     var rv: String {
-        let opts = ayah.options(1, 1).map(\.value)
+        let opts = AyahOfDay.opts(ayah, repo, ref.0, ref.1).map(\.value)
         let p = store.ayahReciter.isEmpty ? (repo.data?.site.dailyReciter ?? "yasser") : store.ayahReciter
         return opts.contains(p) ? p : (opts.contains("yasser") ? "yasser" : opts.first ?? "yasser")
     }
@@ -398,11 +398,11 @@ struct AyahOfDay: View {
             HStack(spacing: 12) {
                 PlayCircle(playing: mine && ayah.playing, size: 58) { if mine && ayah.playing { ayah.stop() } else { ayah.play(rv, s, a, repeat: repeatN) } }
                 VStack(alignment: .leading, spacing: 2) {
-                    ProgressView(value: mine ? ayah.progress : 0).tint(c.gold).padding(.vertical, 10)
+                    AyahBar(p: ayah.progress, on: mine).padding(.vertical, 10)
                     Text(mine ? ayah.status : tr("اختر القارئ واضغط تشغيل")).font(F.plex(11)).foregroundStyle(c.muted).lineLimit(4).fixedSize(horizontal: false, vertical: true)
                 }
             }.padding(.top, 6)
-            ReciterPhotos(opts: ayah.options(s, a).map { RecChoice(value: $0.value, label: $0.label, img: repo.recImg($0.value, $0.label)) }, value: rv) { store.ayahReciter = $0; ayah.stop() }.padding(.top, 10)
+            ReciterPhotos(opts: AyahOfDay.opts(ayah, repo, s, a).map { RecChoice(value: $0.value, label: $0.label, img: repo.recImg($0.value, $0.label)) }, value: rv) { store.ayahReciter = $0; ayah.stop() }.padding(.top, 10)
             OptMenu(label: tr("التكرار"), value: repeatN, opts: [(1, tr("مرة")), (3, tr("٣ مرات")), (5, tr("٥ مرات")), (10, tr("١٠ مرات")), (0, tr("مستمر"))]) { repeatN = $0; ayah.stop() }.padding(.top, 10)
             FlowLayout(spacing: 8) {
                 Chip(text: tr("اختر آية"), icon: "book") { picking = true }
@@ -422,6 +422,13 @@ struct AyahOfDay: View {
         }
         .bzSheet(isPresented: $tafsir) { TafsirSheet(s: s, a: a, text: text ?? "").presentationDetents([.medium, .large]) }
         .bzSheet(isPresented: $picking) { AyahPickSheet(s0: s, a0: a) { s2, a2 in picking = false; ayah.stop(); ref = (s2, a2) }.presentationDetents([.medium, .large]) }
+    }
+    /// the reciters, worked out once per ayah and data (not on every redraw while it plays)
+    nonisolated(unsafe) private static var cache: (key: String, opts: [AyahPlayer.Option]) = ("", [])
+    static func opts(_ p: AyahPlayer, _ repo: Repo, _ s: Int, _ a: Int) -> [AyahPlayer.Option] {
+        let k = "\(s):\(a)|\(repo.gen)"
+        if cache.key != k { cache = (k, p.options(s, a)) }
+        return cache.opts
     }
     private func load(_ s: Int, _ a: Int) async -> String { ayahClean(s, a, (await repo.surahText(s))?[safe: a - 1] ?? "") }
     private func newAyah() {
@@ -714,4 +721,13 @@ func ytId(_ url: String) -> String? {
         if let r = try? NSRegularExpression(pattern: p), let m = r.firstMatch(in: url, range: NSRange(url.startIndex..., in: url)), let g = Range(m.range(at: 1), in: url) { return String(url[g]) }
     }
     return nil
+}
+
+
+/// The ayah's seek bar: the only part that follows the playing position.
+struct AyahBar: View {
+    @ObservedObject var p: AyahProgress
+    let on: Bool
+    @Environment(\.pal) private var c
+    var body: some View { ProgressView(value: on ? p.value : 0).tint(c.gold) }
 }

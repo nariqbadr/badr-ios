@@ -108,7 +108,7 @@ final class AudioPlayer: ObservableObject {
         }
         // an online file that takes long to reach the exact second: the nearest point it can play at once
         Task { [weak self] in
-            try? await Task.sleep(nanoseconds: 3_000_000_000)
+            try? await Task.sleep(nanoseconds: 1_500_000_000)
             guard let self, self.seekN == n, self.seekTo != nil else { return }
             self.player.seek(to: CMTime(seconds: s, preferredTimescale: 600)) { [weak self] _ in Task { @MainActor in if self?.seekN == n { self?.seekTo = nil } } }
         }
@@ -239,6 +239,8 @@ final class AudioPlayer: ObservableObject {
     }
 }
 
+@MainActor final class AyahProgress: ObservableObject { @Published var value: Double = 0 }
+
 /// Short ayah playback («آية اليوم», the Quran reader) — everyayah reciters, whole-surah reciters (sr:) and the site's analysed recitations (tk:).
 @MainActor
 final class AyahPlayer: ObservableObject {
@@ -247,8 +249,8 @@ final class AyahPlayer: ObservableObject {
     @Published private(set) var key: String?
     @Published private(set) var playing = false
     @Published private(set) var status = ""
-    /// 0…1 of the ayah playing (for the seek bar)
-    @Published private(set) var progress: Double = 0
+    /// 0…1 of the ayah playing (for the seek bar) — its own object, so only the bar redraws 5× a second, not every view watching the player
+    let progress = AyahProgress()
     private var tickObs: Any?
     private var left = 1, repeatN = 1
     private var then: (() -> Void)?
@@ -256,7 +258,7 @@ final class AyahPlayer: ObservableObject {
 
     private init() {
         tickObs = player.addPeriodicTimeObserver(forInterval: CMTime(seconds: 0.2, preferredTimescale: 600), queue: .main) { [weak self] t in
-            Task { @MainActor in guard let self, let d = self.player.currentItem?.duration.seconds, d.isFinite, d > 0 else { return }; self.progress = min(1, t.seconds / d) }
+            Task { @MainActor in guard let self, let d = self.player.currentItem?.duration.seconds, d.isFinite, d > 0 else { return }; let v = min(1, t.seconds / d); if abs(v - self.progress.value) > 0.004 { self.progress.value = v } }
         }
         endObs = NotificationCenter.default.addObserver(forName: .AVPlayerItemDidPlayToEndTime, object: nil, queue: .main) { [weak self] n in
             Task { @MainActor in

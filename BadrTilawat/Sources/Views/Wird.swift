@@ -25,7 +25,7 @@ enum Wird {
     static var text: String { let (f, t) = range; return (f == t ? tr("صفحة {0}", f.ar) : tr("من صفحة {0} إلى {1}", f.ar, t.ar)) + " — \(Quran.surahs[surahOfPage(f) - 1])" }
     static var percent: Int { (next - 1) * 100 / 604 }
 
-    private static func put(_ kv: [(String, String)]) { kv.forEach { s.set($0.0, $0.1) }; s.objectWillChange.send(); Prayers.shared.schedule() }
+    private static func put(_ kv: [(String, String)]) { kv.forEach { s.set($0.0, $0.1) }; s.objectWillChange.send(); Prayers.shared.schedule(); WidgetBridge.wird() }
     static func setOn(_ r: Bool) { put([("wirdOn", "1"), ("wirdRemind", r ? "1" : "0")]) }
     static func setPages(_ n: Int) { put([("wirdOn", "1"), ("wirdPages", "\(n)")]) }
     static func setTime(_ t: String) { put([("wirdOn", "1"), ("wirdTime", t)]) }

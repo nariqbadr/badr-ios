@@ -6,7 +6,8 @@ import AppIntents
 enum Shared {
     static let group = "group.com.bawazirquran.app"
     static var d: UserDefaults { UserDefaults(suiteName: group) ?? .standard }
-    struct Prayer: Codable { let key: String; let name: String; let at: Double }
+    struct Prayer: Codable { let key: String; let name: String; let at: Double; var iq: Double? = nil }
+    struct Wird: Codable { let on: Bool; let from: Int; let to: Int; let surah: String; let percent: Int; let khatmas: Int; let done: Bool }
     struct Ayah: Codable { let day: String; let s: Int; let a: Int; let surah: String; let text: String }
     struct Now: Codable { let title: String; let sub: String; let playing: Bool; let art: String }
     struct Pal: Codable { let bg: String, surface: String, text: String, muted: String, gold: String, onGold: String; let dark: Bool }
@@ -32,7 +33,7 @@ extension Color {
     init(hex: UInt32) { self.init(.sRGB, red: Double((hex >> 16) & 0xFF) / 255, green: Double((hex >> 8) & 0xFF) / 255, blue: Double(hex & 0xFF) / 255, opacity: Double((hex >> 24) & 0xFF) / 255) }
 }
 extension Int { var ar: String { String(String(self).map { c -> Character in if let d = c.wholeNumberValue { return Character(UnicodeScalar(0x0660 + d)!) }; return c }) } }
-private func plex(_ s: CGFloat, _ w: Font.Weight = .regular) -> Font { .custom(w == .bold ? "IBMPlexSansArabic-Bold" : w == .semibold ? "IBMPlexSansArabic-SemiBold" : "IBMPlexSansArabic-Regular", size: s) }
+func plex(_ s: CGFloat, _ w: Font.Weight = .regular) -> Font { .custom(w == .bold ? "IBMPlexSansArabic-Bold" : w == .semibold ? "IBMPlexSansArabic-SemiBold" : "IBMPlexSansArabic-Regular", size: s) }
 
 /// The card behind every widget: the theme's ink with a soft gold glow in the corner.
 struct WCard: ViewModifier {
@@ -89,77 +90,6 @@ struct PlayerIntent: WidgetConfigurationIntent {
     @Parameter(title: "التلاوة") var track: TrackEntity?
     @Parameter(title: "اللون") var color: ColorEntity?
     init() {}
-}
-
-// MARK: - مواقيت الصلاة
-
-struct PrayerEntry: TimelineEntry { let date: Date; let today: [Shared.Prayer]; let next: Shared.Prayer?; let place: String; var pal = WPal.current }
-struct PrayerProvider: AppIntentTimelineProvider {
-    func placeholder(in context: Context) -> PrayerEntry { PrayerEntry(date: Date(), today: [], next: Shared.Prayer(key: "maghrib", name: "المغرب", at: Date().addingTimeInterval(5400).timeIntervalSince1970), place: "القاهرة") }
-    func snapshot(for c: ColorIntent, in context: Context) async -> PrayerEntry { var e = entry(Date()); e.pal = .of(c.color?.id); return e }
-    func timeline(for c: ColorIntent, in context: Context) async -> Timeline<PrayerEntry> {
-        let all = Shared.read("w_prayers", [Shared.Prayer].self) ?? []
-        let now = Date(), pal = WPal.of(c.color?.id)
-        // one entry now and one at each prayer of the next day, so «الصلاة القادمة» moves on by itself
-        var dates = [now] + all.map { Date(timeIntervalSince1970: $0.at) }.filter { $0 > now && $0 < now.addingTimeInterval(36 * 3600) }
-        dates = Array(Set(dates)).sorted()
-        return Timeline(entries: dates.map { var e = entry($0); e.pal = pal; return e }, policy: .after(dates.last.map { $0.addingTimeInterval(60) } ?? now.addingTimeInterval(3600)))
-    }
-    private func entry(_ at: Date) -> PrayerEntry {
-        let all = Shared.read("w_prayers", [Shared.Prayer].self) ?? []
-        let cal = Calendar.current
-        let today = all.filter { cal.isDate(Date(timeIntervalSince1970: $0.at), inSameDayAs: at) }
-        let next = all.first { $0.key != "sunrise" && Date(timeIntervalSince1970: $0.at) > at }
-        return PrayerEntry(date: at, today: today, next: next, place: (Shared.d.string(forKey: "w_place") ?? "").components(separatedBy: "،").first ?? "")
-    }
-}
-struct PrayerWidgetView: View {
-    let e: PrayerEntry
-    @Environment(\.widgetFamily) private var fam
-    var body: some View {
-        let p = e.pal
-        VStack(alignment: .leading, spacing: 4) {
-            HStack(alignment: .top) {
-                VStack(alignment: .leading, spacing: 0) {
-                    Text("الصلاة القادمة" + (e.place.isEmpty ? "" : " · \(e.place)")).font(plex(11)).foregroundStyle(p.muted).lineLimit(1)
-                    Text(e.next?.name ?? "—").font(.custom("Amiri-Bold", size: 24)).foregroundStyle(p.gold)
-                }
-                Spacer()
-                if let n = e.next {
-                    VStack(alignment: .trailing, spacing: 0) {
-                        Text(Date(timeIntervalSince1970: n.at), style: .timer).font(plex(fam == .systemSmall ? 18 : 22, .bold)).foregroundStyle(p.text).monospacedDigit().multilineTextAlignment(.trailing).environment(\.layoutDirection, .leftToRight)
-                        Text("متبقٍ").font(plex(10.5)).foregroundStyle(p.muted)
-                    }
-                }
-            }
-            if fam != .systemSmall && !e.today.isEmpty {
-                Spacer(minLength: 2)
-                HStack(spacing: 0) {
-                    ForEach(e.today, id: \.key) { x in
-                        let on = x.key == e.next?.key && x.at == e.next?.at
-                        VStack(spacing: 2) {
-                            Text(x.name).font(plex(10.5)).foregroundStyle(on ? p.gold : p.muted).lineLimit(1).minimumScaleFactor(0.8)
-                            Text(hm(x.at)).font(plex(13, .semibold)).foregroundStyle(on ? p.gold : p.text)
-                        }.frame(maxWidth: .infinity).padding(.vertical, 6).background(RoundedRectangle(cornerRadius: 12).fill(on ? p.gold.opacity(0.18) : .clear))
-                    }
-                }
-            } else if let n = e.next {
-                Spacer(minLength: 0)
-                Text(hm(n.at)).font(plex(13, .semibold)).foregroundStyle(p.text)
-            }
-        }
-        .modifier(WCard(p: p))
-        .environment(\.layoutDirection, .rightToLeft)
-        .widgetURL(URL(string: "badr://prayer"))
-    }
-    private func hm(_ t: Double) -> String { let f = DateFormatter(); f.locale = Locale(identifier: "ar"); f.dateFormat = "h:mm"; return f.string(from: Date(timeIntervalSince1970: t)) }
-}
-struct PrayerWidget: Widget {
-    var body: some WidgetConfiguration {
-        AppIntentConfiguration(kind: "prayer", intent: ColorIntent.self, provider: PrayerProvider()) { PrayerWidgetView(e: $0) }
-            .configurationDisplayName("مواقيت الصلاة").description("الصلاة القادمة والعدّ التنازلي ومواقيت اليوم")
-            .supportedFamilies([.systemSmall, .systemMedium])
-    }
 }
 
 // MARK: - آية اليوم

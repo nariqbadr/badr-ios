@@ -170,7 +170,7 @@ final class VideoEngine: NSObject, ObservableObject, AVPictureInPictureControlle
         guard t.isVideo else { return }
         if track?.id == t.id { return }
         AudioPlayer.shared.pause(); AyahPlayer.shared.stop()
-        track = t; failed = false; started = false
+        track = t; failed = false; started = false; wantPlay = false
         duration = Double(t.durationSec)
         if let v = t.video, v.w > 0, v.h > 0 { size = CGSize(width: v.w, height: v.h) }
         let start = Store.shared.position(t.id)
@@ -178,35 +178,59 @@ final class VideoEngine: NSObject, ObservableObject, AVPictureInPictureControlle
         Store.shared.addHistory(t.id)
         artwork(t)
     }
-    func load(_ q: Int, at: Double, play: Bool) {
+    func load(_ q: Int, at: Double, play: Bool, retry: Bool = false) {
         guard let t = track, let v = t.video else { return }
-        h = q
+        h = q; failed = false; stale = false
+        if !retry { retries = 0 }
+        if play { wantPlay = true }
         let url: URL? = VideoFiles.savedH(t.id) == q ? VideoFiles.local(t.id) : Repo.media((v.q.first { $0.h == q } ?? v.q[0]).url)
         guard let url else { failed = true; return }
         let item = AVPlayerItem(url: url)
+        // paused, it reads only a little ahead: it must not take the connection from the recitation playing as sound (a jump in it hung)
+        item.preferredForwardBufferDuration = play ? 0 : 3
         kvo.removeAll { $0 === itemKVO }
         itemKVO = item.observe(\.status, options: [.new]) { [weak self] it, _ in
             let bad = it.status == .failed
             let ns = it.presentationSize
-            Task { @MainActor in if bad { self?.failed = true }; if ns.width > 0 { self?.size = ns } }
+            Task { @MainActor in if bad { self?.recover() }; if ns.width > 0 { self?.size = ns } }
         }
         if let k = itemKVO { kvo.append(k) }
         player.replaceCurrentItem(with: item)
         if at > 0 { player.seek(to: CMTime(seconds: at, preferredTimescale: 600)) }
         position = at
-        if play { start() }
+        if play {
+            wantPlay = true
+            try? AVAudioSession.sharedInstance().setCategory(.playback, mode: .moviePlayback); try? AVAudioSession.sharedInstance().setActive(true)
+            AudioPlayer.shared.pause(); AyahPlayer.shared.stop()
+            player.currentItem?.preferredForwardBufferDuration = 0; player.play(); player.rate = Store.shared.speed; remote()
+        }
     }
     private var itemKVO: NSKeyValueObservation?
+    /// a copy that broke (often the connection, e.g. while the same video is being saved): tried again quietly at the same
+    /// second; the message shows only when the person asked to play and it still fails
+    private var retries = 0, wantPlay = false, stale = false
+    private func recover() {
+        guard let t = track else { return }
+        let at = position, play = wantPlay || playing
+        if retries < 2 {
+            retries += 1
+            Task { try? await Task.sleep(nanoseconds: 1_500_000_000); if self.track?.id == t.id { self.load(self.h, at: at, play: play, retry: true) } }
+        } else if play { failed = true } else { stale = true }
+    }
     func start() {
+        // a paused copy that broke meanwhile: a fresh one, from the same second
+        if stale || player.currentItem == nil || player.currentItem?.status == .failed { stale = false; retries = 0; wantPlay = true; load(h, at: position, play: true); return }
+        wantPlay = true
         try? AVAudioSession.sharedInstance().setCategory(.playback, mode: .moviePlayback)
         try? AVAudioSession.sharedInstance().setActive(true)
         AudioPlayer.shared.pause(); AyahPlayer.shared.stop()
+        player.currentItem?.preferredForwardBufferDuration = 0
         player.play(); player.rate = Store.shared.speed
         remote()
         Repo.shared.event("play", ["id": track?.id ?? ""])
     }
-    func toggle() { if playing { player.pause() } else { start() } }
-    func pause() { player.pause() }
+    func toggle() { if playing { pause() } else { start() } }
+    func pause() { wantPlay = false; player.pause(); player.currentItem?.preferredForwardBufferDuration = 3 }
     /// exact seeks: the default one jumps to the nearest key frame, which can be several seconds away —
     /// «forward 10» then landed only 6 seconds on, or even behind where it started
     /// the page is left: a playing video continues as sound in the audio player at the same moment
@@ -422,7 +446,7 @@ struct WatchView: View {
                 Color.clear.contentShape(Rectangle()).onTapGesture { tapped(true) }
             }.environment(\.layoutDirection, .leftToRight)
             if v.buffering { ProgressView().tint(.white).scaleEffect(1.3) }
-            if v.failed { Text(tr("تعذّر تشغيل الفيديو. جرّب جودة أقل.")).font(F.plex(14)).foregroundStyle(.white).padding(10).background(Capsule().fill(.black.opacity(0.6))) }
+            if v.failed { VStack { Text(tr("تعذّر تشغيل الفيديو. جرّب جودة أقل.")).font(F.plex(13)).foregroundStyle(.white).padding(.horizontal, 12).padding(.vertical, 7).background(Capsule().fill(.black.opacity(0.7))).padding(.top, 12); Spacer() }.allowsHitTesting(false) }
             if controls { overlay(t).transition(.opacity) }
         }
     }
