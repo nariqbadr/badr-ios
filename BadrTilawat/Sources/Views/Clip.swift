@@ -563,6 +563,8 @@ final class ClipPreviewView: UIView {
         fgLayer.player = player; fgLayer.videoGravity = .resize
         layer.addSublayer(bgLayer); addSubview(blur); layer.addSublayer(fgLayer); addSubview(overlay)
         overlay.backgroundColor = .clear; overlay.isOpaque = false
+        // two pixels per point are enough for a preview (three cost half again as much to draw on every frame)
+        overlay.contentScaleFactor = min(2, UIScreen.main.scale); overlay.layer.contentsScale = overlay.contentScaleFactor
         link = CADisplayLink(target: self, selector: #selector(tick)); link?.preferredFrameRateRange = CAFrameRateRange(minimum: 30, maximum: 60, preferred: 60); link?.add(to: .main, forMode: .common)
     }
     required init?(coder: NSCoder) { fatalError() }
@@ -576,13 +578,21 @@ final class ClipPreviewView: UIView {
             let F = ClipEngine.frame(m.o, m.vw, m.vh), k = bounds.width / F.width
             let g = ClipEngine.geometry(m.o, F.width, F.height, m.vw, m.vh)
             fgLayer.frame = CGRect(x: g.minX * k, y: g.minY * k, width: g.width * k, height: g.height * k)
-            blur.alpha = m.o.layout == "fill" ? 0 : min(1, 0.35 + Double(m.o.blur) / 100)
+            // blurred as in the saved clip, also in «ملء الإطار»: moved or made smaller, the video showed a second sharp copy beside it
+            blur.alpha = min(1, 0.35 + Double(m.o.blur) / 100)
         }
         CATransaction.commit()
     }
+    /// something on screen changed (an option, the finger): drawn again on the next frame
+    private var dirty = true, lastT = -1.0
+    func changed() { dirty = true; setNeedsLayout() }
     @objc private func tick() {
         guard let m = model?() else { return }
         let t = player.currentTime().seconds
+        // paused and nothing changed: nothing to draw (it drew the same picture 60 times a second)
+        if !dirty && player.rate == 0 && abs(t - lastT) < 0.001 { return }
+        dirty = false; lastT = t
+        layoutIfNeeded()   // the video's place follows the finger in the same frame
         if player.rate > 0, t >= m.t1 { player.seek(to: CMTime(seconds: m.t0, preferredTimescale: 600), toleranceBefore: .zero, toleranceAfter: .zero) }
         // the preview sounds as the saved clip will (its fades)
         if t.isFinite { player.volume = Float(ClipEngine.gainAt(m.o, t, m.t0, m.t1, ClipEngine.voiceSpan(m.segs, m.t0, m.t1))) }
@@ -607,9 +617,16 @@ final class ClipPreviewView: UIView {
 }
 private struct ClipPreview: UIViewRepresentable {
     let player: AVPlayer
+    let live: ClipLive
     let model: () -> (o: ClipOpts, vw: Double, vh: Double, segs: [ClipSeg], info: ClipInfo, t0: Double, t1: Double, sel: String)
-    func makeUIView(context: Context) -> ClipPreviewView { let v = ClipPreviewView(player: player); v.model = model; return v }
-    func updateUIView(_ v: ClipPreviewView, context: Context) { v.model = model; v.setNeedsLayout() }
+    func makeUIView(context: Context) -> ClipPreviewView { let v = ClipPreviewView(player: player); v.model = model; live.view = v; return v }
+    func updateUIView(_ v: ClipPreviewView, context: Context) { v.model = model; live.view = v; v.changed() }
+}
+/// While a finger moves or pinches a piece, the options live here and only the preview redraws (the whole screen
+/// redrew on every movement, so moving and zooming were not smooth); they are saved when the finger lifts.
+final class ClipLive {
+    var o: ClipOpts?
+    weak var view: ClipPreviewView?
 }
 
 // MARK: - the screen
@@ -638,6 +655,7 @@ struct ClipView: View {
     /* UI actions only: reading it does not redraw this view on every tab or sheet change */ private var ui: UIState { UIState.shared! }
     @Environment(\.pal) private var c
     @State private var o = ClipOpts.load()
+    @State private var live = ClipLive()
     @State private var fontRev = 0
     @State private var player = AVPlayer()
     @State private var times: AyahTimes?
@@ -713,7 +731,7 @@ struct ClipView: View {
     }
 
     @ViewBuilder private func preview(_ FR: CGSize, _ oNow: ClipOpts, _ w: Double, _ h: Double, _ segsNow: [ClipSeg], _ infoNow: ClipInfo, _ a: Double, _ b: Double, _ selNow: String) -> some View {
-                ClipPreview(player: player) { (oNow, w, h, segsNow, infoNow, a, b, selNow) }
+                ClipPreview(player: player, live: live) { [live] in (live.o ?? oNow, w, h, segsNow, infoNow, a, b, selNow) }
                     .aspectRatio(FR.width / FR.height, contentMode: .fit)
                     .frame(maxHeight: 460).clipShape(RoundedRectangle(cornerRadius: 16)).overlay(RoundedRectangle(cornerRadius: 16).stroke(c.line))
                     .overlay { if loading { ProgressView().tint(c.gold) } }
@@ -723,7 +741,7 @@ struct ClipView: View {
                     .overlay { GeometryReader { gp in Color.clear.contentShape(Rectangle())
                         .onTapGesture { togglePlay() }
                         .gesture(dragGesture(gp.size, FR))
-                        .modifier(Pinch(begin: { p in pinchBegin(p, gp.size, FR) }, change: { m in pinchChange(m) }, end: { pinchKey = nil; pinchFrom = nil }))
+                        .modifier(Pinch(begin: { p in pinchBegin(p, gp.size, FR) }, change: { m in pinchChange(m) }, end: { pinchKey = nil; pinchFrom = nil; commitLive() }))
                     } }
     }
 
@@ -777,7 +795,7 @@ struct ClipView: View {
 
     // MARK: moving the pieces by hand
     private func dragGesture(_ sz: CGSize, _ FR: CGSize) -> some Gesture {
-        DragGesture(minimumDistance: 3).onChanged { d in dragChange(d, sz, FR) }.onEnded { _ in dragKey = nil; dragFrom = nil }
+        DragGesture(minimumDistance: 3).onChanged { d in dragChange(d, sz, FR) }.onEnded { _ in dragKey = nil; dragFrom = nil; commitLive() }
     }
     private func dragChange(_ d: DragGesture.Value, _ sz: CGSize, _ FR: CGSize) {
         let gw: Double = max(1, sz.width), gh: Double = max(1, sz.height)
@@ -820,26 +838,33 @@ struct ClipView: View {
             return CGPoint(x: L.x >= 0 ? L.x : 0.5, y: L.y >= 0 ? L.y : mid)
         }
     }
+    /// a change made by the finger: only the preview redraws until it lifts
+    private func liveSet(_ f: (inout ClipOpts) -> Void) {
+        var n = live.o ?? o; f(&n); live.o = n; live.view?.changed()
+    }
+    /// the finger lifted: the options become the screen's (and are saved)
+    private func commitLive() { if let n = live.o { live.o = nil; set { $0 = n } } }
     private func move(_ k: String, _ from: CGPoint, _ dx: Double, _ dy: Double) {
         func snap(_ v: Double, _ c: Double, _ m: Double) -> Double { abs(v - c) < m ? c : v }
         let x = snap(min(0.96, max(0.04, from.x + dx)), 0.5, 0.02), y = snap(min(0.96, max(0.04, from.y + dy)), 0.5, 0.02)
         switch k {
-        case "ayah": set { $0.tx = x == 0.5 ? -1 : x; $0.ty = y }
-        case "info": set { $0.ix = x; $0.iy = y }
-        case "video": set { $0.vx = snap(min(0.6, max(-0.6, from.x + dx)), 0, 0.012); $0.vy = snap(min(0.6, max(-0.6, from.y + dy)), 0, 0.012) }
-        default: let lk = String(k.dropFirst(2)); set { var L = $0.lay(lk); L.x = x; L.y = y; $0.L[lk] = L }
+        case "ayah": liveSet { $0.tx = x == 0.5 ? -1 : x; $0.ty = y }
+        case "info": liveSet { $0.ix = x; $0.iy = y }
+        case "video": liveSet { $0.vx = snap(min(0.6, max(-0.6, from.x + dx)), 0, 0.012); $0.vy = snap(min(0.6, max(-0.6, from.y + dy)), 0, 0.012) }
+        default: let lk = String(k.dropFirst(2)); liveSet { var L = $0.lay(lk); L.x = x; L.y = y; $0.L[lk] = L }
         }
     }
     private func size(_ k: String) -> Int {
+        let o = live.o ?? self.o
         switch k { case "ayah": return o.fs; case "info": return o.ifs; case "video": return o.vscale; default: return o.lay(String(k.dropFirst(2))).fs }
     }
     private func scale(_ k: String, _ base: Int, _ m: Double) {
         let v = Double(base) * m
         switch k {
-        case "ayah": set { $0.fs = Int(min(160, max(24, v))) }
-        case "info": set { $0.ifs = Int(min(260, max(50, v))) }
-        case "video": set { $0.vscale = Int(min(300, max($0.layout == "fill" ? 100 : 40, v))) }
-        default: let lk = String(k.dropFirst(2)); set { var L = $0.lay(lk); L.fs = Int(min(260, max(40, v))); $0.L[lk] = L }
+        case "ayah": liveSet { $0.fs = Int(min(160, max(24, v))) }
+        case "info": liveSet { $0.ifs = Int(min(260, max(50, v))) }
+        case "video": liveSet { $0.vscale = Int(min(300, max($0.layout == "fill" ? 100 : 40, v))) }
+        default: let lk = String(k.dropFirst(2)); liveSet { var L = $0.lay(lk); L.fs = Int(min(260, max(40, v))); $0.L[lk] = L }
         }
     }
     private func resetSel() {
