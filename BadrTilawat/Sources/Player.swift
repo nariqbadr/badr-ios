@@ -85,9 +85,14 @@ final class AudioPlayer: ObservableObject {
         if !l.contains(t) { queue = [t]; index = 0 }
         load()
     }
+    /// the recitation's sound starts: a video playing stops (as playing a video stops the recitation), and the lock screen's buttons come back
+    private func takeOver() {
+        if VideoEngine.shared.playing { VideoEngine.shared.pause() }
+        if yieldRemote { yieldRemote = false; remote() }
+    }
     func toggle() {
         if current == nil { return }
-        if playing { player.pause(); savePlace() } else { AyahPlayer.shared.stop(); try? AVAudioSession.sharedInstance().setActive(true); player.play(); player.rate = Store.shared.speed }
+        if playing { player.pause(); savePlace() } else { takeOver(); AyahPlayer.shared.stop(); try? AVAudioSession.sharedInstance().setActive(true); player.play(); player.rate = Store.shared.speed }
         playing.toggle(); nowPlaying()
     }
     func pause() { player.pause(); playing = false; savePlace(); nowPlaying() }
@@ -150,7 +155,7 @@ final class AudioPlayer: ObservableObject {
         guard let t = current, let url = Repo.media(t.audio) else { return }
         if loaded?.id != t.id { leave() }
         loaded = t
-        if yieldRemote { yieldRemote = false; VideoEngine.shared.pause(); remote() }
+        takeOver()
         try? AVAudioSession.sharedInstance().setCategory(.playback, mode: .spokenAudio)
         try? AVAudioSession.sharedInstance().setActive(true)
         // precise timing (exact word lighting after a seek) only for saved files: online it reads the file through before playing

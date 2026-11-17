@@ -132,7 +132,7 @@ struct AyahWidgetView: View {
     }
     private var home: some View {
         let p = e.pal
-        VStack(alignment: .leading, spacing: 6) {
+        return VStack(alignment: .leading, spacing: 6) {
             HStack {
                 Text("آية اليوم").font(plex(11.5, .semibold)).foregroundStyle(p.gold)
                 Spacer()
