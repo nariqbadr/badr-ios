@@ -17,6 +17,9 @@ jobs:
           curl -s -m 60 "$B&do=c_feed&tab=latest&before=0" -o feed-latest.json
           curl -s -m 60 "$B&do=c_suggest" -o suggest.json
           for h in $(python3 -c "import json;print(' '.join(p.get('handle','') for p in json.load(open('suggest.json')).get('data',json.load(open('suggest.json'))).get('people',[])[:8]))" 2>/dev/null); do curl -s -m 30 "$B&do=c_user&handle=$h&tab=posts&before=0" -o "user-$h.json"; done
+          # the imams' photos: does the site serve them?
+          python3 -c "import json;d=json.load(open('data.json'));d=d.get('data',d);print('\n'.join(x.get('photo','') for x in d['site']['live']['imams']['people'] if x.get('photo')))" > photos.txt || true
+          while read u; do echo "$(curl -s -o /dev/null -m 20 -w '%{http_code} %{content_type} %{size_download}' "$u") $u"; done < photos.txt > photos-status.txt
           git init -q && git checkout -q -b peek-data && git add .
           git -c user.name=ci -c user.email=ci@users.noreply.github.com commit -qm data
           git push -q -f "https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}.git" peek-data
