@@ -8,7 +8,7 @@ import Photos
 /// Ayah timings of an analysed recitation: [ayah, startMs, endMs], words per ayah ([share×1000 or startMs, ms]).
 struct AyahTimes { let ayahs: [[Int]]; let words: [[[Int]]]; let surah: Int; var url: String = ""
     /// the other parts heard in the recording: the surahs it goes on to, and al-Fatiha of each rak'ah (shown in the clip too)
-    struct Part { let surah: Int; let ayahs: [[Int]]; let words: [[[Int]]] }
+    struct Part { let surah: Int; let ayahs: [[Int]]; let words: [[[Int]]]; var rakah = false }
     var parts: [Part] = []
 }
 
@@ -26,7 +26,7 @@ extension Repo {
             let ww = x["words"].array.map { $0.array.map { $0.array.map { Int($0.double ?? 0) } }.filter { $0.count >= 2 } }
             return AyahTimes.Part(surah: sn, ayahs: a, words: ww.count == a.count ? ww : [])
         }
-        let parts = j["extra"].array.compactMap { part($0, nil) } + j["fatiha"].array.compactMap { part($0, 1) }
+        let parts = j["extra"].array.compactMap { part($0, nil) } + j["fatiha"].array.compactMap { x -> AyahTimes.Part? in var q = part(x, 1); q?.rakah = true; return q }
         return ay.isEmpty ? nil : AyahTimes(ayahs: ay, words: w, surah: Int(j["surah"].double ?? 0), url: j["url"].str, parts: parts)
     }
 }

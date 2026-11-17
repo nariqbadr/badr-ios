@@ -155,6 +155,7 @@ final class AudioPlayer: ObservableObject {
         guard let t = current, let url = Repo.media(t.audio) else { return }
         if loaded?.id != t.id { leave() }
         loaded = t
+        Chapters.shared.follow(t)   // «سور هذه التلاوة» of a juz or a long night
         takeOver()
         try? AVAudioSession.sharedInstance().setCategory(.playback, mode: .spokenAudio)
         try? AVAudioSession.sharedInstance().setActive(true)

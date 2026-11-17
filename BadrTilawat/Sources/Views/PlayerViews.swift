@@ -5,6 +5,8 @@ struct SeekBar: View {
     let value: Double
     let onDrag: (Double) -> Void
     let onDone: (Double) -> Void
+    /// 0…1: where each surah starts in a recording with several (a tick on the bar)
+    var marks: [Double] = []
     @Environment(\.pal) private var c
     var body: some View {
         GeometryReader { g in
@@ -12,6 +14,9 @@ struct SeekBar: View {
             ZStack(alignment: .leading) {
                 Capsule().fill(c.lineSoft).frame(height: 4)
                 Capsule().fill(c.gold).frame(width: w * v, height: 4)
+                ForEach(Array(marks.enumerated()), id: \.offset) { _, m in
+                    Capsule().fill(c.text.opacity(0.55)).frame(width: 2, height: 9).offset(x: w * CGFloat(m) - 1)
+                }
                 Circle().fill(c.gold).frame(width: 14, height: 14).shadow(color: c.gold.opacity(0.4), radius: 6)
                     .offset(x: w * v - 7)
             }
@@ -44,7 +49,7 @@ struct MiniPlayer: View {
                     }
                     VStack(alignment: .leading, spacing: 1) {
                         Text(titleL(t)).font(F.plex(15, .bold)).foregroundStyle(c.text).lineLimit(1)
-                        Text(p.nowLabel?.0 == t.id ? p.nowLabel!.1 : (Repo.shared.reciter(t.reciterId)?.shown ?? "")).font(F.plex(12.5)).foregroundStyle(c.muted).lineLimit(1)
+                        Text(p.nowLabel?.0 == t.id ? p.nowLabel!.1 : (Repo.shared.reciter(t.reciterId)?.shown ?? "") + miniSurah(t)).font(F.plex(12.5)).foregroundStyle(c.muted).lineLimit(1)
                     }.padding(.leading, 12).frame(maxWidth: .infinity, alignment: .leading)
                     Button { store.toggleFav(t.id) } label: { SiteIcon(name: store.favs.contains(t.id) ? "heart-f" : "heart", size: 22, color: store.favs.contains(t.id) ? c.danger : c.muted).frame(width: 40, height: 40) }.accessibilityLabel(tr("المفضلة"))
                     Button { ui.playerOpen = true } label: { Ico(name: "chevron.up", size: 19.2).foregroundStyle(c.muted).frame(width: 38, height: 38) }.accessibilityLabel(tr("فتح المشغّل"))
@@ -52,7 +57,7 @@ struct MiniPlayer: View {
                 }
                 HStack(spacing: 0) {
                     Text(Fmt.dur(Int(v * p.duration)).isEmpty ? "0:00" : Fmt.dur(Int(v * p.duration))).font(F.plex(11)).foregroundStyle(c.muted).frame(width: 40)
-                    SeekBar(value: v, onDrag: { drag = $0 }, onDone: { drag = nil; p.seek($0 * p.duration) })
+                    SeekBar(value: v, onDrag: { drag = $0 }, onDone: { drag = nil; p.seek($0 * p.duration) }, marks: Chapters.shared.id == t.id ? Chapters.shared.marks(p.duration) : [])
                     Text(Fmt.dur(Int(p.duration)).isEmpty ? "--:--" : Fmt.dur(Int(p.duration))).font(F.plex(11)).foregroundStyle(c.muted).frame(width: 40)
                 }.padding(.top, 4).environment(\.layoutDirection, .leftToRight)
                 HStack(spacing: 0) {
@@ -106,6 +111,8 @@ struct PlayerView: View {
     @State private var showSleep = false
     @State private var showSpeed = false
     @State private var showAmb = false
+    @State private var showCh = false
+    @ObservedObject private var ch = Chapters.shared
     @State private var breathe = false
     var body: some View {
         if let t = p.current {
@@ -141,8 +148,9 @@ struct PlayerView: View {
                         }.frame(maxWidth: .infinity, alignment: .leading)
                         Button { store.toggleFav(t.id) } label: { SiteIcon(name: store.favs.contains(t.id) ? "heart-f" : "heart", size: 26, color: store.favs.contains(t.id) ? c.danger : c.muted).frame(width: 48, height: 48) }.accessibilityLabel(tr("المفضلة"))
                     }
-                    SeekBar(value: v, onDrag: { drag = $0 }, onDone: { drag = nil; p.seek($0 * p.duration) }).padding(.top, 8)
+                    SeekBar(value: v, onDrag: { drag = $0 }, onDone: { drag = nil; p.seek($0 * p.duration) }, marks: ch.marks(p.duration)).padding(.top, 8)
                     HStack { Text(Fmt.dur(Int(v * p.duration)).isEmpty ? "0:00" : Fmt.dur(Int(v * p.duration))); Spacer(); Text(Fmt.dur(Int(p.duration)).isEmpty ? "0:00" : Fmt.dur(Int(p.duration))) }.font(F.plex(12.5)).foregroundStyle(c.muted).environment(\.layoutDirection, .leftToRight)
+                    ChapterPill(at: v * p.duration) { showCh = true }
                     HStack {
                         Button { p.shuffle.toggle() } label: { SiteIcon(name: "shuffle", size: 24, color: p.shuffle ? c.gold : c.muted).frame(width: 48, height: 48) }.accessibilityLabel(tr("عشوائي"))
                         Spacer()
@@ -170,6 +178,7 @@ struct PlayerView: View {
             .onAppear { withAnimation(.easeInOut(duration: 2.6).repeatForever()) { breathe = true } }
             .environment(\.layoutDirection, L.dir)
             .bzSheet(isPresented: $showQueue) { QueueSheet().presentationDetents([.medium, .large]) }
+            .bzSheet(isPresented: $showCh) { ChaptersSheet().presentationDetents([.medium, .large]) }
             .bzSheet(isPresented: $showAmb) { AmbientSheet().presentationDetents([.medium]) }
             .bzSheet(isPresented: $showSpeed) {
                 MenuSheet(title: tr("سرعة التشغيل")) {
@@ -191,6 +200,14 @@ struct PlayerView: View {
             VStack(spacing: 2) { Ico(name: icon, size: 22, color: on ? c.gold : c.text); Text(label).font(F.plex(11, .medium)).foregroundStyle(on ? c.gold : c.muted).lineLimit(1) }.padding(.horizontal, 6).padding(.vertical, 4)
         }.buttonStyle(.plain)
     }
+}
+
+/// « · سورة الملك» after the reciter's name in the bar, in a recording with several surahs
+@MainActor func miniSurah(_ t: Track) -> String {
+    let ch = Chapters.shared
+    guard ch.id == t.id, ch.list.count > 1 else { return "" }
+    let k = ch.at(AudioPlayer.shared.position)
+    return k >= 0 ? tr(" · سورة {0}", Quran.surahs[ch.list[k].surah - 1]) : ""
 }
 
 /// «قائمة التشغيل».
@@ -276,5 +293,143 @@ struct TrackMenu: View {
                 }.padding(.horizontal, 18).padding(.vertical, 10)
             }.presentationDetents([.medium, .large])
         }
+    }
+}
+
+
+// MARK: - «سور هذه التلاوة»
+/// A recording with several surahs (a juz, a night of taraweeh…) prepared in the dashboard knows where each surah starts:
+/// the player shows the surah being recited and jumps straight to any of them (as on the site and Android).
+struct Chapter: Hashable { let surah: Int; let at: Double; let end: Double; let from: Int; let to: Int }
+
+@MainActor final class Chapters: ObservableObject {
+    static let shared = Chapters()
+    @Published private(set) var id = ""
+    @Published private(set) var list: [Chapter] = []
+    /// the surah being repeated (its index), or -1
+    @Published var loop = -1
+    private var cache: [String: [Chapter]] = [:]
+    private var timer: Timer?
+    private var task: Task<Void, Never>?
+
+    /// the recitation now playing changed
+    func follow(_ t: Track?) {
+        guard let t else { id = ""; list = []; loop = -1; return }
+        guard t.id != id else { return }
+        id = t.id; list = []; loop = -1
+        if let c = cache[t.id] { list = c; return }
+        guard !t.isVideo, Repo.shared.data?.readableTracks[t.id] != nil else { return }
+        task?.cancel()
+        task = Task { [weak self] in
+            guard let tm = await Repo.shared.trackTimes(t.id), let self, self.id == t.id else { return }
+            func ch(_ s: Int, _ a: [[Int]]) -> Chapter? {
+                guard (1...114).contains(s), !a.isEmpty else { return nil }
+                return Chapter(surah: s, at: Double(a.map { $0[1] }.min() ?? 0) / 1000, end: Double(a.map { $0[2] }.max() ?? 0) / 1000, from: a.map { $0[0] }.min() ?? 1, to: a.map { $0[0] }.max() ?? 1)
+            }
+            var l = ([ch(tm.surah, tm.ayahs)] + tm.parts.filter { !$0.rakah }.map { ch($0.surah, $0.ayahs) }).compactMap { $0 }.sorted { $0.at < $1.at }
+            if l.count < 2 { l = [] } else { l[0] = Chapter(surah: l[0].surah, at: 0, end: l[0].end, from: l[0].from, to: l[0].to) }   // the opening belongs to the first surah
+            self.cache[t.id] = l
+            if self.id == t.id { self.list = l }
+        }
+    }
+    func at(_ sec: Double) -> Int { list.lastIndex { sec >= $0.at - 0.3 } ?? -1 }
+    func marks(_ dur: Double) -> [Double] {
+        let tot = dur > 0 ? dur : (list.last?.end ?? 0)
+        return tot > 0 ? list.dropFirst().map { min(1, max(0, $0.at / tot)) } : []
+    }
+    private func endOf(_ i: Int) -> Double { i + 1 < list.count ? list[i + 1].at : list[i].end + 0.6 }
+    func go(_ i: Int) {
+        guard list.indices.contains(i) else { return }
+        if loop >= 0 && loop != i { setLoop(-1) }   // going to another surah ends the repeat
+        let p = AudioPlayer.shared
+        p.seek(list[i].at + (i > 0 ? 0.05 : 0)); if !p.playing { p.toggle() }
+    }
+    /// «كرّر هذه السورة»: when it ends it starts again, until turned off or another recitation plays
+    func setLoop(_ i: Int) {
+        loop = i; timer?.invalidate(); timer = nil
+        guard i >= 0, list.indices.contains(i) else { return }
+        let p = AudioPlayer.shared
+        if p.position < list[i].at || p.position >= endOf(i) { p.seek(list[i].at + (i > 0 ? 0.05 : 0)) }
+        if !p.playing { p.toggle() }
+        timer = Timer.scheduledTimer(withTimeInterval: 0.25, repeats: true) { [weak self] _ in
+            Task { @MainActor in
+                guard let self, self.loop >= 0, self.list.indices.contains(self.loop), AudioPlayer.shared.current?.id == self.id else { self?.setLoop(-1); return }
+                let k = self.loop, pos = AudioPlayer.shared.position
+                if pos >= self.endOf(k) - 0.12 || pos < self.list[k].at - 1.5 { AudioPlayer.shared.seek(self.list[k].at + (k > 0 ? 0.05 : 0)) }
+            }
+        }
+    }
+}
+
+/// Under the seek bar: «سورة الملك (٣ من ٧)» — tap for the list.
+struct ChapterPill: View {
+    let at: Double
+    let open: () -> Void
+    @ObservedObject private var ch = Chapters.shared
+    @EnvironmentObject var p: AudioPlayer
+    @Environment(\.pal) private var c
+    var body: some View {
+        if ch.list.count > 1, ch.id == p.current?.id {
+            let k = max(0, ch.at(at))
+            Button(action: open) {
+                HStack(spacing: 6) {
+                    SiteIcon(name: "book", size: 16, color: c.gold)
+                    Text(tr("سورة {0} ({1} من {2})", Quran.surahs[ch.list[k].surah - 1], (k + 1).ar, ch.list.count.ar) + (ch.loop == k ? tr(" · تكرار") : ""))
+                        .font(F.plex(13, .semibold)).foregroundStyle(c.gold).lineLimit(1)
+                    Ico(name: "chevron.down", size: 13, color: c.gold)
+                }
+                .padding(.horizontal, 14).padding(.vertical, 6).background(Capsule().fill(c.gold.opacity(0.14)))
+            }.buttonStyle(.plain).padding(.top, 4)
+        }
+    }
+}
+
+/// The surahs in the recording: tap one to go straight to it, or repeat it.
+struct ChaptersSheet: View {
+    @ObservedObject private var ch = Chapters.shared
+    @EnvironmentObject var p: AudioPlayer
+    /* UI actions only */ private var ui: UIState { UIState.shared! }
+    @Environment(\.pal) private var c
+    @Environment(\.dismiss) private var dismiss
+    var body: some View {
+        let cur = ch.at(p.position)
+        VStack(alignment: .leading, spacing: 0) {
+            Text(tr("سور هذه التلاوة")).font(F.amiri(22)).foregroundStyle(c.text).padding(.horizontal, 20).padding(.top, 18)
+            Text(tr("اضغط على أي سورة للانتقال إليها، أو على زر التكرار لتكرارها.")).font(F.plex(13)).foregroundStyle(c.muted).padding(.horizontal, 20).padding(.top, 2).padding(.bottom, 8)
+            ScrollViewReader { sr in
+                ScrollView {
+                    LazyVStack(spacing: 6) {
+                        ForEach(Array(ch.list.enumerated()), id: \.offset) { i, x in row(i, x, on: i == cur).id(i) }
+                    }.padding(.horizontal, 14).padding(.bottom, 16)
+                }.onAppear { if cur > 1 { sr.scrollTo(cur - 1, anchor: .top) } }
+            }
+        }
+        .background(c.bg.ignoresSafeArea())
+        .environment(\.layoutDirection, L.dir)
+    }
+    private func row(_ i: Int, _ x: Chapter, on: Bool) -> some View {
+        let looping = ch.loop == i, name = Quran.surahs[x.surah - 1]
+        return HStack(spacing: 12) {
+            Button { ch.go(i); dismiss() } label: {
+                HStack(spacing: 12) {
+                    Text((i + 1).ar).font(F.plex(13, .bold)).foregroundStyle(on ? c.onGold : c.gold).frame(width: 30, height: 30).background(Circle().fill(on ? c.gold : c.surface2))
+                    VStack(alignment: .leading, spacing: 1) {
+                        Text(tr("سورة {0}", name)).font(F.plex(15, .semibold)).foregroundStyle(c.text)
+                        Text(x.from == 1 && x.to >= Quran.ayahs[x.surah - 1] ? tr("كاملة") : tr("الآيات {0}–{1}", x.from.ar, x.to.ar)).font(F.plex(12)).foregroundStyle(c.muted)
+                    }
+                    Spacer(minLength: 4)
+                    Text(Fmt.dur(Int(x.at)).isEmpty ? "0:00" : Fmt.dur(Int(x.at))).font(F.plex(12)).foregroundStyle(c.muted).environment(\.layoutDirection, .leftToRight)
+                }.contentShape(Rectangle())
+            }.buttonStyle(.plain)
+            Button {
+                if looping { ch.setLoop(-1); ui.say(tr("أُوقف تكرار السورة")) }
+                else { ch.setLoop(i); ui.say(tr("ستتكرر سورة {0} حتى توقفها", name)) }
+                dismiss()
+            } label: { SiteIcon(name: "repeat", size: 19, color: looping ? c.gold : c.muted).frame(width: 36, height: 36).background(Circle().fill(looping ? c.gold.opacity(0.16) : .clear)) }
+                .buttonStyle(.plain).accessibilityLabel(looping ? tr("إيقاف تكرار السورة") : tr("كرّر هذه السورة"))
+        }
+        .padding(.horizontal, 12).padding(.vertical, 10)
+        .background(RoundedRectangle(cornerRadius: 12).fill(on ? c.gold.opacity(0.12) : c.surface))
+        .overlay(RoundedRectangle(cornerRadius: 12).stroke(on ? c.gold : .clear, lineWidth: 1))
     }
 }
