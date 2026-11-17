@@ -377,14 +377,18 @@ struct CollectionsRow: View {
                         let sub = [who, tr("{0} تلاوة", l.count.ar)].filter { !$0.isEmpty }.joined(separator: " · ")
                         Button { ui.path.append(.collection(col.id)) } label: {
                             ZStack(alignment: .topTrailing) {
-                                VStack(alignment: .leading, spacing: 2) {
-                                    SiteIcon(name: colIcon(col.icon), size: 20, color: c.gold).frame(width: 38, height: 38).background(RoundedRectangle(cornerRadius: 12).fill(c.gold.opacity(0.14)))
-                                    Text(col.name).font(F.plex(15, .bold)).foregroundStyle(c.text).lineLimit(2).multilineTextAlignment(.leading).padding(.top, 8)
-                                    Text(sub).font(F.plex(12.5)).foregroundStyle(c.muted).lineLimit(1)
-                                }.frame(width: 144, alignment: .leading)
-                                if l.contains(where: isNewTrack) { Text(tr("جديد")).font(F.plex(11, .bold)).foregroundStyle(c.onGold).padding(.horizontal, 8).padding(.vertical, 1).background(Capsule().fill(c.goldBrush)) }
+                                VStack(alignment: .leading, spacing: 0) {
+                                    // the cover from the dashboard, in place of the icon
+                                    if !col.cover.isEmpty { RemoteImage(raw: col.cover).frame(width: 172, height: 108) }
+                                    VStack(alignment: .leading, spacing: 2) {
+                                        if col.cover.isEmpty { SiteIcon(name: colIcon(col.icon), size: 20, color: c.gold).frame(width: 38, height: 38).background(RoundedRectangle(cornerRadius: 12).fill(c.gold.opacity(0.14))).padding(.bottom, 8) }
+                                        Text(col.name).font(F.plex(15, .bold)).foregroundStyle(c.text).lineLimit(2).multilineTextAlignment(.leading)
+                                        Text(sub).font(F.plex(12.5)).foregroundStyle(c.muted).lineLimit(1)
+                                    }.frame(width: 144, alignment: .leading).padding(14)
+                                }
+                                if l.contains(where: isNewTrack) { Text(tr("جديد")).font(F.plex(11, .bold)).foregroundStyle(c.onGold).padding(.horizontal, 8).padding(.vertical, 1).background(Capsule().fill(c.goldBrush)).padding(10) }
                             }
-                            .padding(14).background(RoundedRectangle(cornerRadius: 18).fill(col.featured ? c.surface2 : c.surface))
+                            .clipShape(RoundedRectangle(cornerRadius: 18)).background(RoundedRectangle(cornerRadius: 18).fill(col.featured ? c.surface2 : c.surface))
                             .overlay(RoundedRectangle(cornerRadius: 18).stroke(col.featured ? c.gold : c.lineSoft, lineWidth: col.featured ? 1.5 : 1))
                         }.buttonStyle(Press())
                     }
@@ -418,6 +422,8 @@ struct CollectionView: View {
             let busy = all.contains { dl.of($0.id) != nil }
             ScrollView {
                 LazyVStack(alignment: .leading, spacing: 0) {
+                    VStack(alignment: .leading, spacing: 0) {
+                    if !col.cover.isEmpty { RemoteImage(raw: col.cover).frame(maxWidth: .infinity).aspectRatio(16 / 7, contentMode: .fit) }
                     VStack(alignment: .leading, spacing: 2) {
                         Text(tr("مجموعة")).font(F.plex(12.5, .semibold)).foregroundStyle(c.gold)
                         Text(col.name).font(F.amiri(32)).foregroundStyle(c.text)
@@ -435,6 +441,8 @@ struct CollectionView: View {
                         }
                     }
                     .padding(18).frame(maxWidth: .infinity, alignment: .leading)
+                    }
+                    .clipShape(RoundedRectangle(cornerRadius: 22))
                     .background(RoundedRectangle(cornerRadius: 22).fill(c.surface2)).overlay(RoundedRectangle(cornerRadius: 22).stroke(c.line))
                     .padding(16)
                     ScrollView(.horizontal, showsIndicators: false) {

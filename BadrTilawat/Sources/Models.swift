@@ -61,8 +61,8 @@ struct AppNotice { let enabled: Bool, style: String, title: String, text: String
 
 /// A group of recitations made in the dashboard (a year, a Ramadan, a mosque…): its own row and page.
 struct TrackCollection: Identifiable, Hashable {
-    let id: String, name: String, reciterId: String, icon: String, desc: String, featured: Bool
-    init(_ j: J) { id = j["id"].str; name = j["name"].str.trimmingCharacters(in: .whitespaces); reciterId = j["reciterId"].str; icon = j["icon"].str; desc = j["desc"].str; featured = j["featured"].bool() }
+    let id: String, name: String, reciterId: String, icon: String, cover: String, desc: String, featured: Bool
+    init(_ j: J) { id = j["id"].str; name = j["name"].str.trimmingCharacters(in: .whitespaces); reciterId = j["reciterId"].str; icon = j["icon"].str; cover = j["cover"].str; desc = j["desc"].str; featured = j["featured"].bool() }
     /// «تلاوات ١٤٢٥هـ» → «١٤٢٥هـ» on a recitation's line
     var short: String { name.replacingOccurrences(of: "^(تلاوات|مجموعة)\\s+", with: "", options: .regularExpression) }
 }
