@@ -289,8 +289,11 @@ enum ClipEngine {
             guard o.name, o.isplit, !txt.isEmpty else { boxes.set("i_" + k, nil); continue }
             let L = o.lay(k)
             let fk = L.font.isEmpty || (L.font.hasPrefix("c:") && custom[L.font] == nil) ? o.ifont : L.font
-            let fs = min(W, H) * 0.028 * Double(o.ifs) / 100 * Double(L.fs) / 100
-            boxes.set("i_" + k, label(txt, fk, fs, L.color.isEmpty ? o.icolor : L.color, L.x, (L.y >= 0 ? L.y : ILayer.defY(k)) * H))
+            let base: Double = min(W, H) * 0.028 * Double(o.ifs) / 100
+            let fs: Double = base * Double(L.fs) / 100
+            let col: String = L.color.isEmpty ? o.icolor : L.color
+            let yy: Double = (L.y >= 0 ? L.y : ILayer.defY(k)) * H
+            boxes.set("i_" + k, label(txt, fk, fs, col, L.x, yy))
         }
         if let t0, let t1 {
             let bk = max(o.vfi > 0 ? 1 - smooth((t - t0) / o.vfi) : 0, o.vfo > 0 ? 1 - smooth((t1 - t) / o.vfo) : 0)
@@ -704,11 +707,7 @@ struct ClipView: View {
         saveTask?.cancel(); saveTask = Task { try? await Task.sleep(nanoseconds: 400_000_000); if !Task.isCancelled { n.save() } }
     }
 
-    @ViewBuilder private func body(_ t: Track, _ src: URL) -> some View {
-        let FR = ClipEngine.frame(o, vw, vh)
-        let segsNow = segs, infoNow = info, oNow = o, a = t0, b = t1, w = vw, h = vh, selNow = sel
-        ScrollView {
-            VStack(spacing: 14) {
+    @ViewBuilder private func preview(_ FR: CGSize, _ oNow: ClipOpts, _ w: Double, _ h: Double, _ segsNow: [ClipSeg], _ infoNow: ClipInfo, _ a: Double, _ b: Double, _ selNow: String) -> some View {
                 ClipPreview(player: player) { (oNow, w, h, segsNow, infoNow, a, b, selNow) }
                     .aspectRatio(FR.width / FR.height, contentMode: .fit)
                     .frame(maxHeight: 460).clipShape(RoundedRectangle(cornerRadius: 16)).overlay(RoundedRectangle(cornerRadius: 16).stroke(c.line))
@@ -727,16 +726,19 @@ struct ClipView: View {
                             guard let k = dragKey, let from = dragFrom else { return }
                             move(k, from, d.translation.width / gw, d.translation.height / gh)
                         }.onEnded { _ in dragKey = nil; dragFrom = nil })
-                        .simultaneousGesture(MagnifyGesture().onChanged { v in
-                            if pinchKey == nil {
-                                let gw = max(1, gp.size.width), gh = max(1, gp.size.height)
-                                let k = dragKey ?? hit(CGPoint(x: v.startLocation.x / gw, y: v.startLocation.y / gh), FR)
-                                pinchKey = k; pinchFrom = size(k); sel = k; if k.hasPrefix("i_") { ied = String(k.dropFirst(2)) }
-                            }
-                            guard let k = pinchKey, let base = pinchFrom else { return }
-                            scale(k, base, v.magnification)
-                        }.onEnded { _ in pinchKey = nil; pinchFrom = nil })
+                        .modifier(Pinch(begin: { p in
+                            let k = dragKey ?? p.map { hit(CGPoint(x: $0.x / max(1, gp.size.width), y: $0.y / max(1, gp.size.height)), FR) } ?? (sel.isEmpty ? (o.show ? "ayah" : "video") : sel)
+                            pinchKey = k; pinchFrom = size(k); sel = k; if k.hasPrefix("i_") { ied = String(k.dropFirst(2)) }
+                        }, change: { m in if let k = pinchKey, let base = pinchFrom { scale(k, base, m) } }, end: { pinchKey = nil; pinchFrom = nil }))
                     } }
+    }
+
+    @ViewBuilder private func body(_ t: Track, _ src: URL) -> some View {
+        let FR = ClipEngine.frame(o, vw, vh)
+        let segsNow = segs, infoNow = info, oNow = o, a = t0, b = t1, w = vw, h = vh, selNow = sel
+        ScrollView {
+            VStack(spacing: 14) {
+                preview(FR, oNow, w, h, segsNow, infoNow, a, b, selNow)
                 if !sel.isEmpty {
                     HStack(spacing: 8) {
                         Text(tr("المحدَّد: {0}", selName)).font(F.plex(12.5)).foregroundStyle(c.muted)
@@ -799,7 +801,8 @@ struct ClipView: View {
         case "video": return CGPoint(x: o.vx, y: o.vy)
         default:
             let lk = String(k.dropFirst(2)), L = o.lay(lk)
-            return CGPoint(x: L.x >= 0 ? L.x : 0.5, y: L.y >= 0 ? L.y : (ClipEngine.boxes.all[k]?.midY ?? ILayer.defY(lk)))
+            let mid: Double = ClipEngine.boxes.all[k].map { Double($0.midY) } ?? ILayer.defY(lk)
+            return CGPoint(x: L.x >= 0 ? L.x : 0.5, y: L.y >= 0 ? L.y : mid)
         }
     }
     private func move(_ k: String, _ from: CGPoint, _ dx: Double, _ dy: Double) {
@@ -953,6 +956,29 @@ struct ClipView: View {
             row(tr("عرض النص")) { Slider(value: Binding(get: { Double(o.wmax) }, set: { v in set { $0.wmax = Int(v) } }), in: 50...96) }
         }
     }
+    /// «كل واحدة في مكانها»: the piece chosen, its size, font and colour
+    @ViewBuilder private func layerEditor() -> some View {
+        VStack(alignment: .leading, spacing: 12) {
+                    Text(tr("اسحب كل واحدة بإصبعك على المعاينة إلى المكان الذي تريده، وكبّرها أو صغّرها بإصبعين")).font(F.plex(12)).foregroundStyle(c.muted)
+                    HStack(spacing: 6) { ForEach(ILayer.keys, id: \.self) { k in Pill(title: ILayer.label(k), on: ied == k) { ied = k; sel = "i_" + k } } }
+                    let L = o.lay(ied)
+                    row(tr("حجم {0} · {1}٪", ILayer.label(ied), L.fs.ar)) { Slider(value: Binding(get: { Double(L.fs) }, set: { v in let k = ied; set { var x = $0.lay(k); x.fs = Int(v); $0.L[k] = x } }), in: 40...260) }
+                    Text(tr("خط {0}", ILayer.label(ied))).font(F.plex(14, .bold)).foregroundStyle(c.text)
+                    ScrollView(.horizontal, showsIndicators: false) { HStack(spacing: 6) {
+                        Pill(title: tr("مثل الباقي"), on: L.font.isEmpty) { let k = ied; set { var x = $0.lay(k); x.font = ""; $0.L[k] = x } }
+                        ForEach(ClipEngine.infoFonts.map { ($0.0, tr($0.1)) } + customFonts("info"), id: \.0) { f in Pill(title: f.1, on: L.font == f.0) { let k = ied; set { var x = $0.lay(k); x.font = f.0; $0.L[k] = x } } }
+                    } }
+                    colors(L.color.isEmpty ? o.icolor : L.color) { v in let k = ied; set { var x = $0.lay(k); x.color = v; $0.L[k] = x } }
+                    Button(tr("إرجاع {0} لمكانه", ILayer.label(ied))) { let k = ied; set { var x = $0.lay(k); x.x = -1; x.y = -1; x.fs = ILayer.defFs(k); $0.L[k] = x } }.font(F.plex(13)).foregroundStyle(c.gold)
+                    Text(tr("الخط واللون والحجم المشترك للجميع")).font(F.plex(14, .bold)).foregroundStyle(c.text).padding(.top, 6)
+        }
+    }
+    @ViewBuilder private func infoPlace() -> some View {
+        VStack(alignment: .leading, spacing: 12) {
+                    HStack(spacing: 6) { Pill(title: tr("أسفل"), on: o.ipos != "top" && o.iy < 0) { set { $0.ipos = "bot"; $0.iy = -1; $0.ix = -1 } }; Pill(title: tr("أعلى"), on: o.ipos == "top" && o.iy < 0) { set { $0.ipos = "top"; $0.iy = -1; $0.ix = -1 } } }
+                    Text(tr("أو اسحب البيانات بإصبعك على المعاينة إلى أي مكان")).font(F.plex(12)).foregroundStyle(c.muted)
+        }
+    }
     private func infoTab() -> some View {
         VStack(alignment: .leading, spacing: 12) {
             Toggle(tr("إظهار البيانات"), isOn: Binding(get: { o.name }, set: { v in set { $0.name = v } })).tint(c.gold).font(F.plex(14))
@@ -966,23 +992,7 @@ struct ClipView: View {
                     Pill(title: tr("معًا في سطر واحد"), on: !o.isplit) { set { $0.isplit = false }; if sel.hasPrefix("i_") { sel = "" } }
                     Pill(title: tr("كل واحدة في مكانها"), on: o.isplit) { set { $0.isplit = true }; if sel == "info" { sel = "" } }
                 }
-                if o.isplit {
-                    Text(tr("اسحب كل واحدة بإصبعك على المعاينة إلى المكان الذي تريده، وكبّرها أو صغّرها بإصبعين")).font(F.plex(12)).foregroundStyle(c.muted)
-                    HStack(spacing: 6) { ForEach(ILayer.keys, id: \.self) { k in Pill(title: ILayer.label(k), on: ied == k) { ied = k; sel = "i_" + k } } }
-                    let L = o.lay(ied)
-                    row(tr("حجم {0} · {1}٪", ILayer.label(ied), L.fs.ar)) { Slider(value: Binding(get: { Double(L.fs) }, set: { v in let k = ied; set { var x = $0.lay(k); x.fs = Int(v); $0.L[k] = x } }), in: 40...260) }
-                    Text(tr("خط {0}", ILayer.label(ied))).font(F.plex(14, .bold)).foregroundStyle(c.text)
-                    ScrollView(.horizontal, showsIndicators: false) { HStack(spacing: 6) {
-                        Pill(title: tr("مثل الباقي"), on: L.font.isEmpty) { let k = ied; set { var x = $0.lay(k); x.font = ""; $0.L[k] = x } }
-                        ForEach(ClipEngine.infoFonts.map { ($0.0, tr($0.1)) } + customFonts("info"), id: \.0) { f in Pill(title: f.1, on: L.font == f.0) { let k = ied; set { var x = $0.lay(k); x.font = f.0; $0.L[k] = x } } }
-                    } }
-                    colors(L.color.isEmpty ? o.icolor : L.color) { v in let k = ied; set { var x = $0.lay(k); x.color = v; $0.L[k] = x } }
-                    Button(tr("إرجاع {0} لمكانه", ILayer.label(ied))) { let k = ied; set { var x = $0.lay(k); x.x = -1; x.y = -1; x.fs = ILayer.defFs(k); $0.L[k] = x } }.font(F.plex(13)).foregroundStyle(c.gold)
-                    Text(tr("الخط واللون والحجم المشترك للجميع")).font(F.plex(14, .bold)).foregroundStyle(c.text).padding(.top, 6)
-                } else {
-                    HStack(spacing: 6) { Pill(title: tr("أسفل"), on: o.ipos != "top" && o.iy < 0) { set { $0.ipos = "bot"; $0.iy = -1; $0.ix = -1 } }; Pill(title: tr("أعلى"), on: o.ipos == "top" && o.iy < 0) { set { $0.ipos = "top"; $0.iy = -1; $0.ix = -1 } } }
-                    Text(tr("أو اسحب البيانات بإصبعك على المعاينة إلى أي مكان")).font(F.plex(12)).foregroundStyle(c.muted)
-                }
+                if o.isplit { layerEditor() } else { infoPlace() }
                 Text(tr("الخط")).font(F.plex(14, .bold)).foregroundStyle(c.text)
                 ScrollView(.horizontal, showsIndicators: false) { HStack(spacing: 6) { ForEach(ClipEngine.infoFonts.map { ($0.0, tr($0.1)) } + customFonts("info"), id: \.0) { f in Pill(title: f.1, on: o.ifont == f.0) { set { $0.ifont = f.0 } } } } }
                 colors(o.icolor) { v in set { $0.icolor = v } }
@@ -1039,6 +1049,21 @@ struct ClipView: View {
         PHPhotoLibrary.requestAuthorization(for: .addOnly) { st in
             guard st == .authorized || st == .limited else { DispatchQueue.main.async { ui.say(tr("اسمح للتطبيق بحفظ الصور من الإعدادات")) }; return }
             PHPhotoLibrary.shared().performChanges({ PHAssetChangeRequest.creationRequestForAssetFromVideo(atFileURL: u) }) { ok, _ in DispatchQueue.main.async { ui.say(ok ? tr("حُفظ المقطع في الصور") : tr("تعذّر الحفظ في الصور")) } }
+        }
+    }
+}
+
+
+/// Two fingers resize the touched piece: on iOS 17 the pinch knows where it started (so it picks the piece under the fingers),
+/// on iOS 16 it resizes the piece chosen last.
+private struct Pinch: ViewModifier {
+    let begin: (CGPoint?) -> Void, change: (Double) -> Void, end: () -> Void
+    @State private var on = false
+    func body(content: Content) -> some View {
+        if #available(iOS 17.0, *) {
+            content.simultaneousGesture(MagnifyGesture().onChanged { v in if !on { on = true; begin(v.startLocation) }; change(Double(v.magnification)) }.onEnded { _ in on = false; end() })
+        } else {
+            content.simultaneousGesture(MagnificationGesture().onChanged { m in if !on { on = true; begin(nil) }; change(Double(m)) }.onEnded { _ in on = false; end() })
         }
     }
 }
