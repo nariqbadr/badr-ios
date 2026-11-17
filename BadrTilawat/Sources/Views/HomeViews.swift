@@ -590,6 +590,9 @@ struct LiveStage: View {
     @State private var started = false
     @StateObject private var ctl = LiveCtl()
     @ObservedObject private var net = Net.shared
+    @EnvironmentObject private var audio: AudioPlayer
+    /// a recitation or a video is playing (and the stream's sound is off): the stream does not start by itself
+    private var busy: Bool { !sound && (audio.playing || VideoEngine.shared.playing) }
     var body: some View {
         let l = repo.data?.site.live
         let src = Haram.src(mosque)
@@ -597,8 +600,8 @@ struct LiveStage: View {
         ZStack {
             c.surface3
             // the video player is made only once the opening has gone (making it is heavy and made the logo stutter)
-            if auto && started && !src.embed.isEmpty { LiveEmbed(id: src.embed, ctl: ctl).id("\(mosque)-\(net.back)") }
-            RemoteImage(raw: src.poster).opacity(poster || !auto ? 1 : 0).animation(.easeOut(duration: 0.6), value: poster)
+            if auto && started && !src.embed.isEmpty { LiveEmbed(id: src.embed, ctl: ctl, play: !busy).id("\(mosque)-\(net.back)") }
+            RemoteImage(raw: src.poster).opacity(poster || !auto || (busy && !ctl.playing) ? 1 : 0).animation(.easeOut(duration: 0.6), value: poster)
             LinearGradient(stops: [.init(color: .black.opacity(0.35), location: 0), .init(color: .clear, location: 0.5), .init(color: .black.opacity(0.8), location: 1)], startPoint: .top, endPoint: .bottom)
                 .contentShape(Rectangle()).onTapGesture { ui.path.append(.liveAt(mosque)) }
             VStack {
@@ -651,8 +654,10 @@ struct LiveStage: View {
         .clipShape(RoundedRectangle(cornerRadius: 24)).overlay(RoundedRectangle(cornerRadius: 24).stroke(c.line))
         .padding(.horizontal, 16).padding(.vertical, 8)
         .onAppear { mosque = Haram.chosen; withAnimation(.easeInOut(duration: 0.9).repeatForever()) { pulse = true }; DispatchQueue.main.asyncAfter(deadline: .now() + 2.5) { poster = false } }
-        .onChange(of: phase) { p in ctl.js(p == .active && active ? "cmd('playVideo')" : "cmd('pauseVideo')") }
-        .onChange(of: active) { a in ctl.js(a && phase == .active ? "cmd('playVideo')" : "cmd('pauseVideo')"); if a && !started { DispatchQueue.main.asyncAfter(deadline: .now() + 0.9) { started = true } } }
+        .onChange(of: phase) { p in ctl.js(p == .active && active && !busy ? "cmd('playVideo')" : "cmd('pauseVideo')") }
+        .onChange(of: active) { a in ctl.js(a && phase == .active && !busy ? "cmd('playVideo')" : "cmd('pauseVideo')"); if a && !started { DispatchQueue.main.asyncAfter(deadline: .now() + 0.9) { started = true } } }
+        // a recitation starts while the muted stream plays: the stream stops (its player took the sound and stopped the recitation)
+        .onReceive(AudioPlayer.shared.$playing) { on in if on && !sound { ctl.js("cmd('pauseVideo')"); ctl.playing = false } }
         .onAppear { if active && !started { DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) { started = true } } }
         .onDisappear { ctl.js("cmd('pauseVideo')") }
     }
@@ -689,7 +694,7 @@ final class LiveCtl: NSObject, ObservableObject, WKScriptMessageHandler {
     }
 }
 struct LiveEmbed: UIViewRepresentable {
-    let id: String; let ctl: LiveCtl
+    let id: String; let ctl: LiveCtl; var play = true
     func makeUIView(context: Context) -> WKWebView {
         let cfg = WKWebViewConfiguration(); cfg.allowsInlineMediaPlayback = true; cfg.mediaTypesRequiringUserActionForPlayback = []
         cfg.userContentController.add(WeakYT(ctl), name: "yt")
@@ -697,7 +702,7 @@ struct LiveEmbed: UIViewRepresentable {
         ctl.web = w
         let html = """
         <html><head><meta name="viewport" content="width=device-width,initial-scale=1"><style>html,body{margin:0;background:#000;height:100%;overflow:hidden}iframe{border:0;width:100%;height:100%;pointer-events:none}</style></head>
-        <body><iframe id="p" src="https://www.youtube.com/embed/\(id)\(id.contains("?") ? "&" : "?")playsinline=1&autoplay=1&mute=1&controls=0&rel=0&modestbranding=1&enablejsapi=1" allow="autoplay; encrypted-media"></iframe>
+        <body><iframe id="p" src="https://www.youtube.com/embed/\(id)\(id.contains("?") ? "&" : "?")playsinline=1&autoplay=\(play ? 1 : 0)&mute=1&controls=0&rel=0&modestbranding=1&enablejsapi=1" allow="autoplay; encrypted-media"></iframe>
         <script>function cmd(f,a){document.getElementById('p').contentWindow.postMessage(JSON.stringify({event:'command',func:f,args:a||[]}),'*')}
         var last=-9;window.addEventListener('message',function(e){try{var d=typeof e.data==='string'?JSON.parse(e.data):e.data;var s=d&&d.info&&d.info.playerState!==undefined?d.info.playerState:(d&&d.event==='onStateChange'?d.info:undefined);if(s!==undefined&&s!==last){last=s;window.webkit.messageHandlers.yt.postMessage(s)}}catch(x){}});
         document.getElementById('p').addEventListener('load',function(){var f=this;var n=0;var t=setInterval(function(){f.contentWindow.postMessage(JSON.stringify({event:'listening',id:'p',channel:'widget'}),'*');if(++n>20)clearInterval(t)},500)});</script></body></html>

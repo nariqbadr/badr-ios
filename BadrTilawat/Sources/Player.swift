@@ -21,6 +21,8 @@ final class AudioPlayer: ObservableObject {
     @Published private(set) var queue: [Track] = []
     @Published private(set) var index = -1
     @Published private(set) var playing = false
+    /// it was playing when another sound cut it off
+    private var cutOff = false
     /// Position, length and buffering change several times a second: they live in [clock], so only the views that
     /// show them (the seek bars) redraw, not every screen that knows about the player.
     let clock = PlayerClock()
@@ -57,6 +59,22 @@ final class AudioPlayer: ObservableObject {
         try? AVAudioSession.sharedInstance().setCategory(.playback, mode: .spokenAudio)
         timeObs = player.addPeriodicTimeObserver(forInterval: CMTime(seconds: 0.5, preferredTimescale: 600), queue: .main) { [weak self] t in
             Task { @MainActor in self?.tick(t.seconds) }
+        }
+        // something else took the sound for a moment (a call, the live stream's player starting, Siri…): the recitation
+        // that was playing goes on by itself once it is given back (it stayed stopped)
+        NotificationCenter.default.addObserver(forName: AVAudioSession.interruptionNotification, object: AVAudioSession.sharedInstance(), queue: .main) { [weak self] n in
+            let type = (n.userInfo?[AVAudioSessionInterruptionTypeKey] as? UInt).flatMap(AVAudioSession.InterruptionType.init)
+            let opts = AVAudioSession.InterruptionOptions(rawValue: n.userInfo?[AVAudioSessionInterruptionOptionKey] as? UInt ?? 0)
+            Task { @MainActor in
+                guard let self else { return }
+                if type == .began { self.cutOff = self.playing || self.player.rate > 0 }
+                else if type == .ended, self.cutOff {
+                    self.cutOff = false
+                    if opts.contains(.shouldResume) || UIApplication.shared.applicationState == .active {
+                        try? AVAudioSession.sharedInstance().setActive(true); self.player.play(); self.player.rate = Store.shared.speed
+                    }
+                }
+            }
         }
         endObs = NotificationCenter.default.addObserver(forName: .AVPlayerItemDidPlayToEndTime, object: nil, queue: .main) { [weak self] n in
             Task { @MainActor in
