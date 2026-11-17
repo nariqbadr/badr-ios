@@ -608,7 +608,13 @@ struct LiveStage: View {
                 }.padding(12)
                 Spacer()
                 HStack(alignment: .center, spacing: 12) {
-                    SiteIcon(name: "play", size: 28, color: c.onGold).frame(width: 46, height: 46).background(Circle().fill(c.goldBrush))
+                    // the player's own state: ⏸ while the stream plays, ▶ when it is stopped (it showed ▶ while playing)
+                    if auto && started {
+                        Button { ctl.toggle() } label: { SiteIcon(name: ctl.playing ? "pause" : "play", size: 28, color: c.onGold).frame(width: 46, height: 46).background(Circle().fill(c.goldBrush)) }
+                            .buttonStyle(.plain).accessibilityLabel(ctl.playing ? tr("إيقاف مؤقت") : tr("تشغيل"))
+                    } else {
+                        SiteIcon(name: "play", size: 28, color: c.onGold).frame(width: 46, height: 46).background(Circle().fill(c.goldBrush))
+                    }
                     VStack(alignment: .leading, spacing: 1) {
                         Text(src.title).font(F.plex(16, .semibold)).foregroundStyle(.white).lineLimit(1)
                         // who leads the prayer: from a while before the adhan (the dashboard's «before», 0 = always), with its time, until the prayer ends
@@ -662,22 +668,44 @@ final class Net: ObservableObject {
     }
 }
 
-final class LiveCtl: ObservableObject { weak var web: WKWebView?; func js(_ s: String) { web?.evaluateJavaScript(s) } }
+/// Talks to the YouTube player inside the live card, and knows whether it is playing (its own button shows the same thing).
+final class LiveCtl: NSObject, ObservableObject, WKScriptMessageHandler {
+    weak var web: WKWebView?
+    @Published var playing = false
+    func js(_ s: String) { web?.evaluateJavaScript(s) }
+    func toggle() { js(playing ? "cmd('pauseVideo')" : "cmd('playVideo')"); playing.toggle() }
+    // YouTube's states: 1 playing, 3 buffering (about to play); 0 ended, 2 paused, -1 / 5 not started
+    func userContentController(_ uc: WKUserContentController, didReceive m: WKScriptMessage) {
+        guard let st = (m.body as? NSNumber)?.intValue else { return }
+        let p = st == 1 || st == 3
+        if p != playing { DispatchQueue.main.async { self.playing = p } }
+    }
+}
 struct LiveEmbed: UIViewRepresentable {
     let id: String; let ctl: LiveCtl
     func makeUIView(context: Context) -> WKWebView {
         let cfg = WKWebViewConfiguration(); cfg.allowsInlineMediaPlayback = true; cfg.mediaTypesRequiringUserActionForPlayback = []
+        cfg.userContentController.add(WeakYT(ctl), name: "yt")
         let w = WKWebView(frame: .zero, configuration: cfg); w.isOpaque = false; w.backgroundColor = .black; w.scrollView.isScrollEnabled = false; w.isUserInteractionEnabled = false
         ctl.web = w
         let html = """
         <html><head><meta name="viewport" content="width=device-width,initial-scale=1"><style>html,body{margin:0;background:#000;height:100%;overflow:hidden}iframe{border:0;width:100%;height:100%;pointer-events:none}</style></head>
         <body><iframe id="p" src="https://www.youtube.com/embed/\(id)\(id.contains("?") ? "&" : "?")playsinline=1&autoplay=1&mute=1&controls=0&rel=0&modestbranding=1&enablejsapi=1" allow="autoplay; encrypted-media"></iframe>
-        <script>function cmd(f,a){document.getElementById('p').contentWindow.postMessage(JSON.stringify({event:'command',func:f,args:a||[]}),'*')}</script></body></html>
+        <script>function cmd(f,a){document.getElementById('p').contentWindow.postMessage(JSON.stringify({event:'command',func:f,args:a||[]}),'*')}
+        var last=-9;window.addEventListener('message',function(e){try{var d=typeof e.data==='string'?JSON.parse(e.data):e.data;var s=d&&d.info&&d.info.playerState!==undefined?d.info.playerState:(d&&d.event==='onStateChange'?d.info:undefined);if(s!==undefined&&s!==last){last=s;window.webkit.messageHandlers.yt.postMessage(s)}}catch(x){}});
+        document.getElementById('p').addEventListener('load',function(){var f=this;var n=0;var t=setInterval(function(){f.contentWindow.postMessage(JSON.stringify({event:'listening',id:'p',channel:'widget'}),'*');if(++n>20)clearInterval(t)},500)});</script></body></html>
         """
         w.loadHTMLString(html, baseURL: URL(string: Repo.site))
         return w
     }
     func updateUIView(_ w: WKWebView, context: Context) {}
+    static func dismantleUIView(_ w: WKWebView, coordinator: ()) { w.configuration.userContentController.removeScriptMessageHandler(forName: "yt") }
+}
+/// The page holds its message handler strongly: a weak link, so the card can go away.
+private final class WeakYT: NSObject, WKScriptMessageHandler {
+    weak var to: LiveCtl?
+    init(_ t: LiveCtl) { to = t }
+    func userContentController(_ uc: WKUserContentController, didReceive m: WKScriptMessage) { to?.userContentController(uc, didReceive: m) }
 }
 
 func ytId(_ url: String) -> String? {
