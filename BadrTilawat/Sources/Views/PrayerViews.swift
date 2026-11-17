@@ -250,7 +250,7 @@ struct PrayerSettings: View {
                         .padding(12).background(RoundedRectangle(cornerRadius: 14).fill(c.surface.opacity(0.6))).overlay(RoundedRectangle(cornerRadius: 14).stroke(voice == v.id ? c.gold : c.lineSoft))
                     }.buttonStyle(.plain)
                 }
-                // two tests: hear the chosen adhan now, and the real notification in 10 seconds
+                // two tests: hear the chosen adhan now, and the real notification at once
                 HStack(spacing: 10) {
                     GhostButton(title: adhanP.playing ? tr("إيقاف") : tr("استماع للأذان"), icon: adhanP.playing ? "stop.fill" : "play.fill") {
                         if adhanP.playing { adhanP.stop() } else { adhanP.play(fajr: false) }
@@ -260,7 +260,7 @@ struct PrayerSettings: View {
                         UIImpactFeedbackGenerator(style: .medium).impactOccurred()
                         Task {
                             let ok = await prayers.testNotification()
-                            testMsg = ok ? tr("سيصل إشعار الأذان بعد ١٠ ثوانٍ — يمكنك إغلاق التطبيق أو قفل الشاشة") : tr("اسمح للتطبيق بالإشعارات من الإعدادات أولًا")
+                            testMsg = ok ? tr("أُرسل إشعار الأذان الآن — إن لم يظهر فراجع إذن الإشعارات وعدم الإزعاج") : tr("اسمح للتطبيق بالإشعارات من الإعدادات أولًا")
                         }
                     }.frame(maxWidth: .infinity)
                 }

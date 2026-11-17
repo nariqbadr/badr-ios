@@ -121,7 +121,7 @@ final class Prayers: NSObject, ObservableObject, CLLocationManagerDelegate {
         if p.key == "dhuhr" && Calendar.current.component(.weekday, from: p.time) == 6 { return nil }
         return p.time.addingTimeInterval(Double(iqMin(p.key) * 60))
     }
-    /// «تجربة الأذان»: the very notification a prayer time gives (its title, the muezzin, the adhan's sound), in 10 seconds —
+    /// «تجربة الأذان»: the very notification a prayer time gives (its title, the muezzin, the adhan's sound), at once —
     /// the app can be closed or the screen locked to see it arrive (as on Android)
     func testNotification() async -> Bool {
         let c = UNUserNotificationCenter.current()
@@ -129,9 +129,14 @@ final class Prayers: NSObject, ObservableObject, CLLocationManagerDelegate {
         if st.authorizationStatus != .authorized && st.authorizationStatus != .provisional {
             guard (try? await c.requestAuthorization(options: [.alert, .sound, .badge])) == true else { return false }
         }
-        await Adhan.prepare()
         let nx = forDay().first { $0.key != "sunrise" && $0.time > Date() } ?? forDay().first { $0.key == "maghrib" }
         let k = nx?.key ?? "maghrib", name = nx?.name ?? tr("المغرب")
+        // it goes out at once: the chosen voice is waited for at most 3 s (it is downloaded once), else the built-in adhan sounds
+        if Adhan.soundName(k == "fajr") == nil {
+            let prep = Task { await Adhan.prepare() }
+            for _ in 0..<15 where Adhan.soundName(k == "fajr") == nil { try? await Task.sleep(nanoseconds: 200_000_000) }
+            _ = prep
+        }
         let n = UNMutableNotificationContent()
         n.title = tr("حان الآن موعد صلاة {0}", name)
         let who = Adhan.voice.map { $0.muezzin.isEmpty ? $0.name : $0.muezzin } ?? ""
@@ -139,7 +144,11 @@ final class Prayers: NSObject, ObservableObject, CLLocationManagerDelegate {
         n.sound = UNNotificationSound(named: UNNotificationSoundName(Adhan.soundName(k == "fajr") ?? "adhan.caf"))
         n.userInfo = ["adhan": k]
         if #available(iOS 15.0, *) { n.interruptionLevel = .timeSensitive }
-        try? await c.add(UNNotificationRequest(identifier: "adhan-test", content: n, trigger: UNTimeIntervalNotificationTrigger(timeInterval: 10, repeats: false)))
+        // the last test is taken away first, so this one comes as a new banner with its sound
+        c.removePendingNotificationRequests(withIdentifiers: ["adhan-test"])
+        c.removeDeliveredNotifications(withIdentifiers: ["adhan-test"])
+        do { try await c.add(UNNotificationRequest(identifier: "adhan-test", content: n, trigger: UNTimeIntervalNotificationTrigger(timeInterval: 1, repeats: false))) }
+        catch { return false }
         return true
     }
     var preMinutes: Int { Int(Store.shared.str("preMin", "0")) ?? 0 }
