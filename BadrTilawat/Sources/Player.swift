@@ -38,6 +38,15 @@ final class AudioPlayer: ObservableObject {
     private var sleepEndOfTrack = false
     private var sleepTask: Task<Void, Never>?
     private var lastSave = Date.distantPast
+    /// the recitation in the player now: its place is kept the moment another one replaces it
+    private var loaded: Track?
+    /// keeps the exact place of the recitation playing (pause, switching, leaving the app), so it goes on from there
+    /// the recitation being replaced keeps its place (not when it played to the end: that one starts over next time)
+    private func leave() {
+        if let old = loaded { let p = currentTime; if p > 3 && (duration <= 0 || p < duration - 5) { Store.shared.savePosition(old.id, p, duration) } }
+        loaded = nil
+    }
+    func savePlace() { if let t = loaded, current != nil { let p = currentTime; if p > 0 { Store.shared.savePosition(t.id, p, duration) }; lastSave = Date() } }
     private var progressSent = Set<Int>()
 
     var current: Track? { queue.indices.contains(index) ? queue[index] : nil }
@@ -56,7 +65,11 @@ final class AudioPlayer: ObservableObject {
             }
         }
         remote()
+        bgObs = NotificationCenter.default.addObserver(forName: UIApplication.willResignActiveNotification, object: nil, queue: .main) { [weak self] _ in
+            Task { @MainActor in self?.savePlace() }
+        }
     }
+    private var bgObs: NSObjectProtocol?
 
     // MARK: control
     /// «اقرأ واحفظ» names the ayah being read under the title in the small player (track id, label)
@@ -64,6 +77,7 @@ final class AudioPlayer: ObservableObject {
     private var startAt: Double?
     func play(_ t: Track, in list: [Track]? = nil, fromStart: Bool = false, startAt: Double? = nil) {
         AyahPlayer.shared.stop()
+        if loaded?.id != t.id { leave() } else { savePlace() }
         self.startAt = startAt
         if fromStart { for x in list ?? [t] { Store.shared.savePosition(x.id, 0, 0) } }
         let l = list ?? [t]
@@ -73,10 +87,10 @@ final class AudioPlayer: ObservableObject {
     }
     func toggle() {
         if current == nil { return }
-        if playing { player.pause() } else { AyahPlayer.shared.stop(); try? AVAudioSession.sharedInstance().setActive(true); player.play(); player.rate = Store.shared.speed }
+        if playing { player.pause(); savePlace() } else { AyahPlayer.shared.stop(); try? AVAudioSession.sharedInstance().setActive(true); player.play(); player.rate = Store.shared.speed }
         playing.toggle(); nowPlaying()
     }
-    func pause() { player.pause(); playing = false; nowPlaying() }
+    func pause() { player.pause(); playing = false; savePlace(); nowPlaying() }
     func next() {
         guard !queue.isEmpty else { return }
         if shuffle && queue.count > 1 { var i = index; while i == index { i = Int.random(in: 0..<queue.count) }; index = i }
@@ -94,7 +108,7 @@ final class AudioPlayer: ObservableObject {
     func remove(at i: Int) { guard queue.indices.contains(i), i != index else { return }; queue.remove(at: i); if i < index { index -= 1 } }
     func move(_ from: Int, _ to: Int) { guard queue.indices.contains(from), queue.indices.contains(to), from != index, from != to else { return }; let t = queue.remove(at: from); queue.insert(t, at: to); if from > index && to <= index { index += 1 } }
     /// «إغلاق المشغّل»: stop and empty the queue
-    func close() { if let t = current { Store.shared.savePosition(t.id, position, duration) }; player.pause(); player.replaceCurrentItem(with: nil); playing = false; queue = []; index = -1; nowPlaying() }
+    func close() { if let t = current { Store.shared.savePosition(t.id, position, duration) }; player.pause(); player.replaceCurrentItem(with: nil); loaded = nil; playing = false; queue = []; index = -1; nowPlaying() }
     func clearUpcoming() { if index >= 0 { queue = Array(queue.prefix(index + 1)) } }
 
     /// minutes; -1 = at the end of this recitation; 0 = off
@@ -119,6 +133,8 @@ final class AudioPlayer: ObservableObject {
     // MARK: internals
     private func load() {
         guard let t = current, let url = Repo.media(t.audio) else { return }
+        if loaded?.id != t.id { leave() }
+        loaded = t
         if yieldRemote { yieldRemote = false; VideoEngine.shared.pause(); remote() }
         try? AVAudioSession.sharedInstance().setCategory(.playback, mode: .spokenAudio)
         try? AVAudioSession.sharedInstance().setActive(true)
@@ -129,8 +145,8 @@ final class AudioPlayer: ObservableObject {
         player.automaticallyWaitsToMinimizeStalling = local == nil ? false : true
         player.replaceCurrentItem(with: item)
         let resume = startAt ?? Store.shared.position(t.id); startAt = nil
-        // an online recitation resumes at the nearest point it can play at once (an exact seek waits to decode up to it)
-        if resume > 0 { if local != nil { player.seek(to: CMTime(seconds: resume, preferredTimescale: 600), toleranceBefore: .zero, toleranceAfter: .zero) } else { player.seek(to: CMTime(seconds: resume, preferredTimescale: 600)) } }
+        // it goes on from the exact second it stopped at
+        if resume > 0 { player.seek(to: CMTime(seconds: resume, preferredTimescale: 600), toleranceBefore: .zero, toleranceAfter: .zero) }
         position = resume; duration = Double(t.durationSec)
         if repN > 0 { repDone = 1 }
         player.play(); player.rate = Store.shared.speed
@@ -144,7 +160,7 @@ final class AudioPlayer: ObservableObject {
         position = s.isFinite ? s : 0
         if let d = player.currentItem?.duration.seconds, d.isFinite, d > 0 { duration = d }
         buffering = player.timeControlStatus == .waitingToPlayAtSpecifiedRate
-        if playing, Date().timeIntervalSince(lastSave) > 5, let t = current { lastSave = Date(); Store.shared.savePosition(t.id, position, duration) }
+        if playing, Date().timeIntervalSince(lastSave) > 2, let t = current { lastSave = Date(); Store.shared.savePosition(t.id, position, duration) }
         if playing, duration > 0, let t = current {
             let pc = Int(100 * position / duration)
             for m in [25, 50, 75, 100] where pc >= (m == 100 ? 97 : m) && !progressSent.contains(m) { progressSent.insert(m); Repo.shared.event("progress", ["id": t.id, "pct": "\(m)"]) }
@@ -152,6 +168,7 @@ final class AudioPlayer: ObservableObject {
     }
     private func ended() {
         if let t = current { Store.shared.savePosition(t.id, 0, 0) }
+        if repeatMode != 2 && !(repN > 1 && repDone < repN) { loaded = nil }
         if sleepEndOfTrack { sleepEndOfTrack = false; playing = false; nowPlaying(); return }
         if repeatMode == 2 { seek(0); player.play(); return }
         if repN > 1 && repDone < repN { repDone += 1; seek(0); player.play(); return }
