@@ -1,0 +1,24 @@
+name: account health
+on:
+  push:
+    branches: [health]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  health:
+    runs-on: ubuntu-latest
+    env:
+      ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+      ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+      ASC_KEY_P8: ${{ secrets.ASC_KEY_P8 }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: The App Store Connect API with the account key (read-only)
+        run: pip3 install -q pyjwt cryptography && python3 scripts/asc.py status
+      - name: The App Store Connect website and Apple sign-in, from outside
+        run: |
+          for u in https://appstoreconnect.apple.com/login https://appstoreconnect.apple.com/olympus/v1/session https://idmsa.apple.com/appleauth/auth/signin https://developer.apple.com/system-status/; do
+            echo "$u -> $(curl -s -o /dev/null -m 30 -w '%{http_code} in %{time_total}s' "$u")"
+          done
+          curl -s -m 30 "https://www.apple.com/support/systemstatus/data/developer/system_status_en_US.js" | python3 -c "import sys,json,re; t=sys.stdin.read(); t=t[t.find('{'):t.rfind('}')+1]; d=json.loads(t); [print('APPLE STATUS:', s['serviceName'], '->', [(e.get('statusType'), e.get('message','')[:160], e.get('startDate')) for e in s.get('events',[])]) for s in d.get('services',[]) if s.get('events')] or print('APPLE STATUS: no events listed')" || echo "status page unreadable"

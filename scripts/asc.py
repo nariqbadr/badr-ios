@@ -73,6 +73,19 @@ if __name__ == "__main__":
             skip = re.compile(r"^(Incident Identifier|CrashReporter Key|Beta Identifier|Device Identifier|Hardware Model|Sleep/Wake UUID|Anonymous UUID)", re.I)
             lines = [l for l in txt.splitlines() if not skip.match(l) and "@" not in l]
             print("\n".join(lines[:260]))
+    elif sys.argv[1:] == ["status"]:
+        # the account answers? (read-only): the app, its App Store version state, the latest builds
+        got = call("GET", "/v1/apps?filter[bundleId]=com.bawazirquran.app")
+        if got is None: print("API: NO ANSWER"); sys.exit(3)
+        apps = got.get("data") or []
+        print("API: OK — app record", "found" if apps else "MISSING")
+        if apps:
+            aid = apps[0]["id"]; a = apps[0]["attributes"]
+            print("app:", a.get("name"), "|", a.get("bundleId"))
+            v = call("GET", f"/v1/apps/{aid}/appStoreVersions?limit=3") or {}
+            for x in v.get("data", []): print("version:", x["attributes"].get("versionString"), "|", x["attributes"].get("appStoreState") or x["attributes"].get("appVersionState"))
+            b = call("GET", f"/v1/builds?filter[app]={aid}&sort=-uploadedDate&limit=3") or {}
+            for x in b.get("data", []): print("build:", x["attributes"].get("version"), "|", x["attributes"].get("processingState"), "|", x["attributes"].get("uploadedDate"), "| expired:", x["attributes"].get("expired"))
     elif sys.argv[1:] == ["app"]:
         got = call("GET", "/v1/apps?filter[bundleId]=com.bawazirquran.app") or {}
         print("app record:", "found" if got.get("data") else "MISSING — create it in App Store Connect (My Apps → + → New App, bundle ID com.bawazirquran.app)")
