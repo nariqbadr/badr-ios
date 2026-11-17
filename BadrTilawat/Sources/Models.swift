@@ -117,6 +117,8 @@ struct SiteData {
     let quranFull: (id: String, name: String, base: String, dur: [String: Int])
     /// adhan voices to choose from
     let adhans: [(id: String, name: String, muezzin: String, url: String, fajr: String)]
+    /// the iqama voices uploaded from the dashboard (none chosen: the usual alert sound)
+    let iqamas: [(id: String, name: String, muezzin: String, url: String)]
     let raw: J
 
     init(_ j: J) {
@@ -136,6 +138,7 @@ struct SiteData {
         quranFulls = j["quranFulls"].isNull ? nil : j["quranFulls"].array.map(QuranRec.init)
         let qf = j["quranFull"]; quranFull = (qf["id"].str, qf["name"].str, qf["base"].str, qf["dur"].dict.mapValues { $0.int })
         adhans = j["adhans"].array.map { ($0["id"].str, $0["name"].str, $0["muezzin"].str, $0["url"].str, $0["fajr"].str) }
+        iqamas = j["iqamas"].array.map { ($0["id"].str, $0["name"].str, $0["muezzin"].str, $0["url"].str) }.filter { !$0.0.isEmpty && !$0.3.isEmpty }
         raw = j
         sortedTracks = recitations.sorted { $0.stamp != $1.stamp ? $0.stamp > $1.stamp : $0.order > $1.order }
         byId = Dictionary(recitations.map { ($0.id, $0) }, uniquingKeysWith: { a, _ in a })

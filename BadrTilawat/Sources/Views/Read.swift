@@ -366,7 +366,11 @@ struct ReadView: View {
                 if pl && hifz, let l = items, hcur >= 0 {
                     let pos = np
                     let (x, y) = rangeIdx()
-                    if (x...y).contains(hcur) {
+                    // the listener moved the bar (or the lock screen) himself: follow him, never pull him back to the ayah
+                    // being repeated (it jumped back to it from wherever he went)
+                    let st0 = l[hcur].st, en0 = hcur + 1 < l.count ? max(l[hcur].en, l[hcur + 1].st) : l[hcur].en
+                    if pos >= 0 && (pos < st0 - 1500 || pos > en0 + 2500) { hcur = idxAt(pos); rep = 0 }
+                    else if (x...y).contains(hcur) {
                         let it = l[hcur]; let nextSt = hcur + 1 < l.count ? l[hcur + 1].st : Int.max
                         if pos >= min(it.en, nextSt == Int.max ? Int.max : nextSt + 150) {
                             if rep + 1 < repA { rep += 1; seekAyah(hcur) }

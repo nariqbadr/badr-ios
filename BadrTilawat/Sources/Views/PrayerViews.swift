@@ -195,6 +195,7 @@ struct PrayerSettings: View {
     @State private var on = true
     @State private var notifDenied = false
     @State private var voice = Adhan.voiceId
+    @State private var iqVoice = Adhan.iqVoiceId
     @State private var testAdhan = false
     @State private var testMsg = ""
     @State private var locOk: Bool?
@@ -241,6 +242,28 @@ struct PrayerSettings: View {
                             Button { let n = min(60, v + 5); iq[k] = n; prayers.setIqMin(k, n) } label: { Text("+").font(.system(size: 22, weight: .medium)).foregroundStyle(c.gold).frame(width: 40, height: 36) }.buttonStyle(.plain).disabled(v >= 60)
                         }.padding(.horizontal, 14).padding(.vertical, 2).background(RoundedRectangle(cornerRadius: 14).fill(c.surface.opacity(0.5)))
                     }
+                    // «صوت الإقامة»: the usual alert sound, or a voice uploaded from the dashboard — each heard here, and tested
+                    Text(tr("صوت الإقامة")).font(F.plex(15, .semibold)).padding(.top, 4)
+                    ForEach([Adhan.Voice(id: "", name: tr("الصوت العادي"), muezzin: tr("صوت التنبيه المعتاد"), url: "", fajr: "")] + Adhan.iqVoices, id: \.id) { v in
+                        let playingIt = !v.id.isEmpty && adhanP.playing && adhanP.what == "iq:" + v.id
+                        HStack(spacing: 10) {
+                            if v.id.isEmpty { Ico(name: "bell", size: 17).foregroundStyle(c.gold).frame(width: 40, height: 40).background(Circle().fill(c.surface3)) }
+                            else {
+                                Button { if playingIt { adhanP.stop() } else { adhanP.playIqama(v) } } label: {
+                                    Ico(name: playingIt ? "pause.fill" : "play.fill", size: 17).foregroundStyle(playingIt ? c.onGold : c.gold).frame(width: 40, height: 40).background(Circle().fill(playingIt ? c.gold : c.surface3))
+                                }.buttonStyle(.plain).accessibilityLabel(playingIt ? tr("إيقاف") : tr("استماع"))
+                            }
+                            Button { iqVoice = v.id; Adhan.setIqVoice(v.id); ui.say(v.id.isEmpty ? tr("ستصلك الإقامة بصوت التنبيه العادي") : tr("حُفظ صوت الإقامة")) } label: {
+                                HStack { VStack(alignment: .leading) { Text(v.name).font(F.plex(14.5, .semibold)).foregroundStyle(c.text); if !v.muezzin.isEmpty { Text(v.muezzin).font(F.plex(12)).foregroundStyle(c.muted) } }
+                                    Spacer(); Image(systemName: iqVoice == v.id ? "checkmark.circle.fill" : "circle").foregroundStyle(iqVoice == v.id ? c.gold : c.faint) }.contentShape(Rectangle())
+                            }.buttonStyle(.plain)
+                        }
+                        .padding(10).background(RoundedRectangle(cornerRadius: 14).fill(c.surface.opacity(0.6))).overlay(RoundedRectangle(cornerRadius: 14).stroke(iqVoice == v.id ? c.gold : c.lineSoft))
+                    }
+                    GhostButton(title: tr("تجربة إشعار الإقامة"), icon: "bell") {
+                        UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+                        Task { let ok = await prayers.testIqama(); ui.say(ok ? tr("أُرسل إشعار الإقامة الآن") : tr("اسمح للتطبيق بالإشعارات من الإعدادات أولًا")) }
+                    }.frame(maxWidth: .infinity)
                 }
                 Text(tr("صوت الأذان")).font(F.plex(15, .semibold))
                 ForEach(Adhan.voices, id: \.id) { v in
@@ -313,7 +336,7 @@ struct PrayerSettings: View {
         .fullScreenCover(isPresented: $testAdhan) { AdhanScreen(key: "test") }
         .onDisappear { if adhanP.playing { adhanP.stop() } }
         .onAppear {
-            pre = prayers.preMinutes; on = prayers.alertsOn; iqOn = prayers.iqOn; voice = Adhan.voiceId; Task { await Adhan.prepare(); prayers.schedule() }
+            pre = prayers.preMinutes; on = prayers.alertsOn; iqOn = prayers.iqOn; voice = Adhan.voiceId; iqVoice = Adhan.iqVoiceId; Task { await Adhan.prepare(); prayers.schedule() }
             UNUserNotificationCenter.current().getNotificationSettings { s in DispatchQueue.main.async { notifDenied = s.authorizationStatus == .denied } }
         }
     }

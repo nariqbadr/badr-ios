@@ -77,6 +77,7 @@ struct RootView: View {
                 }
             }
             if ui.drawer { DrawerView() }
+            DownloadPill().padding(.bottom, 160)
             if let t = ui.toast {
                 VStack { Spacer(); Text(t).font(F.plex(14, .medium)).foregroundStyle(c.text).padding(.horizontal, 18).padding(.vertical, 11)
                     .background(Capsule().fill(c.surface3)).overlay(Capsule().stroke(c.line)).padding(.bottom, 160) }.transition(.opacity).allowsHitTesting(false)
@@ -383,5 +384,35 @@ struct Maintenance: View {
                 Text(message).font(F.plex(16)).foregroundStyle(c.muted).multilineTextAlignment(.center)
             }.padding(32)
         }
+    }
+}
+
+
+/// «جارٍ حفظ التلاوة»: the recitation being saved for offline listening, with its percent, until it is saved
+private struct DownloadPill: View {
+    @ObservedObject private var dl = DownloadProgress.shared
+    @Environment(\.pal) private var c
+    var body: some View {
+        VStack {
+            Spacer()
+            if let d = dl.items.first {
+                VStack(alignment: .leading, spacing: 7) {
+                    HStack(spacing: 8) {
+                        Ico(name: "offline", size: 15).foregroundStyle(c.gold)
+                        Text(tr("جارٍ حفظ التلاوة · {0}", d.title)).font(F.plex(13, .medium)).foregroundStyle(c.text).lineLimit(1)
+                        Spacer(minLength: 6)
+                        Text(tr("{0}٪", Int(d.f * 100).ar)).font(F.plex(13, .bold).monospacedDigit()).foregroundStyle(c.gold)
+                    }
+                    ProgressView(value: d.f).tint(c.gold)
+                    if dl.items.count > 1 { Text(tr("و{0} في الانتظار", (dl.items.count - 1).ar)).font(F.plex(11.5)).foregroundStyle(c.muted) }
+                }
+                .padding(.horizontal, 16).padding(.vertical, 11)
+                .background(RoundedRectangle(cornerRadius: 16).fill(c.surface3)).overlay(RoundedRectangle(cornerRadius: 16).stroke(c.line))
+                .padding(.horizontal, 22)
+                .transition(.move(edge: .bottom).combined(with: .opacity))
+            }
+        }
+        .animation(.spring(response: 0.4, dampingFraction: 0.85), value: dl.items.first?.id)
+        .allowsHitTesting(false)
     }
 }

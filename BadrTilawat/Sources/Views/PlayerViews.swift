@@ -259,7 +259,7 @@ struct TrackMenu: View {
                     let have = OfflineFiles.local(t.id) != nil
                     MenuRow(icon: "offline", title: have ? tr("حذف من «بدون إنترنت»") : tr("حفظ للاستماع بدون إنترنت")) {
                         if have { OfflineFiles.delete(t.id); ui.say(tr("حُذفت من «بدون إنترنت»")) }
-                        else { ui.say(tr("جارٍ حفظ التلاوة على الجهاز…")); Task { let ok = await OfflineFiles.save(t); ui.say(ok ? tr("حُفظت — يمكنك سماعها بدون إنترنت") : tr("تعذّر حفظ الملف على الجهاز")) } }
+                        else { Task { let ok = await OfflineFiles.save(t); ui.say(ok ? tr("حُفظت — يمكنك سماعها بدون إنترنت") : tr("تعذّر حفظ الملف على الجهاز")) } }
                         dismiss()
                     }
                 }

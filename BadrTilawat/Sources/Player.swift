@@ -51,7 +51,7 @@ final class AudioPlayer: ObservableObject {
 
     var current: Track? { queue.indices.contains(index) ? queue[index] : nil }
     /// the exact playing position (position is updated twice a second)
-    var currentTime: Double { let t = player.currentTime().seconds; return t.isFinite ? t : position }
+    var currentTime: Double { if let st = seekTo { return st }; let t = player.currentTime().seconds; return t.isFinite ? t : position }
 
     private init() {
         try? AVAudioSession.sharedInstance().setCategory(.playback, mode: .spokenAudio)
@@ -98,7 +98,22 @@ final class AudioPlayer: ObservableObject {
         load()
     }
     func prev() { if position > 4 || index == 0 { seek(0) } else { index -= 1; load() } }
-    func seek(_ s: Double) { player.seek(to: CMTime(seconds: max(0, s), preferredTimescale: 600), toleranceBefore: .zero, toleranceAfter: .zero); position = s; nowPlaying() }
+    /// where a seek is going: the bar stays there until it lands (it showed the old place for a moment and seemed to jump back)
+    private var seekTo: Double?, seekAt = Date.distantPast, seekN = 0
+    func seek(_ s0: Double) {
+        let s = max(0, s0); seekN += 1; let n = seekN
+        seekTo = s; seekAt = Date(); position = s
+        player.seek(to: CMTime(seconds: s, preferredTimescale: 600), toleranceBefore: .zero, toleranceAfter: .zero) { [weak self] ok in
+            Task { @MainActor in guard let self, self.seekN == n else { return }; if ok { self.seekTo = nil } }
+        }
+        // an online file that takes long to reach the exact second: the nearest point it can play at once
+        Task { [weak self] in
+            try? await Task.sleep(nanoseconds: 3_000_000_000)
+            guard let self, self.seekN == n, self.seekTo != nil else { return }
+            self.player.seek(to: CMTime(seconds: s, preferredTimescale: 600)) { [weak self] _ in Task { @MainActor in if self?.seekN == n { self?.seekTo = nil } } }
+        }
+        nowPlaying()
+    }
     func skip(_ s: Double) { seek(min(max(0, position + s), duration)) }
     func setSpeed(_ r: Float) { Store.shared.speed = r; if playing { player.rate = r }; nowPlaying() }
     func cycleRepeat() { repeatMode = (repeatMode + 1) % 3 }
@@ -165,6 +180,8 @@ final class AudioPlayer: ObservableObject {
     }
     private func tick(_ s: Double) {
         guard current != nil else { return }
+        if let st = seekTo, Date().timeIntervalSince(seekAt) < 8 { position = st; return }
+        seekTo = nil
         position = s.isFinite ? s : 0
         if let d = player.currentItem?.duration.seconds, d.isFinite, d > 0 { duration = d }
         buffering = player.timeControlStatus == .waitingToPlayAtSpecifiedRate
@@ -317,12 +334,47 @@ enum OfflineFiles {
     static func file(_ id: String) -> URL { dir.appendingPathComponent(id.replacingOccurrences(of: "/", with: "_") + ".mp3") }
     static func local(_ id: String) -> URL? { FileManager.default.fileExists(atPath: file(id).path) ? file(id) : nil }
     static var ids: [String] { (try? FileManager.default.contentsOfDirectory(atPath: dir.path))?.map { String($0.dropLast(4)) } ?? [] }
+    /// downloads with its progress shown (DownloadProgress): the bar «جارٍ حفظ التلاوة … ٤٥٪» until it is saved
     static func save(_ t: Track) async -> Bool {
-        guard let u = await Repo.media(t.audio), let (tmp, r) = try? await URLSession.shared.download(from: u), (r as? HTTPURLResponse)?.statusCode == 200 else { return false }
+        guard let u = await Repo.media(t.audio) else { return false }
+        await MainActor.run { DownloadProgress.shared.start(t.id, titleL(t)) }
+        final class Obs { var o: NSKeyValueObservation? }
+        let obs = Obs()
+        let got: URL? = await withCheckedContinuation { (k: CheckedContinuation<URL?, Never>) in
+            let task = URLSession.shared.downloadTask(with: u) { tmp, r, e in
+                guard let tmp, e == nil, (r as? HTTPURLResponse)?.statusCode == 200 else { k.resume(returning: nil); return }
+                // the temporary file is gone once this returns: kept aside first
+                let keep = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString + ".mp3")
+                k.resume(returning: (try? FileManager.default.moveItem(at: tmp, to: keep)) != nil ? keep : nil)
+            }
+            obs.o = task.progress.observe(\.fractionCompleted) { p, _ in
+                let f = p.fractionCompleted
+                Task { @MainActor in DownloadProgress.shared.set(t.id, f) }
+            }
+            task.resume()
+        }
+        obs.o?.invalidate()
+        await MainActor.run { DownloadProgress.shared.end(t.id) }
+        guard let got else { return false }
         try? FileManager.default.removeItem(at: file(t.id))
-        return (try? FileManager.default.moveItem(at: tmp, to: file(t.id))) != nil
+        return (try? FileManager.default.moveItem(at: got, to: file(t.id))) != nil
     }
     static func delete(_ id: String) { try? FileManager.default.removeItem(at: file(id)) }
+}
+
+/// Recitations being saved for listening offline, with how much of each has arrived (0…1).
+@MainActor
+final class DownloadProgress: ObservableObject {
+    static let shared = DownloadProgress()
+    @Published private(set) var items: [(id: String, title: String, f: Double)] = []
+    func start(_ id: String, _ title: String) { if !items.contains(where: { $0.id == id }) { items.append((id, title, 0)) } }
+    func set(_ id: String, _ f: Double) {
+        guard let i = items.firstIndex(where: { $0.id == id }) else { return }
+        // redraws only when the shown percent changes
+        if Int(f * 100) != Int(items[i].f * 100) { items[i].f = f }
+    }
+    func end(_ id: String) { items.removeAll { $0.id == id } }
+    func of(_ id: String) -> Double? { items.first { $0.id == id }?.f }
 }
 
 /// Lock-screen artwork. Made outside the main actor: the system asks for the picture from a background thread.

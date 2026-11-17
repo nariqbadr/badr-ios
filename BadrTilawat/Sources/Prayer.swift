@@ -151,6 +151,31 @@ final class Prayers: NSObject, ObservableObject, CLLocationManagerDelegate {
         catch { return false }
         return true
     }
+    /// «تجربة إشعار الإقامة»: the iqama notification itself (its title, the hadith, the chosen voice), at once
+    func testIqama() async -> Bool {
+        let c = UNUserNotificationCenter.current()
+        let st = await c.notificationSettings()
+        if st.authorizationStatus != .authorized && st.authorizationStatus != .provisional {
+            guard (try? await c.requestAuthorization(options: [.alert, .sound, .badge])) == true else { return false }
+        }
+        if Adhan.iqVoice != nil && Adhan.iqSoundName() == nil {
+            let prep = Task { await Adhan.prepare() }
+            for _ in 0..<15 where Adhan.iqSoundName() == nil { try? await Task.sleep(nanoseconds: 200_000_000) }
+            _ = prep
+        }
+        let nx = forDay().first { $0.key != "sunrise" && $0.time > Date() } ?? forDay().first { $0.key == "dhuhr" }
+        let n = UNMutableNotificationContent()
+        n.title = tr("حان وقت إقامة صلاة {0}", nx?.name ?? tr("الظهر"))
+        n.body = tr("قال رسول الله صلى الله عليه وسلم: «إذا أُقيمَت الصلاةُ فلا تأتوها تَسْعَوْن، وأْتوها تمشون، وعليكم السَّكينة، فما أدركتم فصلُّوا، وما فاتكم فأتِمُّوا»")
+        n.sound = Adhan.iqSoundName().map { UNNotificationSound(named: UNNotificationSoundName($0)) } ?? .default
+        n.userInfo = ["iqama": nx?.key ?? "dhuhr"]
+        if #available(iOS 15.0, *) { n.interruptionLevel = .timeSensitive }
+        c.removePendingNotificationRequests(withIdentifiers: ["iqama-test"])
+        c.removeDeliveredNotifications(withIdentifiers: ["iqama-test"])
+        do { try await c.add(UNNotificationRequest(identifier: "iqama-test", content: n, trigger: UNTimeIntervalNotificationTrigger(timeInterval: 1, repeats: false))) }
+        catch { return false }
+        return true
+    }
     var preMinutes: Int { Int(Store.shared.str("preMin", "0")) ?? 0 }
     func setPre(_ m: Int) { Store.shared.set("preMin", "\(m)"); schedule() }
 
@@ -165,7 +190,7 @@ final class Prayers: NSObject, ObservableObject, CLLocationManagerDelegate {
         /// replaces this app's prayer and wird alerts, and leaves the imams' alerts (Haram.schedule) alone
         func replace(_ reqs: [UNNotificationRequest]) {
             c.getPendingNotificationRequests { old in
-                c.removePendingNotificationRequests(withIdentifiers: old.map(\.identifier).filter { !$0.hasPrefix("imam-") && $0 != "adhan-test" })
+                c.removePendingNotificationRequests(withIdentifiers: old.map(\.identifier).filter { !$0.hasPrefix("imam-") && $0 != "adhan-test" && $0 != "iqama-test" })
                 for r in reqs { c.add(r) }
             }
         }
@@ -191,7 +216,8 @@ final class Prayers: NSObject, ObservableObject, CLLocationManagerDelegate {
                 if let iq = iqamaAt(p), iq > now {
                     let n = UNMutableNotificationContent(); n.title = tr("حان وقت إقامة صلاة {0}", p.name)
                     n.body = tr("قال رسول الله صلى الله عليه وسلم: «إذا أُقيمَت الصلاةُ فلا تأتوها تَسْعَوْن، وأْتوها تمشون، وعليكم السَّكينة، فما أدركتم فصلُّوا، وما فاتكم فأتِمُّوا»")
-                    n.sound = .default; n.userInfo = ["iqama": p.key]
+                    // the chosen iqama voice (its first 30 s), else the usual alert sound
+                    n.sound = Adhan.iqSoundName().map { UNNotificationSound(named: UNNotificationSoundName($0)) } ?? .default; n.userInfo = ["iqama": p.key]
                     if #available(iOS 15.0, *) { n.interruptionLevel = .timeSensitive }
                     reqs.append(UNNotificationRequest(identifier: "iq-\(p.key)-\(Int(p.time.timeIntervalSince1970))", content: n, trigger: trigger(iq)))
                 }

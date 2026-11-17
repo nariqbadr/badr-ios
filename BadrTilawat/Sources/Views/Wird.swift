@@ -276,7 +276,28 @@ enum Adhan {
         let n = "bz2-\(voiceId.filter { $0.isLetter || $0.isNumber })\(fajr && !(voice?.fajr.isEmpty ?? true) ? "-f" : "").caf"
         return FileManager.default.fileExists(atPath: soundsDir.appendingPathComponent(n).path) ? n : nil
     }
+    // MARK: the iqama voice ("" = the usual alert sound)
+    static var iqVoices: [Voice] { (Repo.shared.data?.iqamas ?? []).map { Voice(id: $0.id, name: $0.name, muezzin: $0.muezzin, url: $0.url, fajr: "") } }
+    static var iqVoiceId: String { let v = Store.shared.str("iqamaVoice", ""); return iqVoices.contains { $0.id == v } ? v : "" }
+    static var iqVoice: Voice? { iqVoices.first { $0.id == iqVoiceId } }
+    static func setIqVoice(_ id: String) { Store.shared.set("iqamaVoice", id); Task { await prepare(); Prayers.shared.schedule() } }
+    private static func iqFile(_ id: String) -> String { "bz2-iq-\(id.filter { $0.isLetter || $0.isNumber }).caf" }
+    /// the iqama notification's sound: the chosen voice's first 30 s, once it is on the phone
+    static func iqSoundName() -> String? {
+        let id = iqVoiceId; guard !id.isEmpty else { return nil }
+        return FileManager.default.fileExists(atPath: soundsDir.appendingPathComponent(iqFile(id)).path) ? iqFile(id) : nil
+    }
+    private static func prepareIqama() async {
+        guard let v = iqVoice, let u = Repo.media(v.url) else { return }
+        let dst = soundsDir.appendingPathComponent(iqFile(v.id))
+        if FileManager.default.fileExists(atPath: dst.path) { return }
+        guard let (tmp, r) = try? await URLSession.shared.download(from: u), (r as? HTTPURLResponse)?.statusCode == 200 else { return }
+        let src = tmp.deletingLastPathComponent().appendingPathComponent(UUID().uuidString + ".mp3"); try? FileManager.default.moveItem(at: tmp, to: src)
+        await Task.detached { cut(src, dst) }.value
+        try? FileManager.default.removeItem(at: src)
+    }
     static func prepare() async {
+        await prepareIqama()
         // the quieter clips of older versions are removed once (they are rebuilt louder as «bz2-»)
         if let old = try? FileManager.default.contentsOfDirectory(atPath: soundsDir.path) { for f in old where f.hasPrefix("bz-") { try? FileManager.default.removeItem(at: soundsDir.appendingPathComponent(f)) } }
         for fajr in [false, true] {
@@ -329,15 +350,24 @@ final class AdhanPlayer: ObservableObject {
     @Published private(set) var playing = false
     private let player = AVPlayer()
     private var obs: NSObjectProtocol?
+    /// which voice is sounding: the adhan's id, or "iq:<id>" for an iqama voice
+    @Published private(set) var what = ""
+    func playIqama(_ v: Adhan.Voice) {
+        guard let u = Repo.media(v.url) else { return }
+        start(u); what = "iq:" + v.id
+    }
     func play(fajr: Bool) {
         guard let u = Adhan.url(fajr) else { return }
+        start(u); what = Adhan.voiceId
+    }
+    private func start(_ u: URL) {
         AudioPlayer.shared.pause(); AyahPlayer.shared.stop()
         try? AVAudioSession.sharedInstance().setCategory(.playback, mode: .default); try? AVAudioSession.sharedInstance().setActive(true)
         player.replaceCurrentItem(with: AVPlayerItem(url: u)); player.play(); playing = true
         if let o = obs { NotificationCenter.default.removeObserver(o) }
         obs = NotificationCenter.default.addObserver(forName: .AVPlayerItemDidPlayToEndTime, object: player.currentItem, queue: .main) { [weak self] _ in Task { @MainActor in self?.playing = false } }
     }
-    func stop() { player.pause(); player.replaceCurrentItem(with: nil); playing = false }
+    func stop() { player.pause(); player.replaceCurrentItem(with: nil); playing = false; what = "" }
 }
 
 struct AdhanKey: Identifiable { let key: String; var iqama = false; var id: String { key + (iqama ? "-iq" : "") } }
@@ -349,7 +379,8 @@ struct IqamaScreen: View {
     @Environment(\.pal) private var c
     @Environment(\.dismiss) private var dismiss
     private var name: String { prayers.forDay().first { $0.key == key }?.name ?? "" }
-    private func close() { UIState.shared?.adhan = nil; dismiss() }
+    @ObservedObject private var ap = AdhanPlayer.shared
+    private func close() { if ap.what.hasPrefix("iq:") { ap.stop() }; UIState.shared?.adhan = nil; dismiss() }
     var body: some View {
         ZStack(alignment: .topLeading) {
             RadialGradient(colors: [c.gold.opacity(0.14), c.bg], center: .center, startRadius: 10, endRadius: 600).ignoresSafeArea()
@@ -359,6 +390,10 @@ struct IqamaScreen: View {
                     Text(tr("حان وقت إقامة صلاة")).font(F.plex(18)).foregroundStyle(c.muted).padding(.top, 14)
                     Text(name).font(F.amiri(52)).foregroundStyle(c.gold)
                     Hadith(words: tr("«إذا أُقيمَت الصلاةُ فلا تأتوها تَسْعَوْن، وأْتوها تمشون، وعليكم السَّكينة، فما أدركتم فصلُّوا، وما فاتكم فأتِمُّوا»")).padding(.top, 22)
+                    if let v = Adhan.iqVoice {
+                        let on = ap.playing && ap.what == "iq:" + v.id
+                        GhostButton(title: on ? tr("إيقاف") : tr("استماع للإقامة"), icon: on ? "stop.fill" : "play.fill") { if on { ap.stop() } else { ap.playIqama(v) } }.padding(.top, 18)
+                    }
                     GoldButton(title: tr("حسنًا"), icon: nil) { close() }.frame(minWidth: 180).padding(.top, 22)
                 }.padding(24).frame(maxWidth: 440).frame(maxWidth: .infinity).padding(.top, 70)
             }
