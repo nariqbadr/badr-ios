@@ -7,7 +7,7 @@ permissions:
   contents: write
 jobs:
   build:
-    runs-on: macos-26
+    runs-on: macos-15-intel
     timeout-minutes: 75
     steps:
       - uses: actions/checkout@v4
@@ -47,7 +47,7 @@ jobs:
           mkdir -p shots
           grep -q "BUILD SUCCEEDED" build.log || { echo "device build failed, skip"; exit 0; }
           xcodebuild -project BadrTilawat.xcodeproj -scheme BadrTilawat -configuration Release -sdk iphonesimulator \
-            -destination 'generic/platform=iOS Simulator' -derivedDataPath simbuild ONLY_ACTIVE_ARCH=YES ARCHS=arm64 \
+            -destination 'generic/platform=iOS Simulator' -derivedDataPath simbuild ONLY_ACTIVE_ARCH=YES ARCHS=x86_64 \
             CODE_SIGNING_ALLOWED=NO build > sim.log 2>&1 || { grep -E "error:" sim.log | head -40 > shots/sim-errors.txt; exit 0; }
           UDID=$(xcrun simctl list devices available -j | python3 -c "
           import json,sys,re
