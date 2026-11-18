@@ -82,12 +82,35 @@ final class AudioPlayer: ObservableObject {
                 self.ended()
             }
         }
+        // an online file that could not be read to its very end (the connection dropped near the end): go on to the next
+        failObs = NotificationCenter.default.addObserver(forName: .AVPlayerItemFailedToPlayToEndTime, object: nil, queue: .main) { [weak self] n in
+            Task { @MainActor in
+                guard let self, (n.object as? AVPlayerItem) === self.player.currentItem else { return }
+                self.ended()
+            }
+        }
+        // the end-of-file signal sometimes never comes for an online file (the bar stood at the end with the pause button
+        // showing and the next recitation never started): standing still at the end for 2 seconds counts as the end
+        endWatch = Timer.scheduledTimer(withTimeInterval: 1, repeats: true) { [weak self] _ in
+            Task { @MainActor in self?.watchEnd() }
+        }
         remote()
         bgObs = NotificationCenter.default.addObserver(forName: UIApplication.willResignActiveNotification, object: nil, queue: .main) { [weak self] _ in
             Task { @MainActor in self?.savePlace() }
         }
     }
-    private var bgObs: NSObjectProtocol?
+    private var bgObs: NSObjectProtocol?, failObs: NSObjectProtocol?
+    private var endWatch: Timer?
+    private var stuck: (at: Double, since: Date)?
+    private func watchEnd() {
+        guard playing, loaded != nil, seekTo == nil, let item = player.currentItem else { stuck = nil; return }
+        let d = item.duration.seconds, len = d.isFinite && d > 0 ? d : duration
+        let p = player.currentTime().seconds
+        guard len > 0, p.isFinite, p >= len - 1.5 else { stuck = nil; return }
+        if let s = stuck, abs(s.at - p) < 0.05 {
+            if Date().timeIntervalSince(s.since) >= 2 { stuck = nil; ended() }
+        } else { stuck = (p, Date()) }
+    }
 
     // MARK: control
     /// «اقرأ واحفظ» names the ayah being read under the title in the small player (track id, label)
@@ -218,11 +241,11 @@ final class AudioPlayer: ObservableObject {
     private func ended() {
         if let t = current { Store.shared.savePosition(t.id, 0, 0) }
         if repeatMode != 2 && !(repN > 1 && repDone < repN) { loaded = nil }
-        if sleepEndOfTrack { sleepEndOfTrack = false; playing = false; nowPlaying(); return }
+        if sleepEndOfTrack { sleepEndOfTrack = false; player.pause(); playing = false; nowPlaying(); return }
         if repeatMode == 2 { seek(0); player.play(); return }
         if repN > 1 && repDone < repN { repDone += 1; seek(0); player.play(); return }
         if repN > 0 { repDone = 1 }
-        if index + 1 < queue.count || repeatMode == 1 || shuffle { next() } else { playing = false; nowPlaying() }
+        if index + 1 < queue.count || repeatMode == 1 || shuffle { next() } else { player.pause(); playing = false; nowPlaying() }
     }
 
     // MARK: lock screen
