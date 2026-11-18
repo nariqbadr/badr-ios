@@ -117,8 +117,12 @@ final class VideoEngine: NSObject, ObservableObject, AVPictureInPictureControlle
         })
         let nc = NotificationCenter.default
         obs.append(nc.addObserver(forName: .AVPlayerItemDidPlayToEndTime, object: nil, queue: .main) { [weak self] n in
-            MainActor.assumeIsolated { guard let self, (n.object as? AVPlayerItem) === self.player.currentItem else { return }; if let t = self.track { Store.shared.savePosition(t.id, 0, 0) }; self.onEnd?() }
+            MainActor.assumeIsolated { guard let self, (n.object as? AVPlayerItem) === self.player.currentItem else { return }; self.ended() }
         })
+        // the end signal sometimes never comes for an online video: standing still at its end for 2 seconds counts as the end
+        endWatch = Timer.scheduledTimer(withTimeInterval: 1, repeats: true) { [weak self] _ in
+            Task { @MainActor in self?.watchEnd() }
+        }
         // background: the sound goes on, the picture comes off (unless it is in the floating window)
         obs.append(nc.addObserver(forName: UIApplication.willResignActiveNotification, object: nil, queue: .main) { [weak self] _ in
             MainActor.assumeIsolated { self?.wasPlaying = self?.player.timeControlStatus != .paused }
@@ -166,15 +170,41 @@ final class VideoEngine: NSObject, ObservableObject, AVPictureInPictureControlle
         return hs.first { $0 <= want } ?? hs.last ?? 0
     }
 
-    func open(_ t: Track) {
+    private var endWatch: Timer?
+    private var stuck: (at: Double, since: Date)?, endedID: String?
+    private func watchEnd() {
+        guard let t = track, wantPlay, seekTarget == nil, endedID != t.id, let item = player.currentItem else { stuck = nil; return }
+        let d = item.duration.seconds, len = d.isFinite && d > 0 ? d : duration
+        let p = player.currentTime().seconds
+        guard len > 0, p.isFinite, p >= len - 1.5 else { stuck = nil; return }
+        if let s = stuck, abs(s.at - p) < 0.05 { if Date().timeIntervalSince(s.since) >= 2 { stuck = nil; ended() } } else { stuck = (p, Date()) }
+    }
+    /// the next video (as listed under «التالي»: the same sheikh first)
+    static func upNext(_ t: Track) -> [Track] {
+        let l = (Repo.shared.data?.sortedTracks ?? []).filter { $0.isVideo && $0.id != t.id }
+        return l.filter { $0.reciterId == t.reciterId } + l.filter { $0.reciterId != t.reciterId }
+    }
+    /// a video ended: with «تشغيل تلقائي» on the next one starts by itself — on its page, in the floating window or in
+    /// the background alike (it used to change the page only, and the next video stood paused)
+    private func ended() {
+        guard let t = track, endedID != t.id else { return }
+        endedID = t.id
+        Store.shared.savePosition(t.id, 0, 0)
+        guard Store.shared.bool("videoAuto", true), let n = Self.upNext(t).first else { wantPlay = false; player.pause(); return }
+        open(n, play: true)
+        if pageVisible, let ui = UIState.shared, case .watch = ui.path.last { ui.openWatch(n.id) }
+    }
+    func open(_ t: Track, play: Bool = false) {
         guard t.isVideo else { return }
         if track?.id == t.id { return }
+        endedID = nil; stuck = nil
         AudioPlayer.shared.pause(); AyahPlayer.shared.stop()
         track = t; failed = false; started = false; wantPlay = false
         duration = Double(t.durationSec)
         if let v = t.video, v.w > 0, v.h > 0 { size = CGSize(width: v.w, height: v.h) }
         let start = Store.shared.position(t.id)
-        load(Self.pickQ(t), at: start, play: false)
+        load(Self.pickQ(t), at: start, play: play)
+        if play { Repo.shared.event("play", ["id": t.id]); nowPlaying() }
         Store.shared.addHistory(t.id)
         artwork(t)
     }
@@ -375,8 +405,7 @@ struct WatchView: View {
     private var t: Track? { repo.track(id).flatMap { $0.isVideo ? $0 : nil } }
     private var next: [Track] {
         guard let t else { return [] }
-        let l = (repo.data?.sortedTracks ?? []).filter { $0.isVideo && $0.id != t.id }
-        return l.filter { $0.reciterId == t.reciterId } + l.filter { $0.reciterId != t.reciterId }
+        return VideoEngine.upNext(t)
     }
 
     var body: some View {
@@ -407,7 +436,7 @@ struct WatchView: View {
         .navigationTitle(full ? "" : tr("تلاوة مرئية"))
         .onChange(of: full) { f in ui.videoFull = f; v.layer.videoGravity = f ? .resizeAspectFill : .resizeAspect }
         .onDisappear { ui.videoFull = false; v.layer.videoGravity = .resizeAspect; if full { full = false; rotate(false) } }
-        .onAppear { v.setVisible(true); if let t { v.open(t); v.onEnd = { if auto, let n = next.first { ui.openWatch(n.id) } } }; bump() }
+        .onAppear { v.setVisible(true); if let t { v.open(t) }; bump() }
         .onChange(of: id) { _ in if let t { v.open(t) } }
         // leaving the video (back, another tab) while it plays: the recitation goes on as sound, from the same moment,
         // in the mini player (as on the site); paused, it simply closes
