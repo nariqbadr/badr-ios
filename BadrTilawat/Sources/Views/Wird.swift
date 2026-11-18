@@ -322,10 +322,8 @@ enum Adhan {
             let n = "bz2-\(voiceId.filter { $0.isLetter || $0.isNumber })\(fajr ? "-f" : "").caf"
             let dst = soundsDir.appendingPathComponent(n)
             if FileManager.default.fileExists(atPath: dst.path) { continue }
-            guard let u = url(fajr), let (tmp, r) = try? await URLSession.shared.download(from: u), (r as? HTTPURLResponse)?.statusCode == 200 else { continue }
-            let src = tmp.deletingLastPathComponent().appendingPathComponent(UUID().uuidString + ".mp3"); try? FileManager.default.moveItem(at: tmp, to: src)
+            guard let u = url(fajr), let src = full(u) else { continue }
             await Task.detached { cut(src, dst) }.value
-            try? FileManager.default.removeItem(at: src)
         }
     }
     /// the first 29 s (iOS plays at most 30 s in a notification), mono 44.1 kHz, made as loud as the recording allows — the peak
@@ -373,9 +371,10 @@ final class AdhanPlayer: ObservableObject {
         guard let u = Repo.media(v.url) else { return }
         start(u); what = "iq:" + v.id
     }
-    func play(fajr: Bool) {
+    /// at: go on from this second (the adhan was already sounding from its notifications when the person opened it)
+    func play(fajr: Bool, at: Double = 0) {
         guard let u = Adhan.url(fajr) else { return }
-        start(u, cut: Adhan.soundName(fajr)); what = Adhan.voiceId
+        start(u, at: at); what = Adhan.voiceId
     }
     /// the sound is coming out (false while it is still loading)
     @Published private(set) var sounding = false
@@ -383,7 +382,7 @@ final class AdhanPlayer: ObservableObject {
     @Published private(set) var quiet = false
     private var volKVO: NSKeyValueObservation?, stKVO: NSKeyValueObservation?
     private var gen = 0
-    private func start(_ u: URL, cut: String? = nil) {
+    private func start(_ u: URL, at: Double = 0) {
         AudioPlayer.shared.pause(); AyahPlayer.shared.stop()
         if VideoEngine.shared.playing { VideoEngine.shared.pause() }
         let ses = AVAudioSession.sharedInstance()
@@ -394,17 +393,16 @@ final class AdhanPlayer: ObservableObject {
         let local = Adhan.full(u)
         if local == nil { Task { await Adhan.keepFull(u) } }
         gen += 1; let g = gen
-        play(local ?? u)
+        play(local ?? u, at: at)
         playing = true; sounding = false
-        // not sounding after 6 s (no connection, a broken file): the adhan's first 30 s that are on the phone
-        let fallback: URL? = local == nil ? cut.map { Adhan.soundsDir.appendingPathComponent($0) } : nil
+        // not sounding after 8 s (a broken connection): the whole adhan is tried again, from the copy on the phone if it arrived
         Task { [weak self] in
-            try? await Task.sleep(nanoseconds: 6_000_000_000)
-            guard let self, self.gen == g, self.playing, !self.sounding, let f = fallback, FileManager.default.fileExists(atPath: f.path) else { return }
-            self.play(f)
+            try? await Task.sleep(nanoseconds: 8_000_000_000)
+            guard let self, self.gen == g, self.playing, !self.sounding else { return }
+            self.play(Adhan.full(u) ?? u, at: at)
         }
     }
-    private func play(_ u: URL) {
+    private func play(_ u: URL, at: Double = 0) {
         let item = AVPlayerItem(url: u)
         stKVO = player.observe(\.timeControlStatus, options: [.new]) { [weak self] p, _ in
             let on = p.timeControlStatus == .playing
@@ -412,6 +410,7 @@ final class AdhanPlayer: ObservableObject {
         }
         player.automaticallyWaitsToMinimizeStalling = false
         player.replaceCurrentItem(with: item)
+        if at > 1 { player.seek(to: CMTime(seconds: at, preferredTimescale: 600)) }
         player.playImmediately(atRate: 1)
         if let o = obs { NotificationCenter.default.removeObserver(o) }
         obs = NotificationCenter.default.addObserver(forName: .AVPlayerItemDidPlayToEndTime, object: item, queue: .main) { [weak self] _ in Task { @MainActor in self?.playing = false; self?.sounding = false } }

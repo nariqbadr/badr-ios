@@ -75,7 +75,12 @@ final class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCent
     func userNotificationCenter(_ center: UNUserNotificationCenter, didReceive response: UNNotificationResponse) async {
         let info = response.notification.request.content.userInfo
         await MainActor.run {
-            if let k = info["adhan"] as? String { UIState.shared?.adhan = AdhanKey(key: k) }
+            // a tap on the adhan notification: the whole adhan plays at once — the 30 s the notification sounded are not
+            // the whole adhan (it opened the adhan screen only, and play had to be pressed)
+            if let k = info["adhan"] as? String {
+                UIState.shared?.adhan = AdhanKey(key: k)
+                if !AdhanPlayer.shared.playing { AdhanPlayer.shared.play(fajr: k == "fajr") }
+            }
             else if let k = info["iqama"] as? String { UIState.shared?.adhan = AdhanKey(key: k, iqama: true) }
             else if info["open"] as? String == "wird" { UIState.shared?.sheet = .wird }
             else if let o = info["open"] as? String, o.hasPrefix("live/") { UIState.shared?.path = [.liveAt(String(o.dropFirst(5)))] }
