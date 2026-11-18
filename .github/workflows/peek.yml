@@ -23,6 +23,7 @@ jobs:
           # the adhan voices: does the site serve them, and in what format?
           python3 -c "import json,urllib.parse as U;d=json.load(open('data.json'));d=d.get('data',d);S='https://bawazirquran.com';print('\n'.join(((S+x[k]) if x[k].startswith('/') else x[k]) for x in d.get('adhans',[])+d.get('iqamas',[]) for k in ('url','fajr') if x.get(k)))" > adhans.txt || true
           while IFS= read -r u; do e=$(python3 -c "import sys,urllib.parse as U;print(U.quote(sys.argv[1],safe=':/?&=%'))" "$u"); echo "$(curl -s -o /tmp/a -m 60 -w '%{http_code} %{content_type} %{size_download} %{time_total}s' "$e") $(head -c 16 /tmp/a | xxd -p) $(file -b /tmp/a | cut -c1-80) | $u"; done < adhans.txt > adhans-status.txt
+          sudo apt-get -qq update >/dev/null && sudo apt-get -qq install -y ffmpeg >/dev/null 2>&1 || true
           # how long each adhan is, and where it is silent (a long silent start sounds like «it does not play»)
           while IFS= read -r u; do e=$(python3 -c "import sys,urllib.parse as U;print(U.quote(sys.argv[1],safe=':/?&=%'))" "$u"); curl -s -m 60 -o /tmp/a.mp3 "$e"; echo "== $u"; ffprobe -v error -show_entries format=duration:stream=codec_name,sample_rate,channels,bit_rate -of compact /tmp/a.mp3; ffmpeg -hide_banner -nostats -i /tmp/a.mp3 -af silencedetect=n=-45dB:d=2,volumedetect -f null - 2>&1 | grep -E "silence_|mean_volume|max_volume" | head -20; done < adhans.txt > adhans-audio.txt 2>&1 || true
           git init -q && git checkout -q -b peek-data && git add .
