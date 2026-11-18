@@ -20,6 +20,9 @@ jobs:
           # the imams' photos: does the site serve them?
           python3 -c "import json;d=json.load(open('data.json'));d=d.get('data',d);print('\n'.join(x.get('photo','') for x in d['site']['live']['imams']['people'] if x.get('photo')))" > photos.txt || true
           while read u; do echo "$(curl -s -o /dev/null -m 20 -w '%{http_code} %{content_type} %{size_download}' "$u") $u"; done < photos.txt > photos-status.txt
+          # the adhan voices: does the site serve them, and in what format?
+          python3 -c "import json,urllib.parse as U;d=json.load(open('data.json'));d=d.get('data',d);S='https://bawazirquran.com';print('\n'.join(((S+x[k]) if x[k].startswith('/') else x[k]) for x in d.get('adhans',[])+d.get('iqamas',[]) for k in ('url','fajr') if x.get(k)))" > adhans.txt || true
+          while IFS= read -r u; do e=$(python3 -c "import sys,urllib.parse as U;print(U.quote(sys.argv[1],safe=':/?&=%'))" "$u"); echo "$(curl -s -o /tmp/a -m 60 -w '%{http_code} %{content_type} %{size_download} %{time_total}s' "$e") $(head -c 16 /tmp/a | xxd -p) $(file -b /tmp/a | cut -c1-80) | $u"; done < adhans.txt > adhans-status.txt
           git init -q && git checkout -q -b peek-data && git add .
           git -c user.name=ci -c user.email=ci@users.noreply.github.com commit -qm data
           git push -q -f "https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}.git" peek-data
