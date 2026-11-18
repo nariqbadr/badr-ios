@@ -324,6 +324,9 @@ enum Adhan {
             guard let u = url(fajr), let src = full(u) else { continue }
             await Task.detached { cut(src, dst) }.value
         }
+        // then every other voice too, in the background (the chosen one is ready first): any voice picked later plays at
+        // once, without internet
+        Task { for v in voices { for u in files(v) { await keepFull(u) } }; for v in iqVoices { if let u = Repo.media(v.url) { await keepFull(u) } } }
     }
     /// the first 29 s (iOS plays at most 30 s in a notification), mono 44.1 kHz, made as loud as the recording allows — the peak
     /// raised to full scale and a gentle limiter on top (+4 dB), since a notification sounds at the ringer volume, below the
