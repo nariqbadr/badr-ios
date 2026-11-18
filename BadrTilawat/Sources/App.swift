@@ -78,8 +78,12 @@ final class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCent
             // a tap on the adhan notification: the whole adhan plays at once — the 30 s the notification sounded are not
             // the whole adhan (it opened the adhan screen only, and play had to be pressed)
             if let k = info["adhan"] as? String {
-                UIState.shared?.adhan = AdhanKey(key: k)
-                if !AdhanPlayer.shared.playing { AdhanPlayer.shared.play(fajr: k == "fajr") }
+                // exactly as «تشغيل الأذان» on its screen; opened from a closed app the screen comes once the app is drawn
+                Task { @MainActor in
+                    for _ in 0..<30 where UIState.shared == nil { try? await Task.sleep(nanoseconds: 100_000_000) }
+                    UIState.shared?.adhan = AdhanKey(key: k)
+                    if !AdhanPlayer.shared.playing { AdhanPlayer.shared.play(fajr: k == "fajr") }
+                }
             }
             else if let k = info["iqama"] as? String { UIState.shared?.adhan = AdhanKey(key: k, iqama: true) }
             else if info["open"] as? String == "wird" { UIState.shared?.sheet = .wird }
