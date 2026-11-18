@@ -326,7 +326,15 @@ enum Adhan {
         }
         // then every other voice too, in the background (the chosen one is ready first): any voice picked later plays at
         // once, without internet
-        Task { for v in voices { for u in files(v) { await keepFull(u) } }; for v in iqVoices { if let u = Repo.media(v.url) { await keepFull(u) } } }
+        Task {
+            for v in voices { for u in files(v) { await keepFull(u) } }; for v in iqVoices { if let u = Repo.media(v.url) { await keepFull(u) } }
+            // a voice removed or replaced in the dashboard: its old file leaves the phone (only once the site's list is known)
+            guard Repo.shared.data != nil else { return }
+            let keep = Set((voices.flatMap { files($0) } + iqVoices.compactMap { Repo.media($0.url) }).map { fullName($0) })
+            for f in (try? FileManager.default.contentsOfDirectory(atPath: fullDir.path)) ?? [] where !keep.contains(f) && !f.hasSuffix(".part") {
+                try? FileManager.default.removeItem(at: fullDir.appendingPathComponent(f))
+            }
+        }
     }
     /// the first 29 s (iOS plays at most 30 s in a notification), mono 44.1 kHz, made as loud as the recording allows — the peak
     /// raised to full scale and a gentle limiter on top (+4 dB), since a notification sounds at the ringer volume, below the
