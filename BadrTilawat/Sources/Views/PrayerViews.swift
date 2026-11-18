@@ -200,6 +200,7 @@ struct PrayerSettings: View {
     @State private var testMsg = ""
     @State private var locOk: Bool?
     @ObservedObject private var adhanP = AdhanPlayer.shared
+    @ObservedObject private var files = AdhanFiles.shared
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 12) {
@@ -269,7 +270,17 @@ struct PrayerSettings: View {
                 ForEach(Adhan.voices, id: \.id) { v in
                     Button { voice = v.id; Adhan.setVoice(v.id) } label: {
                         HStack { VStack(alignment: .leading) { Text(v.name).font(F.plex(14.5, .semibold)).foregroundStyle(c.text); Text(v.muezzin).font(F.plex(12)).foregroundStyle(c.muted) }
-                            Spacer(); Image(systemName: voice == v.id ? "checkmark.circle.fill" : "circle").foregroundStyle(voice == v.id ? c.gold : c.faint) }
+                            Spacer()
+                            // saved on the phone (heard at once, without internet), downloading, or a tap to download it
+                            let _ = files.changed
+                            if let p = files.progress(v) {
+                                HStack(spacing: 6) { ProgressView(value: p).frame(width: 46).tint(c.gold); Text("\(Int(p * 100).ar)٪").font(F.plex(11.5)).foregroundStyle(c.muted) }
+                            } else if Adhan.saved(v) {
+                                Label(tr("محفوظ على الجهاز"), systemImage: "checkmark.icloud").font(F.plex(11.5)).foregroundStyle(c.muted).labelStyle(.titleAndIcon)
+                            } else {
+                                Button { Adhan.download(v) } label: { Label(tr("تحميل"), systemImage: "arrow.down.circle").font(F.plex(12, .semibold)).foregroundStyle(c.gold) }.buttonStyle(.plain)
+                            }
+                            Image(systemName: voice == v.id ? "checkmark.circle.fill" : "circle").foregroundStyle(voice == v.id ? c.gold : c.faint) }
                         .padding(12).background(RoundedRectangle(cornerRadius: 14).fill(c.surface.opacity(0.6))).overlay(RoundedRectangle(cornerRadius: 14).stroke(voice == v.id ? c.gold : c.lineSoft))
                     }.buttonStyle(.plain)
                 }

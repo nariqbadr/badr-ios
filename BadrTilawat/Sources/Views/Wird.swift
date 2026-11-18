@@ -304,13 +304,12 @@ enum Adhan {
         return String(h, radix: 36) + ".mp3"
     }
     static func full(_ u: URL) -> URL? { let f = fullDir.appendingPathComponent(fullName(u)); return FileManager.default.fileExists(atPath: f.path) ? f : nil }
-    static func keepFull(_ u: URL) async {
-        if full(u) != nil { return }
-        guard let (tmp, r) = try? await URLSession.shared.download(from: u), (r as? HTTPURLResponse)?.statusCode == 200 else { return }
-        let dst = fullDir.appendingPathComponent(fullName(u)); try? FileManager.default.removeItem(at: dst)
-        try? FileManager.default.moveItem(at: tmp, to: dst)
-        try? (dst as NSURL).setResourceValue(true, forKey: .isExcludedFromBackupKey)
-    }
+    static func keepFull(_ u: URL) async { await AdhanFiles.shared.get(u) }
+    /// the voice's files (its adhan, and its fajr adhan if it has one)
+    static func files(_ v: Voice) -> [URL] { [v.url, v.fajr].filter { !$0.isEmpty }.compactMap { Repo.media($0) } }
+    static func saved(_ v: Voice) -> Bool { let f = files(v); return !f.isEmpty && f.allSatisfy { full($0) != nil } }
+    /// downloads a voice now (from the settings), its fajr adhan too
+    static func download(_ v: Voice) { Task { for u in files(v) { await keepFull(u) } } }
     static func prepare() async {
         for f in [false, true] { if let u = url(f) { await keepFull(u) } }
         if let v = iqVoice, let u = Repo.media(v.url) { await keepFull(u) }
@@ -355,6 +354,52 @@ enum Adhan {
         guard let outF = try? AVAudioFile(forWriting: tmp, settings: [AVFormatIDKey: kAudioFormatLinearPCM, AVSampleRateKey: sr, AVNumberOfChannelsKey: 1, AVLinearPCMBitDepthKey: 16, AVLinearPCMIsFloatKey: false], commonFormat: .pcmFormatFloat32, interleaved: false),
               (try? outF.write(from: ob)) != nil else { return }
         try? FileManager.default.moveItem(at: tmp, to: dst)
+    }
+}
+
+/// The adhans saved on the phone (as most adhan apps do: downloaded once, then heard at once and without internet),
+/// with how far each download has come for the settings.
+@MainActor
+final class AdhanFiles: ObservableObject {
+    static let shared = AdhanFiles()
+    /// url → 0…1 while it downloads
+    @Published private(set) var progress: [String: Double] = [:]
+    @Published private(set) var changed = 0
+    private var running: [String: Task<Void, Never>] = [:]
+    /// a voice's progress (its files together), nil when nothing of it is downloading
+    func progress(_ v: Adhan.Voice) -> Double? {
+        let f = Adhan.files(v); let p = f.compactMap { progress[$0.absoluteString] }
+        guard !p.isEmpty else { return nil }
+        return f.map { progress[$0.absoluteString] ?? (Adhan.full($0) != nil ? 1 : 0) }.reduce(0, +) / Double(f.count)
+    }
+    func get(_ u: URL) async {
+        if Adhan.full(u) != nil { return }
+        let k = u.absoluteString
+        if let t = running[k] { await t.value; return }
+        let t = Task { @MainActor in
+            progress[k] = 0
+            defer { progress[k] = nil; running[k] = nil; changed += 1 }
+            guard let (bytes, r) = try? await URLSession.shared.bytes(from: u), (r as? HTTPURLResponse)?.statusCode == 200 else { return }
+            let total = Double(max(1, r.expectedContentLength))
+            let dst = Adhan.fullDir.appendingPathComponent(Adhan.fullName(u)), tmp = dst.appendingPathExtension("part")
+            FileManager.default.createFile(atPath: tmp.path, contents: nil)
+            guard let h = try? FileHandle(forWritingTo: tmp) else { return }
+            var buf = Data(); buf.reserveCapacity(1 << 16); var got = 0.0, shown = 0.0
+            do {
+                for try await b in bytes {
+                    buf.append(b)
+                    if buf.count >= 1 << 16 {
+                        try h.write(contentsOf: buf); got += Double(buf.count); buf.removeAll(keepingCapacity: true)
+                        if got / total - shown > 0.02 { shown = got / total; progress[k] = min(0.99, shown) }
+                    }
+                }
+                try h.write(contentsOf: buf); try h.close()
+            } catch { try? h.close(); try? FileManager.default.removeItem(at: tmp); return }
+            try? FileManager.default.removeItem(at: dst); try? FileManager.default.moveItem(at: tmp, to: dst)
+            var rv = URLResourceValues(); rv.isExcludedFromBackup = true; var d = dst; try? d.setResourceValues(rv)
+        }
+        running[k] = t
+        await t.value
     }
 }
 
