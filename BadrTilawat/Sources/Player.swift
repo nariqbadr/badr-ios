@@ -140,10 +140,25 @@ final class AudioPlayer: ObservableObject {
     func next() {
         guard !queue.isEmpty else { return }
         if shuffle && queue.count > 1 { var i = index; while i == index { i = Int.random(in: 0..<queue.count) }; index = i }
-        else if index + 1 < queue.count { index += 1 } else if repeatMode == 1 { index = 0 } else { return }
+        else if index + 1 < queue.count { index += 1 } else if repeatMode == 1 { index = 0 }
+        // the last one in the list (or a recitation opened on its own): «التالي» — on the lock screen too — goes on to the
+        // sheikh's next recitation instead of doing nothing
+        else if let t = current, let n = neighbour(t, 1) { queue.insert(n, at: index + 1); index += 1 }
+        else { return }
         load()
     }
-    func prev() { if position > 4 || index == 0 { seek(0) } else { index -= 1; load() } }
+    func prev() {
+        if position > 4 { seek(0) }
+        else if index > 0 { index -= 1; load() }
+        else if let t = current, let p = neighbour(t, -1) { queue.insert(p, at: 0); index = 0; load() }
+        else { seek(0) }
+    }
+    /// the sheikh's recitation next to this one (as listed on the site), for «التالي» / «السابق» past the ends of the list
+    private func neighbour(_ t: Track, _ d: Int) -> Track? {
+        let l = (Repo.shared.data?.sortedTracks ?? []).filter { $0.reciterId == t.reciterId && !$0.isVideo && !$0.audio.isEmpty }
+        guard let i = l.firstIndex(where: { $0.id == t.id }), l.indices.contains(i + d) else { return nil }
+        let n = l[i + d]; return queue.contains(n) ? nil : n
+    }
     /// where a seek is going: the bar stays there until it lands (it showed the old place for a moment and seemed to jump back)
     private var seekTo: Double?, seekAt = Date.distantPast, seekN = 0
     func seek(_ s0: Double) {
