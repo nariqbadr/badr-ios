@@ -296,7 +296,24 @@ enum Adhan {
         await Task.detached { cut(src, dst) }.value
         try? FileManager.default.removeItem(at: src)
     }
+    /// the whole adhan kept on the phone (the in-app adhan played from the internet: a slow or broken connection at the
+    /// prayer time left the adhan screen «playing» in silence)
+    static var fullDir: URL { let d = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0].appendingPathComponent("adhan"); try? FileManager.default.createDirectory(at: d, withIntermediateDirectories: true); return d }
+    nonisolated static func fullName(_ u: URL) -> String {
+        var h: UInt64 = 1469598103934665603; for b in u.absoluteString.utf8 { h = (h ^ UInt64(b)) &* 1099511628211 }
+        return String(h, radix: 36) + ".mp3"
+    }
+    static func full(_ u: URL) -> URL? { let f = fullDir.appendingPathComponent(fullName(u)); return FileManager.default.fileExists(atPath: f.path) ? f : nil }
+    static func keepFull(_ u: URL) async {
+        if full(u) != nil { return }
+        guard let (tmp, r) = try? await URLSession.shared.download(from: u), (r as? HTTPURLResponse)?.statusCode == 200 else { return }
+        let dst = fullDir.appendingPathComponent(fullName(u)); try? FileManager.default.removeItem(at: dst)
+        try? FileManager.default.moveItem(at: tmp, to: dst)
+        try? (dst as NSURL).setResourceValue(true, forKey: .isExcludedFromBackupKey)
+    }
     static func prepare() async {
+        for f in [false, true] { if let u = url(f) { await keepFull(u) } }
+        if let v = iqVoice, let u = Repo.media(v.url) { await keepFull(u) }
         await prepareIqama()
         // the quieter clips of older versions are removed once (they are rebuilt louder as «bz2-»)
         if let old = try? FileManager.default.contentsOfDirectory(atPath: soundsDir.path) { for f in old where f.hasPrefix("bz-") { try? FileManager.default.removeItem(at: soundsDir.appendingPathComponent(f)) } }
@@ -358,16 +375,48 @@ final class AdhanPlayer: ObservableObject {
     }
     func play(fajr: Bool) {
         guard let u = Adhan.url(fajr) else { return }
-        start(u); what = Adhan.voiceId
+        start(u, cut: Adhan.soundName(fajr)); what = Adhan.voiceId
     }
-    private func start(_ u: URL) {
+    /// the sound is coming out (false while it is still loading)
+    @Published private(set) var sounding = false
+    /// the phone's media volume is (almost) off: the adhan in the app is heard at the media volume, not the ringer's
+    @Published private(set) var quiet = false
+    private var volKVO: NSKeyValueObservation?, stKVO: NSKeyValueObservation?
+    private var gen = 0
+    private func start(_ u: URL, cut: String? = nil) {
         AudioPlayer.shared.pause(); AyahPlayer.shared.stop()
-        try? AVAudioSession.sharedInstance().setCategory(.playback, mode: .default); try? AVAudioSession.sharedInstance().setActive(true)
-        player.replaceCurrentItem(with: AVPlayerItem(url: u)); player.play(); playing = true
-        if let o = obs { NotificationCenter.default.removeObserver(o) }
-        obs = NotificationCenter.default.addObserver(forName: .AVPlayerItemDidPlayToEndTime, object: player.currentItem, queue: .main) { [weak self] _ in Task { @MainActor in self?.playing = false } }
+        if VideoEngine.shared.playing { VideoEngine.shared.pause() }
+        let ses = AVAudioSession.sharedInstance()
+        try? ses.setCategory(.playback, mode: .default); try? ses.setActive(true)
+        quiet = ses.outputVolume < 0.12
+        volKVO = ses.observe(\.outputVolume, options: [.new]) { [weak self] s, _ in let v = s.outputVolume; Task { @MainActor in self?.quiet = v < 0.12 } }
+        // the copy on the phone first; from the internet only until it has been saved (saved now for next time)
+        let local = Adhan.full(u)
+        if local == nil { Task { await Adhan.keepFull(u) } }
+        gen += 1; let g = gen
+        play(local ?? u)
+        playing = true; sounding = false
+        // not sounding after 6 s (no connection, a broken file): the adhan's first 30 s that are on the phone
+        let fallback: URL? = local == nil ? cut.map { Adhan.soundsDir.appendingPathComponent($0) } : nil
+        Task { [weak self] in
+            try? await Task.sleep(nanoseconds: 6_000_000_000)
+            guard let self, self.gen == g, self.playing, !self.sounding, let f = fallback, FileManager.default.fileExists(atPath: f.path) else { return }
+            self.play(f)
+        }
     }
-    func stop() { player.pause(); player.replaceCurrentItem(with: nil); playing = false; what = "" }
+    private func play(_ u: URL) {
+        let item = AVPlayerItem(url: u)
+        stKVO = player.observe(\.timeControlStatus, options: [.new]) { [weak self] p, _ in
+            let on = p.timeControlStatus == .playing
+            Task { @MainActor in if on { self?.sounding = true } }
+        }
+        player.automaticallyWaitsToMinimizeStalling = false
+        player.replaceCurrentItem(with: item)
+        player.playImmediately(atRate: 1)
+        if let o = obs { NotificationCenter.default.removeObserver(o) }
+        obs = NotificationCenter.default.addObserver(forName: .AVPlayerItemDidPlayToEndTime, object: item, queue: .main) { [weak self] _ in Task { @MainActor in self?.playing = false; self?.sounding = false } }
+    }
+    func stop() { gen += 1; player.pause(); player.replaceCurrentItem(with: nil); playing = false; sounding = false; what = ""; volKVO = nil }
 }
 
 struct AdhanKey: Identifiable { let key: String; var iqama = false; var id: String { key + (iqama ? "-iq" : "") } }
@@ -432,6 +481,8 @@ struct AdhanScreen: View {
                     }.buttonStyle(.plain).accessibilityLabel(ap.playing ? tr("إيقاف الأذان") : tr("تشغيل الأذان"))
                     Text(ap.playing ? tr("إيقاف الأذان") : tr("تشغيل الأذان")).font(F.plex(18, .semibold)).foregroundStyle(c.text).padding(.top, 20)
                     if let v = Adhan.voice { Text("\(v.name) · \(v.muezzin)").font(F.plex(14)).foregroundStyle(c.faint).padding(.top, 4) }
+                    if ap.playing && !ap.sounding { HStack(spacing: 8) { ProgressView().tint(c.gold); Text(tr("جارٍ تحميل الأذان…")).font(F.plex(14)).foregroundStyle(c.muted) }.padding(.top, 10) }
+                    if ap.playing && ap.quiet { Label(tr("صوت الوسائط منخفض — ارفع الصوت من أزرار الجانب لتسمع الأذان"), systemImage: "speaker.slash.fill").font(F.plex(14, .semibold)).foregroundStyle(c.gold).multilineTextAlignment(.center).padding(.top, 10) }
                     Hadith(words: tr("«إذا سَمِعتُمُ النِّداءَ، فقولوا مِثلَ ما يقولُ المُؤَذِّنُ»")).padding(.top, 26)
                 }.padding(24).frame(maxWidth: 440).frame(maxWidth: .infinity).padding(.top, 70)
             }
