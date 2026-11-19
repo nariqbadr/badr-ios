@@ -261,13 +261,15 @@ struct MushafPage: View {
                                     case .basmala: Text(MushafData.basmala).font(.custom(MushafData.font, size: font)).foregroundStyle(c.text).frame(maxWidth: .infinity)
                                     case .words(let segs):
                                         FlowLayout(spacing: font * 0.3) {
-                                            ForEach(Array(tokens(segs).enumerated()), id: \.offset) { _, t in word(t, font).id(t.first ? t.g : -t.g * 1000 - t.k) }
+                                            ForEach(Array(tokens(segs).enumerated()), id: \.offset) { _, t in word(t, font).id(t.first ? "a\(t.g)" : "w\(t.g).\(t.k)") }
                                         }
                                     }
                                 }
                             }.padding(.vertical, 6)
                         }
-                        .onChange(of: hi) { g in if g > 0 { withAnimation { sp.scrollTo(g, anchor: .center) } } }
+                        // text ids: a ForEach's own ids are its offsets (0, 1, 2 …), so a bare ayah number such as 45 also matched
+                        // the 45th word of the page and the page jumped back up while reading along
+                        .onChange(of: hi) { g in if g > 0 { withAnimation { sp.scrollTo("a\(g)", anchor: .center) } } }
                     }
                 } else {
                     VStack(spacing: open ? 10 : 0) {
