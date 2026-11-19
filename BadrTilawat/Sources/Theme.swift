@@ -17,6 +17,8 @@ struct Palette: Equatable {
         case "marble": return [Color(hex: 0xFFF7F5F1), Color(hex: 0xFFF4F2EE), Color(hex: 0xFFEDE9E2)]
         case "nightblue": return [Color(hex: 0xFF163352), Color(hex: 0xFF0E2032), Color(hex: 0xFF0B1A2A)]
         case "sky": return [Color(hex: 0xFFC4E1F7), Color(hex: 0xFFE2F0FB), Color(hex: 0xFFF1F8FD)]
+        case "turquoise": return [Color(hex: 0xFF0F3E44), Color(hex: 0xFF0B2E33), Color(hex: 0xFF072126)]
+        case "copper": return [Color(hex: 0xFF3E2614), Color(hex: 0xFF2B1A0E), Color(hex: 0xFF1C1008)]
         default: return [bg2, bg]
         }
     }
@@ -50,6 +52,8 @@ enum Themes {
         p("marble", "رخام الحرم", [0xFFF4F2EE, 0xFFEBE8E2, 0xFFFBFAF7, 0xFFF1EEE8, 0xFFE2DDD3, 0xFF2A2620, 0xFF6B645A, 0xFF9A9388, 0xFFA8843C, 0xFF8A6A28, 0xFFFFFAF0, 0x47A8843C, 0x142A2620, 0xFFC0533A, 0xFF2F8A5D], false),
         p("sky", "سماء", [0xFFE2F0FB, 0xFFD4E8F7, 0xFFF5FAFF, 0xFFE7F2FC, 0xFFD3E6F5, 0xFF15304A, 0xFF4E687E, 0xFF8199AC, 0xFF2F7DBB, 0xFF1F68A3, 0xFFFFFFFF, 0x38286496, 0x1715304A, 0xFFC0533A, 0xFF2F8A5D], false),
         p("light", "نهاري", [0xFFF3EEE3, 0xFFEBE4D5, 0xFFFBF8F1, 0xFFF2ECDF, 0xFFE8E0CD, 0xFF1C2B27, 0xFF5B6863, 0xFF8A948F, 0xFF94712F, 0xFF7A5B22, 0xFFFFFAF0, 0x387A5B22, 0x171C2B27, 0xFFC0533A, 0xFF2F8A5D], false),
+        p("turquoise", "فيروز مكّي", [0xFF0B2E33, 0xFF0E363C, 0xFF124047, 0xFF174B53, 0xFF1E5961, 0xFFEEF6F2, 0xFFA2C0BE, 0xFF6F8F8E, 0xFFF3DFA8, 0xFFFFF0C8, 0xFF0B2E33, 0x3DF3DFA8, 0x14EEF6F2, 0xFFE07A5F, 0xFF7CC4A0], true),
+        p("copper", "نحاس الصحراء", [0xFF2B1A0E, 0xFF342012, 0xFF3F2817, 0xFF4B301C, 0xFF5A3A23, 0xFFF7ECDF, 0xFFCDB39A, 0xFF977E66, 0xFFE8B77A, 0xFFF7D3A4, 0xFF2B1A0E, 0x40E8B77A, 0x14F7ECDF, 0xFFE07A5F, 0xFF7CC4A0], true),
     ]
     static func get(_ k: String) -> Palette { all.first { $0.key == k } ?? all[0] }
 }

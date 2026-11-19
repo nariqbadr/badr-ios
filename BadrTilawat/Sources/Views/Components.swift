@@ -162,7 +162,7 @@ struct Backdrop: View {
         GeometryReader { g in
             ZStack {
                 if c.stars { LinearGradient(colors: [Color(hex: 0xFF05061A), Color(hex: 0xFF0C0F30), Color(hex: 0xFF1D1838)], startPoint: .top, endPoint: .bottom) }
-                else if ["dawn", "maroon", "silver", "marble", "nightblue", "sky"].contains(c.key) { LinearGradient(colors: c.grad, startPoint: .top, endPoint: .bottom) }
+                else if ["dawn", "maroon", "silver", "marble", "nightblue", "sky", "turquoise", "copper"].contains(c.key) { LinearGradient(colors: c.grad, startPoint: .top, endPoint: .bottom) }
                 else { LinearGradient(colors: [c.bg2, c.bg, c.deep], startPoint: .top, endPoint: .bottom) }
                 RadialGradient(colors: [c.gold.opacity(c.dark ? 0.10 : 0.08), .clear], center: UnitPoint(x: 0.78, y: 0), startRadius: 0, endRadius: g.size.width * 1.1)
                 StarPattern(tile: 110, alpha: 0.55, fade: true)

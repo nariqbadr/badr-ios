@@ -228,6 +228,7 @@ struct ThemeSheet: View {
                         }.buttonStyle(Press())
                     }
                 }.padding(.horizontal, 16)
+                AppIconPicker(c: c).padding(.horizontal, 16).padding(.top, 18)
             }.padding(.bottom, 20)
         }.background(c.bg2.ignoresSafeArea()).environment(\.layoutDirection, L.dir).environment(\.pal, c).presentationDetents([.medium, .large])
     }
@@ -311,6 +312,39 @@ struct WidgetsHelpView: View {
                 }
                 Text(tr("تأخذ الويدجت ألوان المظهر الذي تختاره في التطبيق.")).font(F.plex(12.5)).foregroundStyle(c.faint).padding(.top, 6)
             }.padding(16)
+        }
+    }
+}
+
+
+/// «أيقونة التطبيق»: the colour of the app's icon on the home screen (alternate icons «AppIcon-<key>» in the asset catalog).
+struct AppIconPicker: View {
+    let c: Palette
+    static let all: [(String, String)] = [("emerald", "زمردي"), ("marble", "رخام الحرم"), ("gold", "ذهبي"), ("graphite", "رمادي"), ("maroon", "عنابي"),
+                                          ("navy", "كحلي"), ("sky", "سماوي"), ("turquoise", "فيروزي"), ("nightblue", "ليل أزرق"), ("dusk", "شفق")]
+    @State private var current: String = UIApplication.shared.alternateIconName.map { String($0.dropFirst("AppIcon-".count)) } ?? "emerald"
+    var body: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Text(tr("أيقونة التطبيق")).font(F.plex(16, .bold)).foregroundStyle(c.text)
+            Text(tr("لون الأيقونة على الشاشة الرئيسية لجوالك")).font(F.plex(12.5)).foregroundStyle(c.muted).padding(.bottom, 10)
+            LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 10), count: 5), spacing: 12) {
+                ForEach(Self.all, id: \.0) { k, name in
+                    let on = current == k
+                    Button {
+                        guard UIApplication.shared.supportsAlternateIcons, !on else { return }
+                        UIApplication.shared.setAlternateIconName(k == "emerald" ? nil : "AppIcon-\(k)") { err in
+                            if err == nil { Task { @MainActor in current = k } }
+                        }
+                    } label: {
+                        VStack(spacing: 5) {
+                            Image("IconPreview-\(k)").resizable().scaledToFill().frame(width: 54, height: 54)
+                                .clipShape(RoundedRectangle(cornerRadius: 13, style: .continuous))
+                                .overlay(RoundedRectangle(cornerRadius: 13, style: .continuous).stroke(on ? c.gold : .clear, lineWidth: 2.5))
+                            Text(tr(name)).font(F.plex(11)).foregroundStyle(on ? c.gold : c.muted).lineLimit(1).minimumScaleFactor(0.8)
+                        }
+                    }.buttonStyle(Press())
+                }
+            }
         }
     }
 }
