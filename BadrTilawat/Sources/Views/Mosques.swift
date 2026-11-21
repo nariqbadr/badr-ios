@@ -15,7 +15,7 @@ struct Mosque: Identifiable, Hashable {
     var title: String {
         // only a name written in the app's own script: Arabic letters for Arabic, Urdu and Persian, Latin for the rest
         let rtl = ["ar", "ur", "fa"].contains(L.code)
-        let fits = { (v: String) in !v.isEmpty && (v.range(of: "[\\u0600-\\u06FF]", options: .regularExpression) != nil) == rtl }
+        let fits = { (v: String) in !v.isEmpty && (v.range(of: "[\\u0621-\\u064A\\u0671-\\u06D3]", options: .regularExpression) != nil) == rtl }
         var n = ((rtl ? [ar, name, en] : [en, name, ar]).first(where: fits) ?? "").trimmingCharacters(in: .whitespaces)
         if n.isEmpty || n == "مسجد" { return tr("مسجد") }
         if L.code == "ar", n.range(of: "مسجد|جامع|مصلى|مصلّى|زاوية", options: .regularExpression) == nil { n = "مسجد " + n }
@@ -24,7 +24,7 @@ struct Mosque: Identifiable, Hashable {
     /// the place under the name, only in the app's own script
     var place: String {
         let rtl = ["ar", "ur", "fa"].contains(L.code)
-        let fits = { (v: String) in !v.isEmpty && (v.range(of: "[\\u0600-\\u06FF]", options: .regularExpression) != nil) == rtl }
+        let fits = { (v: String) in !v.isEmpty && (v.range(of: "[\\u0621-\\u064A\\u0671-\\u06D3]", options: .regularExpression) != nil) == rtl }
         return fits(area) ? area : fits(street) ? street : ""
     }
     var unnamed: Bool { name.isEmpty && ar.isEmpty && en.isEmpty }
@@ -313,7 +313,7 @@ struct MqRoute {
     nonisolated static func say(_ type: String, _ mod: String, _ road0: String) -> String {
         // a street name only in the app's own script (an Arabic name is left out in English, and the other way round)
         let rtl = ["ar", "ur", "fa"].contains(L.code)
-        let road = !road0.isEmpty && (road0.range(of: "[\\u0600-\\u06FF]", options: .regularExpression) != nil) == rtl ? road0 : ""
+        let road = !road0.isEmpty && (road0.range(of: "[\\u0621-\\u064A\\u0671-\\u06D3]", options: .regularExpression) != nil) == rtl ? road0 : ""
         let to = road.isEmpty ? "" : tr(" إلى {0}", road)
         switch type {
         case "depart": return road.isEmpty ? tr("انطلق") : tr("انطلق عبر {0}", road)
@@ -491,7 +491,9 @@ struct MosquesView: View {
         .task {
             busy = true; await mq.locate(ask: true); await mq.loadNear(); busy = false
             // simulator screenshot runs (CI): open a mosque, its directions, or the famous ones
-            switch ProcessInfo.processInfo.environment["BZ_MQ"] ?? "" {
+            let mqTest = ProcessInfo.processInfo.environment["BZ_MQ"] ?? ""
+            if !mqTest.isEmpty { try? await Task.sleep(nanoseconds: 2_000_000_000) }
+            switch mqTest {
             case "detail", "nav": sel = list.first
             case "famous": tab = 1
             default: break
