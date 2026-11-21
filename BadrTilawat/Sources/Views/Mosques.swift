@@ -7,26 +7,25 @@ import CoreLocation
 /// way told inside the app (voice, the next turn, recalculated when the person leaves it). The list and the routes come
 /// through the site (OpenStreetMap, cached there), as on Android; Apple Maps fills in when the site can't answer.
 struct Mosque: Identifiable, Hashable {
-    let id: String, name: String, area: String, lat: Double, lng: Double
+    let id: String, name: String; var area: String; let lat: Double, lng: Double
     var ar = "", en = "", street = ""
     var coord: CLLocationCoordinate2D { CLLocationCoordinate2D(latitude: lat, longitude: lng) }
     /// The name in the app's language: Arabic first for Arabic, Urdu and Persian, the English (Latin) name first for the rest;
     /// a place with no name says where it is, and an Arabic name says it is a mosque.
     var title: String {
+        // only a name written in the app's own script: Arabic letters for Arabic, Urdu and Persian, Latin for the rest
         let rtl = ["ar", "ur", "fa"].contains(L.code)
-        let latin = { (v: String) in !v.isEmpty && v.range(of: "[\\u0600-\\u06FF]", options: .regularExpression) == nil }
-        var n = (rtl ? [ar, name, en] : [en, latin(name) ? name : "", name, ar]).first { !$0.isEmpty } ?? ""
-        n = n.trimmingCharacters(in: .whitespaces)
-        let st = street.isEmpty ? (area.components(separatedBy: "،").first ?? "") : street
-        // only a Latin name in an Arabic-script language («Farouk Mosque», «inner mosque»): where it is, or «مسجد Farouk»
-        if rtl, latin(n) {
-            let core = n.replacingOccurrences(of: "\\b(mosque|masjid|masjed|jami|jamia|musalla|prayer room)\\b", with: "", options: [.regularExpression, .caseInsensitive])
-                .replacingOccurrences(of: "\\s+", with: " ", options: .regularExpression).trimmingCharacters(in: .whitespaces)
-            n = !st.isEmpty ? "" : core.isEmpty ? "" : tr("مسجد") + " " + core
-        }
-        if n.isEmpty || n == "مسجد" { return st.isEmpty ? tr("مسجد") : tr("مسجد في {0}", st) }
-        if L.code == "ar", !latin(n), n.range(of: "مسجد|جامع|مصلى|مصلّى|زاوية", options: .regularExpression) == nil { n = "مسجد " + n }
+        let fits = { (v: String) in !v.isEmpty && (v.range(of: "[\u0600-\u06FF]", options: .regularExpression) != nil) == rtl }
+        var n = ((rtl ? [ar, name, en] : [en, name, ar]).first(where: fits) ?? "").trimmingCharacters(in: .whitespaces)
+        if n.isEmpty || n == "مسجد" { return tr("مسجد") }
+        if L.code == "ar", n.range(of: "مسجد|جامع|مصلى|مصلّى|زاوية", options: .regularExpression) == nil { n = "مسجد " + n }
         return n
+    }
+    /// the place under the name, only in the app's own script
+    var place: String {
+        let rtl = ["ar", "ur", "fa"].contains(L.code)
+        let fits = { (v: String) in !v.isEmpty && (v.range(of: "[\u0600-\u06FF]", options: .regularExpression) != nil) == rtl }
+        return fits(area) ? area : fits(street) ? street : ""
     }
     var unnamed: Bool { name.isEmpty && ar.isEmpty && en.isEmpty }
 }
@@ -147,12 +146,16 @@ struct MqRoute {
             }
             return empty ? [] : nil
         }
-        var r = osm
+        var r = osm.map(Self.dedupe)
         let a = await ap
         why.append("apple:\(a.count)")
         if r?.isEmpty ?? true {
             if !a.isEmpty { r = a }
-        } else if let rr = r, rr.contains(where: { $0.unnamed }) {
+        } else if let rr = r {
+            // the mosques Apple Maps knows that OpenStreetMap lacks (none of its own within 60 m)
+            r = rr + a.filter { x in !rr.contains { Self.d($0.coord, x.coord) < 60 } }
+        }
+        if let rr = r, rr.contains(where: { $0.unnamed }) {
             // a mosque OpenStreetMap has no name for: the name Apple Maps knows at the same place (within 80 m)
             r = rr.map { m in
                 guard m.unnamed, let x = a.min(by: { Self.d(m.coord, $0.coord) < Self.d(m.coord, $1.coord) }), Self.d(m.coord, x.coord) < 80 else { return m }
@@ -164,6 +167,18 @@ struct MqRoute {
         error = r == nil ? tr("تعذّر جلب المساجد الآن، حاول بعد قليل") : ""
         near = (r ?? []).sorted { dist($0) < dist($1) }; nearAt = p; nearTime = Date()
         if let n = near, r != nil { keepNear(n, p) }
+        await placeNames(p)
+    }
+    /// under each of the nearest, where it is — in the app's language (the phone's map, asked in that language)
+    private func placeNames(_ p: CLLocationCoordinate2D) async {
+        guard var n = near else { return }
+        let g = CLGeocoder(); var changed = false
+        for i in n.indices.prefix(10) where n[i].place.isEmpty {
+            guard let pm = try? await g.reverseGeocodeLocation(CLLocation(latitude: n[i].lat, longitude: n[i].lng), preferredLocale: L.locale).first else { continue }
+            let a = [pm.thoroughfare, pm.subLocality ?? pm.locality].compactMap { $0 }.joined(separator: tr("، "))
+            if !a.isEmpty { n[i].area = a; changed = true }
+        }
+        if changed, nearAt?.latitude == p.latitude, nearAt?.longitude == p.longitude { near = n; keepNear(n, p) }
     }
     private func keepNear(_ n: [Mosque], _ p: CLLocationCoordinate2D) {
         let a = n.prefix(60).map { ["id": $0.id, "name": $0.name, "area": $0.area, "lat": $0.lat, "lng": $0.lng, "ar": $0.ar, "en": $0.en, "street": $0.street] as [String: Any] }
@@ -178,6 +193,18 @@ struct MqRoute {
         nearAt = CLLocationCoordinate2D(latitude: la, longitude: lo)
         nearTime = Date(timeIntervalSince1970: d["at"] as? Double ?? 0)
     }
+    /// one entry per mosque: its point and its building outline (or two servers' copies) become one, the named one kept
+    nonisolated static func dedupe(_ l: [Mosque]) -> [Mosque] {
+        var out: [Mosque] = []
+        for m in l.sorted(by: { !$0.unnamed && $1.unnamed }) where !out.contains(where: { d($0.coord, m.coord) < (m.unnamed ? 45 : 12) }) { out.append(m) }
+        return out
+    }
+    /// every way a mosque is marked on OpenStreetMap: a Muslim place of worship, a mosque building, or a place of worship named as one
+    nonisolated static func osmQuery(_ la: Double, _ lo: Double, _ r: Int) -> String {
+        let a = "(around:\(r),\(la),\(lo))"
+        return "[out:json][timeout:20];(nwr[\"amenity\"=\"place_of_worship\"][\"religion\"=\"muslim\"]\(a);nwr[\"building\"=\"mosque\"]\(a);"
+            + "nwr[\"amenity\"=\"place_of_worship\"][\"name\"~\"مسجد|جامع|مصلى|زاوية|[Mm]osque|[Mm]asjid\"]\(a););out center tags 120;"
+    }
     static let overpassServers = ["https://overpass-api.de/api/interpreter", "https://overpass.kumi.systems/api/interpreter",
                                   "https://overpass.private.coffee/api/interpreter", "https://maps.mail.ru/osm/tools/overpass/api/interpreter"]
     /// «المشهورة»: the region's well-known mosques (the world's famous ones only when none is known around)
@@ -190,7 +217,7 @@ struct MqRoute {
     /// straight from OpenStreetMap, from the phone
     nonisolated private func overpass(_ p: CLLocationCoordinate2D, _ ep: String) async -> ([Mosque]?, String) {
         let host = URL(string: ep)?.host ?? ep
-        let q = "[out:json][timeout:15];nwr[\"amenity\"=\"place_of_worship\"][\"religion\"=\"muslim\"](around:3000,\(p.latitude),\(p.longitude));out center tags 80;"
+        let q = Mosques.osmQuery(p.latitude, p.longitude, 3000)
         var req = URLRequest(url: URL(string: ep)!); req.httpMethod = "POST"; req.timeoutInterval = 20
         req.setValue("application/x-www-form-urlencoded", forHTTPHeaderField: "Content-Type")
         req.setValue("BadrTilawat/iOS (+https://bawazirquran.com)", forHTTPHeaderField: "User-Agent")
@@ -520,7 +547,7 @@ private struct MosqueRow: View {
                 SiteIcon(name: "mosque", size: 28, color: c.text).frame(width: 46, height: 46).background(RoundedRectangle(cornerRadius: 15).fill(c.text.opacity(0.08)))
                 VStack(alignment: .leading, spacing: 2) {
                     Text(m.title).font(F.plex(15, .bold)).foregroundStyle(c.text).lineLimit(1)
-                    if !m.area.isEmpty { Text(m.area).font(F.plex(11.5)).foregroundStyle(c.muted).lineLimit(1) }
+                    if !m.place.isEmpty { Text(m.place).font(F.plex(11.5)).foregroundStyle(c.muted).lineLimit(1) }
                     if let d, d < 60_000 { times(d) }
                 }.frame(maxWidth: .infinity, alignment: .leading)
                 VStack(spacing: 6) {
@@ -585,7 +612,7 @@ struct MosqueDetailView: View {
     }
     private var head: some View {
         let saved = mq.saved.contains { $0.id == m.id }
-        let sub = [m.area, Mosques.nextAdhan()].filter { !$0.isEmpty }.joined(separator: " · ")
+        let sub = [m.place, Mosques.nextAdhan()].filter { !$0.isEmpty }.joined(separator: " · ")
         return HStack(alignment: .top) {
             VStack(alignment: .leading, spacing: 2) {
                 Text(m.title).font(F.plex(19, .bold)).foregroundStyle(c.text)
@@ -598,7 +625,7 @@ struct MosqueDetailView: View {
     private var actions: some View {
         HStack(spacing: 10) {
             GoldButton(title: tr("ابدأ الاتجاهات"), icon: "nav") { if route != nil { nav = true } }.frame(maxWidth: .infinity).opacity(route == nil ? 0.5 : 1)
-            Chip(text: nil, icon: "share") { share("\(m.title)\(m.area.isEmpty ? "" : " — " + m.area)\nhttps://maps.apple.com/?ll=\(m.lat),\(m.lng)") }
+            Chip(text: nil, icon: "share") { share("\(m.title)\(m.place.isEmpty ? "" : " — " + m.place)\nhttps://maps.apple.com/?ll=\(m.lat),\(m.lng)") }
         }
     }
     private var modes: some View {

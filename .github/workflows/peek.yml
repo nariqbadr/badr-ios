@@ -19,6 +19,8 @@ jobs:
           curl -s -m 60 "$B&do=mosque_route&flat=30.1128&flng=31.3422&tlat=30.1170&tlng=31.3440&mode=foot" -o mroute.json
           curl -s -m 60 -X POST --data-urlencode "data=[out:json][timeout:20];nwr[\"amenity\"=\"place_of_worship\"][\"religion\"=\"muslim\"](around:1500,30.1128,31.3422);out center tags 40;" https://overpass-api.de/api/interpreter -o overpass-raw.json || true
           curl -s -m 30 "https://overpass-api.de/api/status" -o overpass-status.txt || true
+          A='(around:600,30.1104,31.3400)'
+          curl -s -m 60 -X POST --data-urlencode "data=[out:json][timeout:25];(nwr[\"amenity\"=\"place_of_worship\"][\"religion\"=\"muslim\"]$A;nwr[\"building\"=\"mosque\"]$A;nwr[\"amenity\"=\"place_of_worship\"][\"name\"~\"مسجد|جامع|مصلى|زاوية|[Mm]osque|[Mm]asjid\"]$A;nwr[\"name\"~\"جويري|Gwair|Juwair\",i](around:3000,30.1104,31.3400););out center tags 200;" https://overpass-api.de/api/interpreter -o osm-nozha.json || true
           curl -s -m 60 "$B&do=c_feed&tab=all&before=0" -o feed-all.json
           curl -s -m 60 "$B&do=c_feed&tab=latest&before=0" -o feed-latest.json
           curl -s -m 60 "$B&do=c_suggest" -o suggest.json
