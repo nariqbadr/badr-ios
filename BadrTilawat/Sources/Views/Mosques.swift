@@ -669,10 +669,14 @@ struct TurnArrow: Shape {
     func path(in r: CGRect) -> Path {
         let pts: [CGPoint] = [CGPoint(x: 0, y: -0.46), CGPoint(x: 0.34, y: -0.06), CGPoint(x: 0.12, y: -0.06), CGPoint(x: 0.12, y: 0.42),
                               CGPoint(x: -0.12, y: 0.42), CGPoint(x: -0.12, y: -0.06), CGPoint(x: -0.34, y: -0.06)]
-        let a = deg * .pi / 180, c = CGPoint(x: r.midX, y: r.midY), k = min(r.width, r.height)
+        let a = CGFloat(deg * .pi / 180)
+        let cs: CGFloat = cos(a), sn: CGFloat = sin(a)
+        let cx: CGFloat = r.midX, cy: CGFloat = r.midY, k: CGFloat = min(r.width, r.height)
         var p = Path()
         for (i, q) in pts.enumerated() {
-            let x = c.x + k * (q.x * cos(a) - q.y * sin(a)), y = c.y + k * (q.x * sin(a) + q.y * cos(a))
+            let rx: CGFloat = q.x * cs - q.y * sn
+            let ry: CGFloat = q.x * sn + q.y * cs
+            let x: CGFloat = cx + k * rx, y: CGFloat = cy + k * ry
             if i == 0 { p.move(to: CGPoint(x: x, y: y)) } else { p.addLine(to: CGPoint(x: x, y: y)) }
         }
         p.closeSubpath(); return p
