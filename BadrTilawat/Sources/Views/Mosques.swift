@@ -117,6 +117,7 @@ private struct MosquesAyah: View {
 }
 
 /// The map in the app's colours, with a soft graticule and the place under the centre in degrees.
+@available(iOS 17.0, *)
 private struct MosqueMap: View {
     let pins: [Mosque]; let me: CLLocationCoordinate2D?; let line: MKPolyline?; let sel: String?; var onPin: (Mosque) -> Void = { _ in }
     @Environment(\.pal) private var c
@@ -124,19 +125,11 @@ private struct MosqueMap: View {
     @State private var center = CLLocationCoordinate2D(latitude: 0, longitude: 0)
     var body: some View {
         Map(position: $cam) {
-            if let me { Annotation("", coordinate: me) { ZStack { Circle().fill(Color.blue.opacity(0.2)).frame(width: 36, height: 36); Circle().fill(Color.white).frame(width: 18, height: 18); Circle().fill(Color(red: 0.23, green: 0.56, blue: 1)).frame(width: 12, height: 12) } } }
-            ForEach(pins.prefix(40)) { m in
-                Annotation(m.name, coordinate: m.coord) {
-                    let big = m.id == sel, s: CGFloat = big ? 42 : 32
-                    Button { onPin(m) } label: {
-                        SiteIcon(name: "mosque", size: s * 0.62, color: c.bg).frame(width: s, height: s).background(Circle().fill(c.text)).overlay(Circle().stroke(c.bg, lineWidth: 3)).shadow(radius: 4, y: 2)
-                    }.buttonStyle(.plain)
-                }.annotationTitles(.hidden)
+            if let me { Annotation("", coordinate: me) { MePin() } }
+            ForEach(Array(pins.prefix(40))) { m in
+                Annotation(m.name, coordinate: m.coord) { MosquePin(big: m.id == sel) { onPin(m) } }.annotationTitles(.hidden)
             }
-            if let line {
-                MapPolyline(line).stroke(Color(red: 0.3, green: 0.62, blue: 1).opacity(0.3), style: StrokeStyle(lineWidth: 14, lineCap: .round, lineJoin: .round))
-                MapPolyline(line).stroke(Color(red: 0.3, green: 0.62, blue: 1), style: StrokeStyle(lineWidth: 6, lineCap: .round, lineJoin: .round))
-            }
+            if let line { routeLine(line) }
         }
         .mapStyle(.standard(elevation: .flat, emphasis: .muted, pointsOfInterest: .excludingAll))
         .mapControls { MapCompass(); MapScaleView() }
@@ -161,6 +154,10 @@ private struct MosqueMap: View {
         .onChange(of: pins.map(\.id)) { _ in fit() }
         .onChange(of: line?.pointCount ?? 0) { _ in fit() }
     }
+    @MapContentBuilder private func routeLine(_ line: MKPolyline) -> some MapContent {
+        MapPolyline(line).stroke(MosquePin.blue.opacity(0.3), style: StrokeStyle(lineWidth: 14, lineCap: .round, lineJoin: .round))
+        MapPolyline(line).stroke(MosquePin.blue, style: StrokeStyle(lineWidth: 6, lineCap: .round, lineJoin: .round))
+    }
     private func fit() {
         var pts = pins.prefix(30).map(\.coord); if let me { pts.append(me) }
         if let line, line.pointCount > 1 { cam = .rect(line.boundingMapRect.insetBy(dx: -line.boundingMapRect.width * 0.25 - 200, dy: -line.boundingMapRect.height * 0.25 - 200)); return }
@@ -171,6 +168,24 @@ private struct MosqueMap: View {
     }
 }
 
+private struct MePin: View {
+    var body: some View {
+        ZStack { Circle().fill(Color.blue.opacity(0.2)).frame(width: 36, height: 36); Circle().fill(Color.white).frame(width: 18, height: 18); Circle().fill(MosquePin.blue).frame(width: 12, height: 12) }
+    }
+}
+private struct MosquePin: View {
+    static let blue = Color(red: 0.3, green: 0.62, blue: 1)
+    let big: Bool; let tap: () -> Void
+    @Environment(\.pal) private var c
+    var body: some View {
+        let s: CGFloat = big ? 42 : 32
+        Button(action: tap) {
+            SiteIcon(name: "mosque", size: s * 0.62, color: c.bg).frame(width: s, height: s).background(Circle().fill(c.text)).overlay(Circle().stroke(c.bg, lineWidth: 3)).shadow(radius: 4, y: 2)
+        }.buttonStyle(.plain)
+    }
+}
+
+@available(iOS 17.0, *)
 struct MosquesView: View {
     @StateObject private var mq = Mosques.shared
     @Environment(\.pal) private var c
@@ -272,6 +287,7 @@ struct MosquesView: View {
     }
 }
 
+@available(iOS 17.0, *)
 /// One mosque: the way on the map (on foot or by car), time, distance, arrival, the next turn and every step;
 /// «ابدأ الاتجاهات» hands it to Maps for the spoken turn-by-turn.
 struct MosqueDetailView: View {
