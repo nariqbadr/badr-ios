@@ -6,7 +6,7 @@ jobs:
     steps:
       - run: |
           pip install -q duckdb
-          REL=$(curl -s https://labs.overturemaps.org/data/releases.json | python3 -c "import json,sys;print(json.load(sys.stdin)['latest'])")
+          REL=$(aws s3 ls --no-sign-request s3://overturemaps-us-west-2/release/ | awk '{print $2}' | tr -d / | sort | tail -1)
           echo "release $REL"
           python3 - "$REL" <<'P'
           import duckdb,sys,math
