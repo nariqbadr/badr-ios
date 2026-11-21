@@ -75,6 +75,7 @@ struct MqRoute {
             return Mosque(id: id, name: n, area: d["area"] as? String ?? "", lat: la, lng: lo, ar: d["ar"] as? String ?? "", en: d["en"] as? String ?? "", street: d["street"] as? String ?? "")
         }
         if let p = UserDefaults.standard.array(forKey: "mqPos") as? [Double], p.count == 2 { pos = CLLocationCoordinate2D(latitude: p[0], longitude: p[1]) }
+        restoreNear()
     }
     var allowed: Bool { [.authorizedWhenInUse, .authorizedAlways].contains(lm.authorizationStatus) }
 
@@ -121,25 +122,65 @@ struct MqRoute {
             return Mosque(id: id, name: s("name"), area: s("area"), lat: la, lng: lo, ar: s("ar"), en: s("en"), street: s("street"))
         }
     }
+    /// what each source answered last time (shown small under «تعذّر…», to find out why)
+    @Published var diag = ""
+    private var nearTime = Date.distantPast
+    /// The mosques around: from the phone itself first — OpenStreetMap (four servers, the first to answer) and Apple Maps,
+    /// all at once — and the site alongside; whichever answers first with mosques is used. The last list is kept, so the
+    /// page opens with it at once and is refreshed behind it.
     func loadNear(force: Bool = false) async {
         guard let p = pos else { return }
-        if !force, near != nil, let a = nearAt, abs(a.latitude - p.latitude) < 0.002, abs(a.longitude - p.longitude) < 0.002 { return }
-        var r = items(await get(["do": "mosques_near", "lat": String(format: "%.5f", p.latitude), "lng": String(format: "%.5f", p.longitude)]))
-        if r == nil { r = await overpass(p) }
+        if !force, near != nil, let a = nearAt, abs(a.latitude - p.latitude) < 0.002, abs(a.longitude - p.longitude) < 0.002, Date().timeIntervalSince(nearTime) < 86400 { return }
+        var why: [String] = []
+        async let ap = apple(near: p)
+        let osm: [Mosque]? = await withTaskGroup(of: ([Mosque]?, String).self) { g in
+            for ep in Self.overpassServers { g.addTask { await self.overpass(p, ep) } }
+            g.addTask {
+                let j = await self.get(["do": "mosques_near", "lat": String(format: "%.5f", p.latitude), "lng": String(format: "%.5f", p.longitude)])
+                let r = await self.items(j)
+                return (r, "site:" + (r.map { "\($0.count)" } ?? "x"))
+            }
+            var empty = false
+            for await (r, tag) in g {
+                why.append(tag)
+                if let r, !r.isEmpty { g.cancelAll(); return r }
+                if r != nil { empty = true }
+            }
+            return empty ? [] : nil
+        }
+        var r = osm
+        let a = await ap
+        why.append("apple:\(a.count)")
         if r?.isEmpty ?? true {
-            // the site can't answer (or has none): Apple Maps' own places
-            let a = await apple(near: p); if !a.isEmpty { r = a }
+            if !a.isEmpty { r = a }
         } else if let rr = r, rr.contains(where: { $0.unnamed }) {
             // a mosque OpenStreetMap has no name for: the name Apple Maps knows at the same place (within 80 m)
-            let a = await apple(near: p)
             r = rr.map { m in
                 guard m.unnamed, let x = a.min(by: { Self.d(m.coord, $0.coord) < Self.d(m.coord, $1.coord) }), Self.d(m.coord, x.coord) < 80 else { return m }
                 return Mosque(id: m.id, name: x.name, area: m.area.isEmpty ? x.area : m.area, lat: m.lat, lng: m.lng, street: m.street)
             }
         }
+        diag = why.joined(separator: " · ")
+        if r == nil, near?.isEmpty == false { error = ""; return }   // the kept list stays
         error = r == nil ? tr("تعذّر جلب المساجد الآن، حاول بعد قليل") : ""
-        near = (r ?? []).sorted { dist($0) < dist($1) }; nearAt = p
+        near = (r ?? []).sorted { dist($0) < dist($1) }; nearAt = p; nearTime = Date()
+        if let n = near, r != nil { keepNear(n, p) }
     }
+    private func keepNear(_ n: [Mosque], _ p: CLLocationCoordinate2D) {
+        let a = n.prefix(60).map { ["id": $0.id, "name": $0.name, "area": $0.area, "lat": $0.lat, "lng": $0.lng, "ar": $0.ar, "en": $0.en, "street": $0.street] as [String: Any] }
+        UserDefaults.standard.set(["lat": p.latitude, "lng": p.longitude, "at": Date().timeIntervalSince1970, "items": a] as [String: Any], forKey: "mqNear")
+    }
+    private func restoreNear() {
+        guard let d = UserDefaults.standard.dictionary(forKey: "mqNear"), let la = d["lat"] as? Double, let lo = d["lng"] as? Double, let a = d["items"] as? [[String: Any]] else { return }
+        near = a.compactMap { d in
+            guard let id = d["id"] as? String, let n = d["name"] as? String, let la = d["lat"] as? Double, let lo = d["lng"] as? Double else { return nil }
+            return Mosque(id: id, name: n, area: d["area"] as? String ?? "", lat: la, lng: lo, ar: d["ar"] as? String ?? "", en: d["en"] as? String ?? "", street: d["street"] as? String ?? "")
+        }
+        nearAt = CLLocationCoordinate2D(latitude: la, longitude: lo)
+        nearTime = Date(timeIntervalSince1970: d["at"] as? Double ?? 0)
+    }
+    static let overpassServers = ["https://overpass-api.de/api/interpreter", "https://overpass.kumi.systems/api/interpreter",
+                                  "https://overpass.private.coffee/api/interpreter", "https://maps.mail.ru/osm/tools/overpass/api/interpreter"]
     /// «المشهورة»: the region's well-known mosques (the world's famous ones only when none is known around)
     func loadFamous() async {
         guard let p = pos else { return }
@@ -147,21 +188,25 @@ struct MqRoute {
         guard let r = items(await get(["do": "mosques_famous", "lat": String(format: "%.4f", p.latitude), "lng": String(format: "%.4f", p.longitude)])) else { return }
         famousNear = r.sorted { dist($0) < dist($1) }; famousAt = p
     }
-    /// straight from OpenStreetMap when the site can't answer (as on Android)
-    private func overpass(_ p: CLLocationCoordinate2D) async -> [Mosque]? {
-        let q = "[out:json][timeout:20];nwr[\"amenity\"=\"place_of_worship\"][\"religion\"=\"muslim\"](around:3000,\(p.latitude),\(p.longitude));out center tags 80;"
-        var req = URLRequest(url: URL(string: "https://overpass-api.de/api/interpreter")!); req.httpMethod = "POST"; req.timeoutInterval = 30
+    /// straight from OpenStreetMap, from the phone
+    nonisolated private func overpass(_ p: CLLocationCoordinate2D, _ ep: String) async -> ([Mosque]?, String) {
+        let host = URL(string: ep)?.host ?? ep
+        let q = "[out:json][timeout:15];nwr[\"amenity\"=\"place_of_worship\"][\"religion\"=\"muslim\"](around:3000,\(p.latitude),\(p.longitude));out center tags 80;"
+        var req = URLRequest(url: URL(string: ep)!); req.httpMethod = "POST"; req.timeoutInterval = 20
         req.setValue("application/x-www-form-urlencoded", forHTTPHeaderField: "Content-Type")
+        req.setValue("BadrTilawat/iOS (+https://bawazirquran.com)", forHTTPHeaderField: "User-Agent")
         req.httpBody = ("data=" + (q.addingPercentEncoding(withAllowedCharacters: .alphanumerics) ?? "")).data(using: .utf8)
-        guard let (d, r) = try? await Repo.shared.session.data(for: req), (r as? HTTPURLResponse)?.statusCode == 200,
-              let j = try? JSONSerialization.jsonObject(with: d) as? [String: Any], let els = j["elements"] as? [[String: Any]] else { return nil }
-        return els.compactMap { e in
+        guard let (d, r) = try? await URLSession.shared.data(for: req) else { return (nil, host + ":x") }
+        let code = (r as? HTTPURLResponse)?.statusCode ?? 0
+        guard code == 200, let j = try? JSONSerialization.jsonObject(with: d) as? [String: Any], let els = j["elements"] as? [[String: Any]] else { return (nil, host + ":\(code)") }
+        let out: [Mosque] = els.compactMap { e in
             let t = e["tags"] as? [String: String] ?? [:], c = e["center"] as? [String: Any]
             guard let la = ((e["lat"] ?? c?["lat"]) as? NSNumber)?.doubleValue, let lo = ((e["lon"] ?? c?["lon"]) as? NSNumber)?.doubleValue else { return nil }
-            let area = [t["addr:street"], t["addr:suburb"] ?? t["addr:city"]].compactMap { $0 }.joined(separator: tr("، "))
+            let area = [t["addr:street"], t["addr:suburb"] ?? t["addr:city"]].compactMap { $0 }.joined(separator: "، ")
             return Mosque(id: "\((e["type"] as? String ?? "n").prefix(1))\((e["id"] as? NSNumber)?.int64Value ?? 0)", name: t["name"] ?? "", area: area, lat: la, lng: lo,
                           ar: t["name:ar"] ?? "", en: t["name:en"] ?? "", street: t["addr:street"] ?? "")
         }
+        return (out, host + ":\(out.count)")
     }
     func search(_ q: String) async -> [Mosque] {
         if let r = items(await get(["do": "mosques_search", "q": q])), !r.isEmpty { return r }
@@ -171,8 +216,8 @@ struct MqRoute {
     /// Apple Maps: mosques within ~3 km (two wordings, merged)
     private func apple(near p: CLLocationCoordinate2D) async -> [Mosque] {
         let reg = MKCoordinateRegion(center: p, latitudinalMeters: 6000, longitudinalMeters: 6000)
-        var out: [Mosque] = []
-        for w in ["mosque", "مسجد"] { out += await appleSearch(w, region: reg) }
+        async let a1 = appleSearch("مسجد", region: reg); async let a2 = appleSearch("mosque", region: reg); async let a3 = appleSearch("جامع", region: reg)
+        let out = await a1 + a2 + a3
         var seen = Set<String>()
         return out.filter { seen.insert("\(Int($0.lat * 5000)):\(Int($0.lng * 5000))").inserted && dist($0) <= 3500 }
     }
@@ -379,7 +424,16 @@ struct MosquesView: View {
         .background(c.bg.ignoresSafeArea())
         .environment(\.layoutDirection, L.dir)
         .navigationDestination(item: $sel) { MosqueDetailView(m: $0) }
-        .task { busy = true; await mq.locate(ask: true); await mq.loadNear(); busy = false; await mq.loadFamous() }
+        .task {
+            busy = true; await mq.locate(ask: true); await mq.loadNear(); busy = false
+            // simulator screenshot runs (CI): open a mosque, its directions, or the famous ones
+            switch ProcessInfo.processInfo.environment["BZ_MQ"] ?? "" {
+            case "detail", "nav": sel = list.first
+            case "famous": tab = 1
+            default: break
+            }
+            await mq.loadFamous()
+        }
         .task(id: q) {
             let t = q.trimmingCharacters(in: .whitespaces)
             guard t.count >= 2 else { results = nil; return }
@@ -431,7 +485,7 @@ struct MosquesView: View {
         } else if tab == 0, results == nil, mq.near == nil || busy {
             empty(tr("جارٍ البحث عن المساجد القريبة…"))
         } else if list.isEmpty {
-            empty(!mq.error.isEmpty && tab == 0 ? mq.error : results != nil ? tr("لم نجد مسجدًا بهذا الاسم") : tab == 2 ? tr("لم تحفظ أي مسجد بعد — اضغط النجمة في صفحة المسجد") : tr("لا توجد مساجد قريبة في نطاق ٣ كم"))
+            empty(!mq.error.isEmpty && tab == 0 ? mq.error + (mq.diag.isEmpty ? "" : "\n" + mq.diag) : results != nil ? tr("لم نجد مسجدًا بهذا الاسم") : tab == 2 ? tr("لم تحفظ أي مسجد بعد — اضغط النجمة في صفحة المسجد") : tr("لا توجد مساجد قريبة في نطاق ٣ كم"))
         } else {
             LazyVStack(spacing: 10) {
                 ForEach(Array(list.enumerated()), id: \.element.id) { i, m in MosqueRow(m: m, first: i == 0 && tab == 0 && results == nil) { sel = m } }
@@ -566,6 +620,7 @@ struct MosqueDetailView: View {
         loading = true
         route = await mq.route(from: p, to: m, foot: foot)
         loading = false
+        if route != nil, ProcessInfo.processInfo.environment["BZ_MQ"] == "nav" { nav = true }
     }
 }
 

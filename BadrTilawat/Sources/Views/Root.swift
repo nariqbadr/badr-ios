@@ -147,6 +147,7 @@ struct RootView: View {
         case "imams": ui.path = [.imams("mk")]
         case "imamsMd": ui.path = [.imams("md")]
         case "imamAlerts": ui.path = [.imamAlerts]
+        case "mosques": ui.path = [.mosques]
         case "liveMd": ui.path = [.liveAt("md")]
         case "lang": ui.sheet = .lang
         case "adhan": ui.adhan = AdhanKey(key: "fajr")
