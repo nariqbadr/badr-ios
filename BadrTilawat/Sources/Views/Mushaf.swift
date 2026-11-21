@@ -354,7 +354,7 @@ struct AyahMenu: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 8) {
                 SheetHead(title: tr("سورة {0} — الآية {1}", Quran.surahs[s - 1], a.ar))
-                Text("﴿\(text)﴾").font(.custom(MushafData.font, size: 22)).foregroundStyle(c.text).lineSpacing(16).multilineTextAlignment(.center).frame(maxWidth: .infinity).padding(.horizontal, 20)
+                Text(orn(text)).font(.custom(MushafData.font, size: 22)).foregroundStyle(c.text).lineSpacing(16).multilineTextAlignment(.center).frame(maxWidth: .infinity).padding(.horizontal, 20)
                 VStack(spacing: 8) {
                     if let ms = seekMs {
                         GoldButton(title: tr("أكمل التلاوة من هنا"), icon: "play") { onTrack(ms) }.frame(maxWidth: .infinity)
@@ -439,7 +439,7 @@ struct PageTafsirSheet: View {
                     if rows.isEmpty { Text(tr("تعذّر تحميل التفسير الآن.")).font(F.plex(14)).foregroundStyle(c.muted).padding(20) }
                     ForEach(Array(rows.enumerated()), id: \.offset) { _, r in
                         Panel(pad: 14, lattice: false) {
-                            Text("﴿\(r.2)﴾").font(.custom(MushafData.font, size: 19)).foregroundStyle(c.text).lineSpacing(12)
+                            Text(orn(r.2)).font(.custom(MushafData.font, size: 19)).foregroundStyle(c.text).lineSpacing(12)
                             Text("\(Quran.surahs[r.0 - 1]) \(r.1.ar)").font(F.plex(12.5, .medium)).foregroundStyle(c.gold)
                             Text(r.3).font(!ed.hasPrefix("ar.") ? F.plex(16) : F.amiri(17, bold: false)).foregroundStyle(c.text).lineSpacing(8).padding(.top, 6)
                                 .environment(\.layoutDirection, !ed.hasPrefix("ar.") ? (["ur.jalandhry", "fa.khorramdel"].contains(ed) ? .rightToLeft : .leftToRight) : .rightToLeft).frame(maxWidth: .infinity, alignment: .leading)

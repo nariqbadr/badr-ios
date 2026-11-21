@@ -475,7 +475,7 @@ struct ReadText: UIViewRepresentable {
                 out.append(NSAttributedString(string: w, attributes: at))
                 out.append(NSAttributedString(string: " ", attributes: [.font: font, .paragraphStyle: ps]))
             }
-            out.append(NSAttributedString(string: "\u{FD3F}\(it.n.ar)\u{FD3E}", attributes: [.font: font, .foregroundColor: gold, .paragraphStyle: ps, ReadText.key: "\(i):-1"]))
+            out.append(NSAttributedString(string: orn(it.n.ar), attributes: [.font: font, .foregroundColor: gold, .paragraphStyle: ps, ReadText.key: "\(i):-1"]))
             out.append(NSAttributedString(string: " ", attributes: [.font: font, .paragraphStyle: ps]))
         }
         return (out, offs)

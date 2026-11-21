@@ -16,7 +16,7 @@ struct AdhkarView: View {
     }()
     private static func text(_ t: String) -> String {
         let r = try! NSRegularExpression(pattern: "\\s*\\((\\d+)\\)"); var s = t.trimmingCharacters(in: .whitespaces)
-        for m in r.matches(in: s, range: NSRange(s.startIndex..., in: s)).reversed() { if let g = Range(m.range, in: s), let n = Range(m.range(at: 1), in: s) { s.replaceSubrange(g, with: " ﴿\(Int(s[n])?.ar ?? "")﴾") } }
+        for m in r.matches(in: s, range: NSRange(s.startIndex..., in: s)).reversed() { if let g = Range(m.range, in: s), let n = Range(m.range(at: 1), in: s) { s.replaceSubrange(g, with: " \(orn(Int(s[n])?.ar ?? ""))") } }
         return s
     }
     private func key(_ i: Int) -> String { "dk-\(Wird.today)-\(tab)-\(i)" }

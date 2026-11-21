@@ -392,7 +392,7 @@ struct AyahOfDay: View {
             }
             Ornament().frame(maxWidth: .infinity).padding(.vertical, 6)
             Group {
-                if let t = text { Text("﴿\(t)﴾").font(F.quran(25)).foregroundStyle(c.text).lineSpacing(18).multilineTextAlignment(.center).frame(maxWidth: .infinity).padding(.vertical, 8) }
+                if let t = text { Text(orn(t)).font(F.quran(25)).foregroundStyle(c.text).lineSpacing(18).multilineTextAlignment(.center).frame(maxWidth: .infinity).padding(.vertical, 8) }
                 else { RoundedRectangle(cornerRadius: 14).fill(c.surface2).frame(height: 90).padding(.vertical, 10) }
             }.animation(.easeOut(duration: 0.45), value: text)
             HStack(spacing: 12) {
@@ -493,7 +493,7 @@ struct TafsirSheet: View {
             VStack(alignment: .leading, spacing: 10) {
                 SheetHead(title: tr("تفسير سورة {0} — الآية {1}", Quran.surahs[s - 1], a.ar))
                 Seg(items: TafsirSheet.editions.map(\.1), selected: TafsirSheet.editions.firstIndex { $0.0 == ed } ?? 0) { ed = TafsirSheet.editions[$0].0 }.padding(.horizontal, 20)
-                Text("﴿\(text)﴾").font(F.quran(21)).foregroundStyle(c.text).lineSpacing(14).multilineTextAlignment(.center).frame(maxWidth: .infinity).padding(.horizontal, 20)
+                Text(orn(text)).font(F.quran(21)).foregroundStyle(c.text).lineSpacing(14).multilineTextAlignment(.center).frame(maxWidth: .infinity).padding(.horizontal, 20)
                 if let t { Text(t).font(!ed.hasPrefix("ar.") ? F.plex(16) : F.amiri(18, bold: false)).foregroundStyle(c.text).lineSpacing(10).environment(\.layoutDirection, !ed.hasPrefix("ar.") ? (["ur.jalandhry", "fa.khorramdel"].contains(ed) ? .rightToLeft : .leftToRight) : .rightToLeft).frame(maxWidth: .infinity, alignment: .leading).padding(.horizontal, 20) }
                 else { ProgressView().tint(c.gold).frame(maxWidth: .infinity).padding(30) }
                 HStack(spacing: 8) { Chip(text: tr("نسخ"), icon: "copy") { UIPasteboard.general.string = "﴿\(text)﴾\n\(t ?? "")"; ui.say(tr("نُسخ التفسير")) } }.padding(.horizontal, 20)

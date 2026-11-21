@@ -78,3 +78,8 @@ enum F {
     static func amiri(_ size: CGFloat, bold: Bool = true) -> Font { .custom(bold ? "Amiri-Bold" : "Amiri-Regular", size: size) }
     static func quran(_ size: CGFloat) -> Font { .custom("AmiriQuran-Regular", size: size) }
 }
+
+/// ﴿…﴾ around a text shown on screen. iOS mirrors the two ornate brackets in right-to-left text, so written in the usual
+/// order (U+FD3F first) they come out back to front, the flowers facing the words; on screen they are written the other
+/// way round. Copied and shared text keeps the usual order, which is what other apps expect.
+func orn(_ t: String) -> String { "\u{FD3E}\(t)\u{FD3F}" }

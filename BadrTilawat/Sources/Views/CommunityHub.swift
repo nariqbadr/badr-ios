@@ -96,7 +96,7 @@ struct PostEmbed: View {
             let s = max(1, min(114, sa.first ?? 1)), a = sa.count > 1 ? sa[1] : 1
             let on = ayah.key == "\(s):\(a)|\(rv)" && ayah.playing
             VStack(spacing: 8) {
-                Text(text.map { "﴿\($0)﴾" } ?? "…").font(F.quran(compact ? 18 : 21)).foregroundStyle(c.text).lineSpacing(compact ? 14 : 18).multilineTextAlignment(.center).lineLimit(compact ? 4 : nil).frame(maxWidth: .infinity)
+                Text(text.map { orn($0) } ?? "…").font(F.quran(compact ? 18 : 21)).foregroundStyle(c.text).lineSpacing(compact ? 14 : 18).multilineTextAlignment(.center).lineLimit(compact ? 4 : nil).frame(maxWidth: .infinity)
                 HStack {
                     VStack(alignment: .leading, spacing: 0) {
                         Text(tr("سورة {0} — الآية {1}", Quran.surahs[s - 1], a.ar)).font(F.plex(14, .semibold)).foregroundStyle(c.gold)
