@@ -307,6 +307,7 @@ struct MosquesView: View {
     @StateObject private var mq = Mosques.shared
     @Environment(\.pal) private var c
     @State private var busy = false
+    @State private var picked: String?
     private var list: [Mosque] { (mq.near ?? []).sorted { mq.dist($0) < mq.dist($1) } }
     var body: some View {
         ScrollView {
@@ -330,12 +331,17 @@ struct MosquesView: View {
         } else if list.isEmpty {
             empty(!mq.error.isEmpty ? mq.error : tr("لا توجد مساجد قريبة في نطاق ٣ كم"))
         } else {
-            if let first = list.first { NearestCard(m: first) }
+            // the chosen one (the nearest until another is tapped) large at the top, the others ranked under it
+            let top = list.first { $0.id == picked } ?? list[0]
+            NearestCard(m: top, chosen: top.id != list[0].id).id(top.id)
+                .transition(.opacity.combined(with: .scale(scale: 0.97)))
             if list.count > 1 {
                 Text(tr("مساجد حولك")).font(F.amiri(19, bold: true)).foregroundStyle(c.text).padding(.top, 10)
                 let far = max(list.map { mq.dist($0) }.max() ?? 1, 1)
                 LazyVStack(spacing: 8) {
-                    ForEach(Array(list.dropFirst().enumerated()), id: \.element.id) { i, m in MosqueRow(m: m, n: i + 2, far: far) }
+                    ForEach(Array(list.enumerated()).filter { $0.element.id != top.id }, id: \.element.id) { i, m in
+                        Button { withAnimation(.easeInOut(duration: 0.3)) { picked = m.id } } label: { MosqueRow(m: m, n: i + 1, far: far) }.buttonStyle(Press(scale: 0.98))
+                    }
                 }
             }
         }
@@ -352,7 +358,8 @@ struct MosquesView: View {
 /// The nearest mosque, large: its name, where it is, and the three numbers that matter — how far, on foot, by car —
 /// with the coming adhan under them.
 private struct NearestCard: View {
-    let m: Mosque
+    let m: Mosque; var chosen = false
+    @Environment(\.openURL) private var openURL
     @ObservedObject private var mq = Mosques.shared
     @Environment(\.pal) private var c
     var body: some View {
@@ -363,7 +370,7 @@ private struct NearestCard: View {
                     .frame(width: 64, height: 72)
                     .background(UnevenRoundedRectangle(topLeadingRadius: 32, bottomLeadingRadius: 10, bottomTrailingRadius: 10, topTrailingRadius: 32).fill(c.gold))
                 VStack(alignment: .leading, spacing: 3) {
-                    Text(tr("أقرب مسجد إليك")).font(F.plex(12, .semibold)).foregroundStyle(c.gold)
+                    Text(chosen ? tr("المسجد الذي اخترته") : tr("أقرب مسجد إليك")).font(F.plex(12, .semibold)).foregroundStyle(c.gold)
                     Text(m.title).font(F.amiri(23, bold: true)).foregroundStyle(c.text).lineLimit(2).minimumScaleFactor(0.8)
                     if !m.place.isEmpty { Text(m.place).font(F.plex(12.5)).foregroundStyle(c.muted).lineLimit(1) }
                 }
@@ -380,6 +387,13 @@ private struct NearestCard: View {
             if !adhan.isEmpty {
                 HStack(spacing: 6) { SiteIcon(name: "clock", size: 15, color: c.gold); Text(adhan).font(F.plex(12.5, .medium)).foregroundStyle(c.text) }
             }
+            // the way there: in the phone's maps app (Google Maps when it is installed)
+            Button {
+                if let u = URL(string: "https://www.google.com/maps/search/?api=1&query=\(m.lat),\(m.lng)") { openURL(u) }
+            } label: {
+                HStack(spacing: 6) { SiteIcon(name: "pin", size: 16, color: c.gold); Text(tr("افتح في الخرائط")).font(F.plex(13, .semibold)).foregroundStyle(c.gold) }
+                    .padding(.horizontal, 14).padding(.vertical, 8).overlay(Capsule().stroke(c.gold.opacity(0.55)))
+            }.buttonStyle(Press())
         }
         .padding(16)
         .background(RoundedRectangle(cornerRadius: 26).fill(LinearGradient(colors: [c.gold.opacity(0.16), c.surface], startPoint: .topLeading, endPoint: .bottomTrailing)))
