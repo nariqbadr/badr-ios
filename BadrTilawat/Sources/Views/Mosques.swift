@@ -482,7 +482,7 @@ struct MosquesView: View {
             empty(mq.denied ? tr("فعّل الوصول إلى الموقع من الإعدادات لنعرض لك أقرب المساجد") : tr("اسمح بتحديد موقعك لنعرض لك أقرب المساجد"), action: mq.denied ? nil : tr("تحديد موقعي")) {
                 Task { busy = true; await mq.locate(ask: true); await mq.loadNear(force: true); busy = false }
             }
-        } else if tab == 0, results == nil, mq.near == nil || busy {
+        } else if tab == 0, results == nil, mq.near == nil || (busy && mq.near?.isEmpty != false) {
             empty(tr("جارٍ البحث عن المساجد القريبة…"))
         } else if list.isEmpty {
             empty(!mq.error.isEmpty && tab == 0 ? mq.error + (mq.diag.isEmpty ? "" : "\n" + mq.diag) : results != nil ? tr("لم نجد مسجدًا بهذا الاسم") : tab == 2 ? tr("لم تحفظ أي مسجد بعد — اضغط النجمة في صفحة المسجد") : tr("لا توجد مساجد قريبة في نطاق ٣ كم"))
