@@ -68,11 +68,35 @@ struct Mosque: Identifiable, Hashable { let id: String, name: String, area: Stri
     func loadNear(force: Bool = false) async {
         guard let p = pos else { return }
         if !force, near != nil, let a = nearAt, abs(a.latitude - p.latitude) < 0.002, abs(a.longitude - p.longitude) < 0.002 { return }
-        let r = items(await get(["do": "mosques_near", "lat": String(format: "%.5f", p.latitude), "lng": String(format: "%.5f", p.longitude)]))
+        var r = items(await get(["do": "mosques_near", "lat": String(format: "%.5f", p.latitude), "lng": String(format: "%.5f", p.longitude)]))
+        // the site can't answer (or has none): Apple Maps' own places
+        if r?.isEmpty ?? true { let a = await apple(near: p); if !a.isEmpty { r = a } }
         error = r == nil ? tr("تعذّر جلب المساجد الآن، حاول بعد قليل") : ""
         near = (r ?? []).sorted { dist($0) < dist($1) }; nearAt = p
     }
-    func search(_ q: String) async -> [Mosque] { items(await get(["do": "mosques_search", "q": q])) ?? [] }
+    func search(_ q: String) async -> [Mosque] {
+        if let r = items(await get(["do": "mosques_search", "q": q])), !r.isEmpty { return r }
+        let mq = q.range(of: "مسجد|جامع|mosque|masjid|cami", options: [.regularExpression, .caseInsensitive]) != nil ? q : tr("مسجد") + " " + q
+        return await appleSearch(mq, region: nil)
+    }
+    /// Apple Maps: mosques within ~3 km (two wordings, merged)
+    private func apple(near p: CLLocationCoordinate2D) async -> [Mosque] {
+        let reg = MKCoordinateRegion(center: p, latitudinalMeters: 6000, longitudinalMeters: 6000)
+        var out: [Mosque] = []
+        for w in ["mosque", "مسجد"] { out += await appleSearch(w, region: reg) }
+        var seen = Set<String>()
+        return out.filter { seen.insert("\(Int($0.lat * 5000)):\(Int($0.lng * 5000))").inserted && dist($0) <= 3500 }
+    }
+    private func appleSearch(_ q: String, region: MKCoordinateRegion?) async -> [Mosque] {
+        let r = MKLocalSearch.Request(); r.naturalLanguageQuery = q; r.resultTypes = .pointOfInterest
+        if let region { r.region = region }
+        guard let res = try? await MKLocalSearch(request: r).start() else { return [] }
+        return res.mapItems.compactMap { it in
+            let c = it.placemark.coordinate
+            let area = [it.placemark.thoroughfare, it.placemark.subLocality ?? it.placemark.locality].compactMap { $0 }.joined(separator: tr("، "))
+            return Mosque(id: "a\(Int(c.latitude * 1e5)):\(Int(c.longitude * 1e5))", name: it.name ?? tr("مسجد"), area: area.isEmpty ? (it.placemark.country ?? "") : area, lat: c.latitude, lng: c.longitude)
+        }
+    }
 
     func dist(_ m: Mosque) -> Double { guard let p = pos else { return 0 }; return CLLocation(latitude: p.latitude, longitude: p.longitude).distance(from: CLLocation(latitude: m.lat, longitude: m.lng)) }
     /// rough times before a real route: streets aren't straight (×1.3), 80 m a minute on foot, 25 km/h by car in town
