@@ -13,6 +13,8 @@ jobs:
           mkdir out && cd out
           B="https://bawazirquran.com/wp-admin/admin-ajax.php?action=bz"
           curl -s -m 60 "$B&do=data" -o data.json
+          curl -s -m 60 "$B&do=mosques_near&lat=30.1128&lng=31.3422" -o mosques.json
+          curl -s -m 30 "https://overpass-api.de/api/status" -o overpass-status.txt || true
           curl -s -m 60 "$B&do=c_feed&tab=all&before=0" -o feed-all.json
           curl -s -m 60 "$B&do=c_feed&tab=latest&before=0" -o feed-latest.json
           curl -s -m 60 "$B&do=c_suggest" -o suggest.json
