@@ -6,10 +6,15 @@ jobs:
     steps:
       - run: |
           UA="BadrTilawat/check (+https://bawazirquran.com)"
-          echo "== nominatim q"; curl -s -A "$UA" "https://nominatim.openstreetmap.org/search?q=%D8%A7%D9%84%D8%AC%D9%88%D9%8A%D8%B1%D9%8A%D8%A9&countrycodes=eg&format=jsonv2&extratags=1&namedetails=1&limit=10" | python3 -m json.tool | head -120
-          echo "== overpass name~جويري around 4km"
-          Q='[out:json][timeout:25];nwr["name"~"جويري|جويرية|Juwayr|Gwair",i](around:6000,30.0784,31.3016);out center tags;'
-          curl -s -A "$UA" --data-urlencode "data=$Q" https://overpass-api.de/api/interpreter | python3 -m json.tool | head -120
-          echo "== overpass newest mosques (last 2 days) around"
-          Q2='[out:json][timeout:25];nwr["amenity"="place_of_worship"](newer:"2026-11-20T00:00:00Z")(around:8000,30.0784,31.3016);out center tags meta;'
-          curl -s -A "$UA" --data-urlencode "data=$Q2" https://overpass-api.de/api/interpreter | python3 -m json.tool | head -150
+          Q='[out:json][timeout:25];nwr["amenity"="place_of_worship"](around:600,30.111283,31.3412941);out center tags meta;'
+          curl -s -A "$UA" --data-urlencode "data=$Q" https://overpass-api.de/api/interpreter > o.json
+          python3 - <<'P'
+          import json,math
+          d=json.load(open('o.json'))
+          la,lo=30.111283,31.3412941
+          for e in d['elements']:
+              y=e.get('lat') or e['center']['lat']; x=e.get('lon') or e['center']['lon']
+              m=math.hypot((y-la)*111320,(x-lo)*111320*math.cos(math.radians(la)))
+              t=e.get('tags',{})
+              print(f"{int(m):5d}m {e['type']}/{e['id']} {y:.6f},{x:.6f} name={t.get('name','-')} rel={t.get('religion','-')} bld={t.get('building','-')} user={e.get('user')} v={e.get('version')}")
+          P
