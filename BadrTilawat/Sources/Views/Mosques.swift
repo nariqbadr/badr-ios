@@ -1,7 +1,6 @@
 import SwiftUI
 import MapKit
 import CoreLocation
-import AVFoundation
 
 /// «بيوت الله»: the mosques around the person (nearest first, with the time on foot and by car), the famous ones, any
 /// mosque in the world by name, and the way to one — drawn on the map, every step in the app's language, and the
@@ -309,6 +308,8 @@ struct MqRoute {
 private struct MosqueMap: View {
     let pins: [Mosque]; let me: CLLocationCoordinate2D?; let line: MKPolyline?; let sel: String?
     var follow = false
+    /// from the person to where the way starts on the road (dotted, as in Google Maps)
+    var lead: [CLLocationCoordinate2D]? = nil
     var onPin: (Mosque) -> Void = { _ in }
     @Environment(\.pal) private var c
     @State private var cam: MapCameraPosition = .automatic
@@ -321,6 +322,9 @@ private struct MosqueMap: View {
                 Annotation(m.title, coordinate: m.coord) { MosquePin(big: m.id == sel) { onPin(m) } }.annotationTitles(.hidden)
             }
             if let line { routeLine(line) }
+            if let lead, lead.count == 2, Mosques.d(lead[0], lead[1]) > 8 {
+                MapPolyline(coordinates: lead).stroke(MosquePin.blue, style: StrokeStyle(lineWidth: 4, lineCap: .round, dash: [2, 8]))
+            }
         }
         .mapStyle(.standard(elevation: .flat, emphasis: .muted, pointsOfInterest: .excludingAll))
         .mapControls { MapCompass(); MapScaleView() }
@@ -629,7 +633,7 @@ private struct NextTurn: View {
     @Environment(\.pal) private var c
     var body: some View {
         HStack(spacing: 12) {
-            SiteIcon(name: "nav", size: 22, color: c.onGold).rotationEffect(.degrees(Mosques.deg(st.mod))).frame(width: 44, height: 44).background(RoundedRectangle(cornerRadius: 14).fill(c.gold))
+            TurnArrow(deg: Mosques.deg(st.mod)).fill(c.onGold).frame(width: 26, height: 26).frame(width: 44, height: 44).background(RoundedRectangle(cornerRadius: 14).fill(c.gold))
             VStack(alignment: .leading, spacing: 1) { Text(Mosques.km(dist)).font(F.plex(19, .bold)).foregroundStyle(c.text); Text(st.text).font(F.plex(12.5)).foregroundStyle(c.muted).lineLimit(2) }
             Spacer(minLength: 0)
         }.padding(12).background(RoundedRectangle(cornerRadius: 20).fill(c.bg)).overlay(RoundedRectangle(cornerRadius: 20).stroke(c.line)).shadow(radius: 10, y: 4)
@@ -648,15 +652,66 @@ private struct StepsList: View {
     private func row(_ s: MqStep) -> some View {
         let end = s.type == "arrive"
         return HStack(alignment: .top, spacing: 10) {
-            SiteIcon(name: end ? "mosque" : "nav", size: 16, color: c.gold).rotationEffect(.degrees(end ? 0 : Mosques.deg(s.mod))).frame(width: 22)
+            Group { if end { SiteIcon(name: "mosque", size: 16, color: c.gold) } else { TurnArrow(deg: Mosques.deg(s.mod)).fill(c.gold).frame(width: 15, height: 15) } }.frame(width: 22)
             Text(s.text).font(F.plex(13.5)).foregroundStyle(c.text).frame(maxWidth: .infinity, alignment: .leading)
             if s.dist > 0 { Text(Mosques.km(s.dist)).font(F.plex(11.5)).foregroundStyle(c.muted) }
         }
     }
 }
 
-/// The way told inside the app: it follows the person, says each turn before it comes and again at it, draws the way
-/// again from where they are when they leave it, and says when they have arrived. The screen stays on meanwhile.
+/// A turn arrow drawn for the app (its own path, turned by the step's angle in its own numbers — so it never mirrors in Arabic).
+struct TurnArrow: Shape {
+    let deg: Double
+    func path(in r: CGRect) -> Path {
+        let pts: [CGPoint] = [CGPoint(x: 0, y: -0.46), CGPoint(x: 0.34, y: -0.06), CGPoint(x: 0.12, y: -0.06), CGPoint(x: 0.12, y: 0.42),
+                              CGPoint(x: -0.12, y: 0.42), CGPoint(x: -0.12, y: -0.06), CGPoint(x: -0.34, y: -0.06)]
+        let a = deg * .pi / 180, c = CGPoint(x: r.midX, y: r.midY), k = min(r.width, r.height)
+        var p = Path()
+        for (i, q) in pts.enumerated() {
+            let x = c.x + k * (q.x * cos(a) - q.y * sin(a)), y = c.y + k * (q.x * sin(a) + q.y * cos(a))
+            if i == 0 { p.move(to: CGPoint(x: x, y: y)) } else { p.addLine(to: CGPoint(x: x, y: y)) }
+        }
+        p.closeSubpath(); return p
+    }
+}
+
+/// Where the person is along the way: the nearest piece of the line, the metres gone along it, and how far off it they are.
+struct RouteTrack {
+    let line: [CLLocationCoordinate2D]; let cum: [Double]; let stepAt: [Int]
+    init(_ r: MqRoute) {
+        line = r.line
+        var c: [Double] = [0]; for i in 1..<max(1, r.line.count) { c.append(c[i - 1] + Mosques.d(r.line[i - 1], r.line[i])) }
+        cum = c
+        // each turn's place on the line (in order, so a road met twice is matched in the right place)
+        var at: [Int] = [], from = 0
+        for s in r.steps {
+            var best = from, bd = Double.infinity
+            for i in from..<max(from + 1, r.line.count) where i < r.line.count { let d = Mosques.d(r.line[i], s.coord); if d < bd { bd = d; best = i } }
+            at.append(best); from = best
+        }
+        stepAt = at
+    }
+    /// metres along the line where the person is, and how far from it
+    func place(_ p: CLLocationCoordinate2D) -> (along: Double, off: Double, seg: Int) {
+        guard line.count > 1 else { return (0, 0, 0) }
+        let kx = cos(p.latitude * .pi / 180) * 111_320.0, ky = 110_540.0
+        var best = (along: 0.0, off: Double.infinity, seg: 0)
+        for i in 0..<(line.count - 1) {
+            let a = line[i], b = line[i + 1]
+            let ax = (a.longitude - p.longitude) * kx, ay = (a.latitude - p.latitude) * ky
+            let dx = (b.longitude - a.longitude) * kx, dy = (b.latitude - a.latitude) * ky
+            let l2 = dx * dx + dy * dy
+            let t = l2 == 0 ? 0 : max(0, min(1, -(ax * dx + ay * dy) / l2))
+            let x = ax + t * dx, y = ay + t * dy, d = (x * x + y * y).squareRoot()
+            if d < best.off { best = (cum[i] + t * (cum[i + 1] - cum[i]), d, i) }
+        }
+        return best
+    }
+}
+
+/// The way shown inside the app, as in Google Maps: the map turns with the person, the next turn with its arrow and the
+/// metres left to it along the road, the time and distance left and the arrival time; the way is drawn again from where
+/// they are when they leave it, and it says when they have arrived. The screen stays on meanwhile. (No voice.)
 @available(iOS 17.0, *)
 struct MosqueNavView: View {
     let m: Mosque; let route0: MqRoute; let foot: Bool; var onRoute: (MqRoute) -> Void = { _ in }
@@ -664,100 +719,84 @@ struct MosqueNavView: View {
     @Environment(\.pal) private var c
     @StateObject private var mq = Mosques.shared
     @State private var route: MqRoute?
-    @State private var step = 1
-    @State private var mute = false
+    @State private var track: RouteTrack?
+    @State private var along = 0.0
     @State private var arrived = false
-    @State private var said = Set<String>()
     @State private var off = 0
     @State private var busy = false
-    private static let voice = AVSpeechSynthesizer()
+    @State private var key = 0
     private var r: MqRoute { route ?? route0 }
-    private var st: MqStep { r.steps[safe: step] ?? r.steps[r.steps.count - 1] }
-    private var toTurn: Double { mq.pos.map { Mosques.d($0, st.coord) } ?? st.dist }
-    private var left: Double {
-        let rest = r.steps.dropFirst(step).dropLast().reduce(0.0) { $0 + $1.dist }
-        return max(toTurn + rest, mq.pos.map { Mosques.d($0, m.coord) } ?? 0)
+    private var tk: RouteTrack { track ?? RouteTrack(route0) }
+    /// the next turn: the first one still ahead along the line
+    private var step: Int {
+        let t = tk
+        for i in 1..<max(2, r.steps.count) where i < r.steps.count { if t.cum[min(t.stepAt[i], t.cum.count - 1)] > along + 3 { return i } }
+        return r.steps.count - 1
     }
     var body: some View {
+        let i = step, st = r.steps[i]
+        let toTurn = max(0, tk.cum[min(tk.stepAt[i], tk.cum.count - 1)] - along)
+        let left = max(0, (tk.cum.last ?? r.dist) - along)
+        let secs = r.dist > 0 ? r.dur * left / r.dist : left / (foot ? 1.3 : 7.0)
         ZStack {
-            MosqueMap(pins: [m], me: mq.pos, line: r.poly, sel: m.id, follow: true).ignoresSafeArea()
-            VStack { banner; Spacer(); bottom }
+            MosqueMap(pins: [m], me: mq.pos, line: r.poly, sel: m.id, follow: true, lead: mq.pos.flatMap { p in r.line.first.map { [p, $0] } }).id(key).ignoresSafeArea()
+            VStack {
+                HStack(spacing: 14) {
+                    Group {
+                        if arrived { SiteIcon(name: "mosque", size: 30, color: c.onGold) }
+                        else { TurnArrow(deg: st.type == "arrive" ? 0 : Mosques.deg(st.mod)).fill(c.onGold).frame(width: 34, height: 34) }
+                    }.frame(width: 56, height: 56).background(RoundedRectangle(cornerRadius: 18).fill(c.gold))
+                    VStack(alignment: .leading, spacing: 2) {
+                        if !arrived { Text(Mosques.km(toTurn)).font(F.plex(24, .bold)).foregroundStyle(c.text) }
+                        Text(arrived ? tr("وصلت إلى المسجد") : st.text).font(F.plex(arrived ? 20 : 15, arrived ? .bold : .regular)).foregroundStyle(arrived ? c.text : c.muted).lineLimit(2)
+                    }
+                    Spacer(minLength: 0)
+                }.padding(14).background(RoundedRectangle(cornerRadius: 22).fill(c.bg)).overlay(RoundedRectangle(cornerRadius: 22).stroke(c.line)).shadow(radius: 12, y: 4)
+                    .padding(12)
+                Spacer()
+                HStack {
+                    navBtn("close") { dismiss() }
+                    VStack(spacing: 2) {
+                        Text(Mosques.mins(secs)).font(F.plex(22, .bold)).foregroundStyle(Color(red: 0.31, green: 0.75, blue: 0.52))
+                        Text(Mosques.km(left) + " · " + Mosques.clock(secs)).font(F.plex(12.5)).foregroundStyle(c.muted)
+                    }.frame(maxWidth: .infinity)
+                    navBtn("locate") { key += 1 }   // back to following the person
+                }.padding(.horizontal, 16).padding(.vertical, 14)
+                    .background(UnevenRoundedRectangle(topLeadingRadius: 24, topTrailingRadius: 24).fill(c.bg).ignoresSafeArea(edges: .bottom))
+                    .overlay(UnevenRoundedRectangle(topLeadingRadius: 24, topTrailingRadius: 24).stroke(c.line))
+            }
         }
         .environment(\.layoutDirection, L.dir)
         .onAppear {
             UIApplication.shared.isIdleTimerDisabled = true
-            step = min(1, route0.steps.count - 1)
-            speak(tr("لنبدأ — الطريق إلى {0}", m.title) + ". " + (route0.steps[safe: step]?.text ?? ""))
+            track = RouteTrack(route0)
+            if let p = mq.pos { along = tk.place(p).along }
             mq.follow(true) { fix($0) }
         }
-        .onDisappear { mq.follow(false); Self.voice.stopSpeaking(at: .immediate); UIApplication.shared.isIdleTimerDisabled = false }
+        .onDisappear { mq.follow(false); UIApplication.shared.isIdleTimerDisabled = false }
         .task(id: arrived) { if arrived { try? await Task.sleep(nanoseconds: 6_000_000_000); dismiss() } }
-    }
-    private var banner: some View {
-        HStack(spacing: 14) {
-            SiteIcon(name: arrived ? "mosque" : "nav", size: 30, color: c.onGold).rotationEffect(.degrees(arrived ? 0 : Mosques.deg(st.mod)))
-                .frame(width: 56, height: 56).background(RoundedRectangle(cornerRadius: 18).fill(c.gold))
-            VStack(alignment: .leading, spacing: 2) {
-                if !arrived { Text(Mosques.km(toTurn)).font(F.plex(24, .bold)).foregroundStyle(c.text) }
-                Text(arrived ? tr("وصلت إلى المسجد") : st.text).font(F.plex(arrived ? 20 : 15, arrived ? .bold : .regular)).foregroundStyle(arrived ? c.text : c.muted).lineLimit(2)
-            }
-            Spacer(minLength: 0)
-        }.padding(14).background(RoundedRectangle(cornerRadius: 22).fill(c.bg)).overlay(RoundedRectangle(cornerRadius: 22).stroke(c.line)).shadow(radius: 12, y: 4)
-            .padding(12)
-    }
-    private var bottom: some View {
-        let secs = left / (foot ? 1.3 : 7.0)
-        return HStack {
-            navBtn("close") { dismiss() }
-            VStack(spacing: 2) {
-                Text(Mosques.mins(secs)).font(F.plex(22, .bold)).foregroundStyle(Color(red: 0.31, green: 0.75, blue: 0.52))
-                Text(Mosques.km(left) + " · " + Mosques.clock(secs)).font(F.plex(12.5)).foregroundStyle(c.muted)
-            }.frame(maxWidth: .infinity)
-            navBtn(mute ? "mute" : "volume") { mute.toggle(); if mute { Self.voice.stopSpeaking(at: .immediate) } }
-        }.padding(.horizontal, 16).padding(.vertical, 14)
-            .background(UnevenRoundedRectangle(topLeadingRadius: 24, topTrailingRadius: 24).fill(c.bg).ignoresSafeArea(edges: .bottom))
-            .overlay(UnevenRoundedRectangle(topLeadingRadius: 24, topTrailingRadius: 24).stroke(c.line))
     }
     private func navBtn(_ icon: String, _ f: @escaping () -> Void) -> some View {
         Button(action: f) { SiteIcon(name: icon, size: 22, color: c.text).frame(width: 48, height: 48).background(Circle().fill(c.surface)).overlay(Circle().stroke(c.line)) }.buttonStyle(Press())
     }
-    private func speak(_ t: String) {
-        guard !mute, !t.isEmpty else { return }
-        let u = AVSpeechUtterance(string: t)
-        u.voice = AVSpeechSynthesisVoice(language: L.locale.identifier) ?? AVSpeechSynthesisVoice(language: L.code)
-        Self.voice.stopSpeaking(at: .immediate); Self.voice.speak(u)
-    }
     private func fix(_ l: CLLocation) {
         guard !arrived else { return }
-        let p = l.coordinate, r = self.r
-        if Mosques.d(p, m.coord) < 25 { arrived = true; speak(tr("وصلت إلى المسجد") + ". " + tr("تقبّل الله منك")); return }
+        let p = l.coordinate
+        if Mosques.d(p, m.coord) < 25 { arrived = true; return }
+        let at = tk.place(p)
+        // never backwards by GPS jitter (a few metres), but a real step back is followed
+        if at.along > along || along - at.along > 30 { along = at.along }
         // off the way for two fixes: drawn again from here
-        let near = zip(r.line, r.line.dropFirst()).map { seg(p, $0.0, $0.1) }.min() ?? 0
-        if near > (foot ? 40 : 70) {
+        if at.off > (foot ? 40 : 70) {
             off += 1
             if off >= 2, !busy {
-                busy = true; speak(tr("جارٍ إعادة حساب الطريق"))
+                busy = true
                 Task {
-                    if let n = await mq.route(from: p, to: m, foot: foot) { route = n; onRoute(n); step = min(1, n.steps.count - 1); said.removeAll() }
+                    if let n = await mq.route(from: p, to: m, foot: foot) { route = n; track = RouteTrack(n); along = 0; onRoute(n) }
                     busy = false; off = 0
                 }
             }
         } else { off = 0 }
-        guard let s = r.steps[safe: step] else { return }
-        let d = Mosques.d(p, s.coord), close = foot ? 15.0 : 30.0
-        if d < close, step < r.steps.count - 1 { step += 1; return }
-        if d < (foot ? 60 : 250), said.insert("\(step)-a").inserted { speak(tr("بعد {0}", Mosques.km(d)) + tr("، ") + s.text) }
-        if d < close * 2, said.insert("\(step)-b").inserted { speak(s.text + " " + tr("الآن")) }
-    }
-    /// metres from a point to a segment (flat enough at street scale)
-    private func seg(_ p: CLLocationCoordinate2D, _ a: CLLocationCoordinate2D, _ b: CLLocationCoordinate2D) -> Double {
-        let kx = cos(p.latitude * .pi / 180) * 111_320.0, ky = 110_540.0
-        let ax = (a.longitude - p.longitude) * kx, ay = (a.latitude - p.latitude) * ky
-        let dx = (b.longitude - a.longitude) * kx, dy = (b.latitude - a.latitude) * ky
-        let l2 = dx * dx + dy * dy
-        let t = l2 == 0 ? 0 : max(0, min(1, -(ax * dx + ay * dy) / l2))
-        let x = ax + t * dx, y = ay + t * dy
-        return (x * x + y * y).squareRoot()
     }
 }
 
