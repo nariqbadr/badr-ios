@@ -115,7 +115,7 @@ struct Mosque: Identifiable, Hashable {
     /// page opens with it at once and is refreshed behind it.
     func loadNear(force: Bool = false) async {
         guard let p = pos else { return }
-        if !force, (near?.count ?? 0) >= 5, let a = nearAt, abs(a.latitude - p.latitude) < 0.002, abs(a.longitude - p.longitude) < 0.002, Date().timeIntervalSince(nearTime) < 86400 { return }
+        if !force, (near?.count ?? 0) >= 5, let a = nearAt, abs(a.latitude - p.latitude) < 0.002, abs(a.longitude - p.longitude) < 0.002, Date().timeIntervalSince(nearTime) < 1800 { return }
         var why: [String] = []
         async let ap = apple(near: p)
         // every source is asked at once and ALL their answers are put together (the first answer alone was sometimes a
