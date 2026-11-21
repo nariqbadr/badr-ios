@@ -409,7 +409,12 @@ struct AyahOfDay: View {
                 else { RoundedRectangle(cornerRadius: 14).fill(c.surface2).frame(height: 90).padding(.vertical, 10) }
             }.animation(.easeOut(duration: 0.45), value: text)
             HStack(spacing: 12) {
-                PlayCircle(playing: mine && ayah.playing, size: 58) { if mine && ayah.playing { ayah.stop() } else { ayah.play(rv, s, a, repeat: repeatN) } }
+                PlayCircle(playing: mine && ayah.playing, size: 58) {
+                    if mine && ayah.playing { ayah.stop(); return }
+                    // a voice that has not recited this ayah: one he did, chosen at random, plays in his own voice
+                    let r = fit(rv) ?? (s, a)
+                    ayah.play(rv, r.0, r.1, repeat: repeatN)
+                }
                 VStack(alignment: .leading, spacing: 2) {
                     AyahBar(p: ayah.progress, on: mine).padding(.vertical, 10)
                     Text(mine ? ayah.status : tr("اختر القارئ واضغط تشغيل")).font(F.plex(11)).foregroundStyle(c.muted).lineLimit(4).fixedSize(horizontal: false, vertical: true)
@@ -461,10 +466,12 @@ struct AyahOfDay: View {
     private func load(_ s: Int, _ a: Int) async -> String { ayahClean(s, a, (await repo.surahText(s))?[safe: a - 1] ?? "") }
     private func setRef(_ r: (Int, Int)) { ayah.stop(); note = ""; ref = r }
     /// the voice changed: the ayah stays if he recited it, else one he did is chosen, and the card says so (as on the site)
-    private func fit(_ v: String) {
-        guard let sc = ayah.scope(v), let p = sc.randomElement(), !AyahPlayer.inScope(sc, ref.0, ref.1) else { return }
-        ref = (p.0, Int.random(in: p.1...max(p.1, p.2)))
+    @discardableResult private func fit(_ v: String) -> (Int, Int)? {
+        guard let sc = ayah.scope(v), let p = sc.randomElement(), !AyahPlayer.inScope(sc, ref.0, ref.1) else { return nil }
+        let r = (p.0, Int.random(in: p.1...max(p.1, p.2)))
+        ref = r
         note = tr("اخترنا لك آية من المتاح بصوت {0}", ayah.label(v, p.0, p.1))
+        return r
     }
     private func newAyah() {
         ayah.stop(); note = ""
