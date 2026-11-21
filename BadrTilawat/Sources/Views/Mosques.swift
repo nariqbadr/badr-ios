@@ -319,6 +319,7 @@ struct Mosque: Identifiable, Hashable {
 
 struct MosquesView: View {
     @StateObject private var mq = Mosques.shared
+    @AppStorage("homeMosque") private var homeShow = true
     @Environment(\.pal) private var c
     @State private var busy = false
     @State private var picked: String?
@@ -327,6 +328,14 @@ struct MosquesView: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 10) {
                 content
+                if mq.pos != nil {
+                    Toggle(isOn: $homeShow) {
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text(tr("إظهار أقرب مسجد في الرئيسية")).font(F.plex(14, .semibold)).foregroundStyle(c.text)
+                            Text(tr("أخفِه إن كنت ستصوّر الشاشة الرئيسية وتشاركها، حتى لا يُعرف مكانك")).font(F.plex(12)).foregroundStyle(c.muted)
+                        }
+                    }.tint(c.gold).padding(14).background(RoundedRectangle(cornerRadius: 16).fill(c.surface.opacity(0.6))).overlay(RoundedRectangle(cornerRadius: 16).stroke(c.line)).padding(.top, 14)
+                }
             }
             .padding(16).padding(.bottom, 20)
         }
@@ -458,11 +467,13 @@ private struct MosqueRow: View {
 /// Home: «أقرب مسجد · مسجد … · ٥ د مشيًا» under the date — only when the place is already allowed (it never asks from here).
 struct NearestMosquePill: View {
     @StateObject private var mq = Mosques.shared
+    /// «إظهار أقرب مسجد في الرئيسية»: off for someone who shares pictures of the home screen (it tells where he lives)
+    @AppStorage("homeMosque") private var show = true
     @Environment(\.pal) private var c
     private var ui: UIState { UIState.shared! }
     var body: some View {
         Group {
-            if let n = mq.near?.min(by: { mq.dist($0) < mq.dist($1) }), mq.pos != nil {
+            if show, let n = mq.near?.min(by: { mq.dist($0) < mq.dist($1) }), mq.pos != nil {
                 Button { ui.path.append(.mosques) } label: {
                     HStack(spacing: 7) {
                         SiteIcon(name: "mosque", size: 17, color: c.onGold).frame(width: 26, height: 26).background(Circle().fill(c.gold))
@@ -472,6 +483,9 @@ struct NearestMosquePill: View {
                         SiteIcon(name: "chev-l", size: 15, color: c.muted)
                     }.padding(.leading, 5).padding(.trailing, 10).padding(.vertical, 4).background(Capsule().fill(c.text.opacity(0.06))).overlay(Capsule().stroke(c.line))
                 }.buttonStyle(Press()).padding(.top, 8)
+                .contextMenu {
+                    Button { show = false; ui.say(tr("أُخفي أقرب مسجد من الرئيسية · تُظهره من «بيوت الله»")) } label: { Label(tr("إخفاء من الرئيسية"), systemImage: "eye.slash") }
+                }
             }
         }
         .task { if mq.allowed { await mq.locate(ask: false); await mq.loadNear() } }
