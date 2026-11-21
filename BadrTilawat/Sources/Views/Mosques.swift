@@ -513,6 +513,7 @@ struct MosquesView: View {
             ZStack { c.surface; MapFinish(); SiteIcon(name: "locate", size: 30, color: c.muted) }
         } else {
             MosqueMap(pins: list, me: mq.pos, line: nil, sel: nil, focus: focus) { sel = $0 }
+                .id(results != nil ? "r\(results?.count ?? 0)" : tab == 1 ? "f\(mq.famousNear?.count ?? -1)" : "t\(tab)")
                 .overlay(alignment: .bottomTrailing) {
                     Button { Task { await mq.locate(ask: true); focus += 1; busy = true; await mq.loadNear(); busy = false } } label: {
                         SiteIcon(name: "locate", size: 20, color: c.text).frame(width: 42, height: 42).background(Circle().fill(c.bg.opacity(0.9))).overlay(Circle().stroke(c.line))
