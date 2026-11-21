@@ -14,6 +14,9 @@ jobs:
           B="https://bawazirquran.com/wp-admin/admin-ajax.php?action=bz"
           curl -s -m 60 "$B&do=data" -o data.json
           curl -s -m 60 "$B&do=mosques_near&lat=30.1128&lng=31.3422" -o mosques.json
+          curl -s -m 60 "$B&do=mosques_search&q=%D8%A7%D9%84%D8%AD%D8%B3%D9%8A%D9%86" -o msearch.json
+          curl -s -m 60 "$B&do=mosque_route&flat=30.1128&flng=31.3422&tlat=30.1170&tlng=31.3440&mode=foot" -o mroute.json
+          curl -s -m 60 -X POST --data-urlencode "data=[out:json][timeout:20];nwr[\"amenity\"=\"place_of_worship\"][\"religion\"=\"muslim\"](around:1500,30.1128,31.3422);out center tags 40;" https://overpass-api.de/api/interpreter -o overpass-raw.json || true
           curl -s -m 30 "https://overpass-api.de/api/status" -o overpass-status.txt || true
           curl -s -m 60 "$B&do=c_feed&tab=all&before=0" -o feed-all.json
           curl -s -m 60 "$B&do=c_feed&tab=latest&before=0" -o feed-latest.json
