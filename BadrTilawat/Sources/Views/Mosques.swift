@@ -265,6 +265,10 @@ struct Mosque: Identifiable, Hashable {
         if let region { r.region = region }
         guard let res = try? await MKLocalSearch(request: r).start() else { return [] }
         return res.mapItems.compactMap { it in
+            // only a place whose name says it is a mosque (Apple's search also returns shops named after a nearby mosque)
+            let n = (it.name ?? "").trimmingCharacters(in: .whitespaces)
+            guard n.range(of: "^(ال)?(مسجد|جامع|زاوية|مصلى|مصلّى)", options: .regularExpression) != nil
+                    || n.range(of: "\\b(mosque|masjid|masjed|cami|jami)\\b", options: [.regularExpression, .caseInsensitive]) != nil else { return nil }
             let c = it.placemark.coordinate
             let area = [it.placemark.thoroughfare, it.placemark.subLocality ?? it.placemark.locality].compactMap { $0 }.joined(separator: tr("، "))
             return Mosque(id: "a\(Int(c.latitude * 1e5)):\(Int(c.longitude * 1e5))", name: it.name ?? "", area: area.isEmpty ? (it.placemark.country ?? "") : area,
@@ -307,9 +311,6 @@ struct MosquesView: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 10) {
-                if let n = mq.near, !n.isEmpty {
-                    HStack { Text(tr("{0} مسجدًا قريبًا منك", n.count.ar)); Spacer(); Text(tr("الأقرب أولًا")) }.font(F.plex(12)).foregroundStyle(c.muted)
-                }
                 content
             }
             .padding(16).padding(.bottom, 20)
@@ -329,8 +330,13 @@ struct MosquesView: View {
         } else if list.isEmpty {
             empty(!mq.error.isEmpty ? mq.error : tr("لا توجد مساجد قريبة في نطاق ٣ كم"))
         } else {
-            LazyVStack(spacing: 10) {
-                ForEach(Array(list.enumerated()), id: \.element.id) { i, m in MosqueRow(m: m, first: i == 0) }
+            if let first = list.first { NearestCard(m: first) }
+            if list.count > 1 {
+                Text(tr("مساجد حولك")).font(F.amiri(19, bold: true)).foregroundStyle(c.text).padding(.top, 10)
+                let far = max(list.map { mq.dist($0) }.max() ?? 1, 1)
+                LazyVStack(spacing: 8) {
+                    ForEach(Array(list.dropFirst().enumerated()), id: \.element.id) { i, m in MosqueRow(m: m, n: i + 2, far: far) }
+                }
             }
         }
     }
@@ -343,28 +349,81 @@ struct MosquesView: View {
     }
 }
 
-private struct MosqueRow: View {
-    let m: Mosque; let first: Bool
+/// The nearest mosque, large: its name, where it is, and the three numbers that matter — how far, on foot, by car —
+/// with the coming adhan under them.
+private struct NearestCard: View {
+    let m: Mosque
     @ObservedObject private var mq = Mosques.shared
     @Environment(\.pal) private var c
     var body: some View {
-        let d: Double? = mq.pos == nil ? nil : mq.dist(m)
-        HStack(spacing: 12) {
-            SiteIcon(name: "mosque", size: 28, color: c.text).frame(width: 46, height: 46).background(RoundedRectangle(cornerRadius: 15).fill(c.text.opacity(0.08)))
-            VStack(alignment: .leading, spacing: 2) {
-                Text(m.title).font(F.plex(15, .bold)).foregroundStyle(c.text).lineLimit(1)
-                if !m.place.isEmpty { Text(m.place).font(F.plex(11.5)).foregroundStyle(c.muted).lineLimit(1) }
-                if let d, d < 60_000 { times(d) }
-            }.frame(maxWidth: .infinity, alignment: .leading)
-            if let d { Text(Mosques.km(d)).font(F.plex(15, .bold)).foregroundStyle(c.gold2) }
-        }.padding(12).background(RoundedRectangle(cornerRadius: 20).fill(c.surface)).overlay(RoundedRectangle(cornerRadius: 20).stroke(c.lineSoft))
+        let d = mq.dist(m), adhan = Mosques.nextAdhan()
+        VStack(alignment: .leading, spacing: 14) {
+            HStack(alignment: .center, spacing: 14) {
+                SiteIcon(name: "mosque", size: 34, color: c.onGold)
+                    .frame(width: 64, height: 72)
+                    .background(UnevenRoundedRectangle(topLeadingRadius: 32, bottomLeadingRadius: 10, bottomTrailingRadius: 10, topTrailingRadius: 32).fill(c.gold))
+                VStack(alignment: .leading, spacing: 3) {
+                    Text(tr("أقرب مسجد إليك")).font(F.plex(12, .semibold)).foregroundStyle(c.gold)
+                    Text(m.title).font(F.amiri(23, bold: true)).foregroundStyle(c.text).lineLimit(2).minimumScaleFactor(0.8)
+                    if !m.place.isEmpty { Text(m.place).font(F.plex(12.5)).foregroundStyle(c.muted).lineLimit(1) }
+                }
+                Spacer(minLength: 0)
+            }
+            HStack(spacing: 0) {
+                stat(Mosques.km(d), tr("المسافة"), nil)
+                Rectangle().fill(c.line).frame(width: 1, height: 34)
+                stat(Mosques.mins(Mosques.walkS(d)), tr("مشيًا"), "walk")
+                Rectangle().fill(c.line).frame(width: 1, height: 34)
+                stat(Mosques.mins(Mosques.carS(d)), tr("بالسيارة"), "car")
+            }
+            .padding(.vertical, 10).background(RoundedRectangle(cornerRadius: 16).fill(c.bg.opacity(0.55)))
+            if !adhan.isEmpty {
+                HStack(spacing: 6) { SiteIcon(name: "clock", size: 15, color: c.gold); Text(adhan).font(F.plex(12.5, .medium)).foregroundStyle(c.text) }
+            }
+        }
+        .padding(16)
+        .background(RoundedRectangle(cornerRadius: 26).fill(LinearGradient(colors: [c.gold.opacity(0.16), c.surface], startPoint: .topLeading, endPoint: .bottomTrailing)))
+        .overlay(RoundedRectangle(cornerRadius: 26).stroke(c.gold.opacity(0.45)))
     }
-    private func times(_ d: Double) -> some View {
-        HStack(spacing: 10) {
-            HStack(spacing: 3) { SiteIcon(name: "walk", size: 14, color: c.muted); Text(Mosques.mins(Mosques.walkS(d))) }
-            HStack(spacing: 3) { SiteIcon(name: "car", size: 14, color: c.muted); Text(Mosques.mins(Mosques.carS(d))) }
-            if first { Text(tr("الأقرب")).foregroundStyle(Color(red: 0.31, green: 0.75, blue: 0.52)) }
-        }.font(F.plex(11.5)).foregroundStyle(c.muted).padding(.top, 3)
+    private func stat(_ v: String, _ l: String, _ icon: String?) -> some View {
+        VStack(spacing: 3) {
+            Text(v).font(F.plex(17, .bold)).foregroundStyle(c.text)
+            HStack(spacing: 3) { if let icon { SiteIcon(name: icon, size: 13, color: c.muted) }; Text(l).font(F.plex(11)).foregroundStyle(c.muted) }
+        }.frame(maxWidth: .infinity)
+    }
+}
+
+/// One of the others: its place in the order, the name, where it is, the times, and a bar for how far it is.
+private struct MosqueRow: View {
+    let m: Mosque; let n: Int; let far: Double
+    @ObservedObject private var mq = Mosques.shared
+    @Environment(\.pal) private var c
+    var body: some View {
+        let d = mq.dist(m)
+        HStack(spacing: 12) {
+            Text(n.ar).font(F.plex(14, .bold)).foregroundStyle(c.gold)
+                .frame(width: 38, height: 44)
+                .background(UnevenRoundedRectangle(topLeadingRadius: 19, bottomLeadingRadius: 8, bottomTrailingRadius: 8, topTrailingRadius: 19).stroke(c.gold.opacity(0.5)))
+            VStack(alignment: .leading, spacing: 4) {
+                HStack(alignment: .firstTextBaseline) {
+                    Text(m.title).font(F.plex(14.5, .bold)).foregroundStyle(c.text).lineLimit(1)
+                    Spacer(minLength: 6)
+                    Text(Mosques.km(d)).font(F.plex(13.5, .bold)).foregroundStyle(c.gold2)
+                }
+                if !m.place.isEmpty { Text(m.place).font(F.plex(11.5)).foregroundStyle(c.muted).lineLimit(1) }
+                HStack(spacing: 10) {
+                    HStack(spacing: 3) { SiteIcon(name: "walk", size: 13, color: c.muted); Text(Mosques.mins(Mosques.walkS(d))) }
+                    HStack(spacing: 3) { SiteIcon(name: "car", size: 13, color: c.muted); Text(Mosques.mins(Mosques.carS(d))) }
+                    GeometryReader { g in
+                        ZStack(alignment: .leading) {
+                            Capsule().fill(c.line)
+                            Capsule().fill(c.gold.opacity(0.7)).frame(width: max(6, g.size.width * min(1, d / far)))
+                        }
+                    }.frame(height: 4)
+                }.font(F.plex(11.5)).foregroundStyle(c.muted)
+            }
+        }
+        .padding(12).background(RoundedRectangle(cornerRadius: 18).fill(c.surface)).overlay(RoundedRectangle(cornerRadius: 18).stroke(c.lineSoft))
     }
 }
 
