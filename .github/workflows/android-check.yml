@@ -1,0 +1,31 @@
+name: android-check
+on:
+  push:
+    branches: [android-check]
+permissions:
+  contents: write
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - name: KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules && sudo udevadm trigger --name-match=kvm
+      - uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 34
+          arch: x86_64
+          target: google_apis
+          disable-animations: true
+          emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim
+          script: bash run.sh
+      - name: Publish (branch android-shots)
+        if: always()
+        run: |
+          rm -rf /tmp/o && mkdir -p /tmp/o && cp -R shots/. /tmp/o/ 2>/dev/null || true
+          cd /tmp/o && git init -q && git checkout -q -b android-shots && git add -A
+          git -c user.name=ci -c user.email=ci@users.noreply.github.com commit -qm "shots ${GITHUB_RUN_NUMBER}" || true
+          git push -q -f "https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}.git" android-shots
