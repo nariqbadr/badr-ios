@@ -310,6 +310,8 @@ private struct MosqueMap: View {
     var follow = false
     /// from the person to where the way starts on the road (dotted, as in Google Maps)
     var lead: [CLLocationCoordinate2D]? = nil
+    /// raised by «موقعي»: the map flies to the person, close in (as in Google Maps)
+    var focus = 0
     var onPin: (Mosque) -> Void = { _ in }
     @Environment(\.pal) private var c
     @State private var cam: MapCameraPosition = .automatic
@@ -334,6 +336,7 @@ private struct MosqueMap: View {
         .overlay(alignment: .topLeading) { if !follow, let center { Readout(p: center) } }
         .onAppear { fit() }
         .onChange(of: key) { _ in if !follow { fit() } }
+        .onChange(of: focus) { _ in if let me { withAnimation(.easeInOut(duration: 0.6)) { cam = .camera(MapCamera(centerCoordinate: me, distance: 900)) } } }
     }
     @MapContentBuilder private func routeLine(_ line: MKPolyline) -> some MapContent {
         MapPolyline(line).stroke(MosquePin.blue.opacity(0.3), style: StrokeStyle(lineWidth: 14, lineCap: .round, lineJoin: .round))
@@ -405,6 +408,7 @@ struct MosquesView: View {
     @State private var results: [Mosque]?
     @State private var sel: Mosque?
     @State private var busy = false
+    @State private var focus = 0
     private var list: [Mosque] {
         let fam = (mq.famousNear?.isEmpty ?? true) ? Mosques.famous : mq.famousNear!
         let src = results ?? (tab == 1 ? fam : tab == 2 ? mq.saved : mq.near ?? [])
@@ -450,9 +454,9 @@ struct MosquesView: View {
             // until the place is known: the frame alone (no world map that then jumps)
             ZStack { c.surface; MapFinish(); SiteIcon(name: "locate", size: 30, color: c.muted) }
         } else {
-            MosqueMap(pins: list, me: mq.pos, line: nil, sel: nil) { sel = $0 }
+            MosqueMap(pins: list, me: mq.pos, line: nil, sel: nil, focus: focus) { sel = $0 }
                 .overlay(alignment: .bottomTrailing) {
-                    Button { Task { busy = true; await mq.locate(ask: true); await mq.loadNear(force: true); busy = false } } label: {
+                    Button { Task { await mq.locate(ask: true); focus += 1; busy = true; await mq.loadNear(); busy = false } } label: {
                         SiteIcon(name: "locate", size: 20, color: c.text).frame(width: 42, height: 42).background(Circle().fill(c.bg.opacity(0.9))).overlay(Circle().stroke(c.line))
                     }.buttonStyle(Press()).padding(.trailing, 12).padding(.bottom, 34)
                 }
