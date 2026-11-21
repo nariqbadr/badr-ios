@@ -179,7 +179,7 @@ struct MqRoute {
         return MqRoute(dist: a.distance, dur: a.expectedTravelTime, line: line, steps: steps)
     }
     /// What to do at a step, in the app's language.
-    static func say(_ type: String, _ mod: String, _ road: String) -> String {
+    nonisolated static func say(_ type: String, _ mod: String, _ road: String) -> String {
         let to = road.isEmpty ? "" : tr(" إلى {0}", road)
         switch type {
         case "depart": return road.isEmpty ? tr("انطلق") : tr("انطلق عبر {0}", road)
@@ -192,12 +192,12 @@ struct MqRoute {
         }
     }
     /// the arrow's turn for a step
-    static func deg(_ mod: String) -> Double {
+    nonisolated static func deg(_ mod: String) -> Double {
         let t: [String: Double] = ["uturn": 180, "sharp right": 135, "right": 90, "slight right": 45, "slight left": -45, "left": -90, "sharp left": -135]
         return t[mod] ?? 0
     }
 
-    static func d(_ a: CLLocationCoordinate2D, _ b: CLLocationCoordinate2D) -> Double { CLLocation(latitude: a.latitude, longitude: a.longitude).distance(from: CLLocation(latitude: b.latitude, longitude: b.longitude)) }
+    nonisolated static func d(_ a: CLLocationCoordinate2D, _ b: CLLocationCoordinate2D) -> Double { CLLocation(latitude: a.latitude, longitude: a.longitude).distance(from: CLLocation(latitude: b.latitude, longitude: b.longitude)) }
     func dist(_ m: Mosque) -> Double { guard let p = pos else { return 0 }; return Self.d(p, m.coord) }
     /// rough times before a real route: streets aren't straight (×1.3), 80 m a minute on foot, 25 km/h by car in town
     static func walkS(_ m: Double) -> Double { m * 1.3 / 80 * 60 }
