@@ -86,6 +86,8 @@ struct Site {
     var defaultTheme: String { j["app"]["defaultTheme"].str.isEmpty ? j["defaultTheme"].str : j["app"]["defaultTheme"].str }
     var dailyReciter: String { j["dailyAyah"]["defaultReciter"].str.isEmpty ? "yasser" : j["dailyAyah"]["defaultReciter"].str }
     var live: J { j["live"] }
+    /// «بيوت الله»: the mosques added by hand in the dashboard (ones OpenStreetMap lacks)
+    var mosquesExtra: [J] { j["mosquesExtra"].array }
     var liveOn: Bool { sec("live") && live["enabled"].bool(true) && !live["url"].str.isEmpty }
     var about: J { j["about"] }
     var footer: J { j["footer"] }

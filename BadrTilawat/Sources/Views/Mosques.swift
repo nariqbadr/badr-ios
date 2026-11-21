@@ -156,6 +156,17 @@ struct Mosque: Identifiable, Hashable {
                 return Mosque(id: m.id, name: x.name, area: m.area.isEmpty ? x.area : m.area, lat: m.lat, lng: m.lng, street: m.street)
             }
         }
+        // the mosques added by hand in the dashboard, within 3 km (an unnamed point at the same place gives way to them)
+        let extra: [Mosque] = (Repo.shared.data?.site.mosquesExtra ?? []).compactMap { x in
+            guard let la = x["lat"].double, let lo = x["lng"].double, !x["name"].str.isEmpty else { return nil }
+            let n = x["name"].str, arabic = n.range(of: "[\\u0621-\\u064A]", options: .regularExpression) != nil
+            let m = Mosque(id: "x" + x["id"].str, name: n, area: x["area"].str, lat: la, lng: lo, ar: arabic ? n : "", en: x["en"].str.isEmpty ? (arabic ? "" : n) : x["en"].str)
+            return Self.d(p, m.coord) <= 3000 ? m : nil
+        }
+        if !extra.isEmpty {
+            let base = (r ?? []).filter { o in !o.id.hasPrefix("x") && !extra.contains { Self.d($0.coord, o.coord) < 40 } }
+            r = extra + base
+        }
         diag = why.joined(separator: " · ")
         if r == nil, near?.isEmpty == false { error = ""; return }   // the kept list stays
         error = r == nil ? tr("تعذّر جلب المساجد الآن، حاول بعد قليل") : ""
