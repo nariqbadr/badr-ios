@@ -79,7 +79,8 @@ enum F {
     static func quran(_ size: CGFloat) -> Font { .custom("AmiriQuran-Regular", size: size) }
 }
 
-/// ﴿…﴾ around a text shown on screen. iOS mirrors the two ornate brackets in right-to-left text, so written in the usual
-/// order (U+FD3F first) they come out back to front, the flowers facing the words; on screen they are written the other
-/// way round. Copied and shared text keeps the usual order, which is what other apps expect.
-func orn(_ t: String) -> String { "\u{FD3E}\(t)\u{FD3F}" }
+/// ﴿…﴾ around a text shown on screen. iOS may mirror the two ornate brackets in right-to-left text, so each bracket is
+/// put in a tiny left-to-right island (U+2066 … U+2069): there nothing is ever mirrored, and each one keeps the shape it
+/// is drawn with — ﴿ on the right (where the verse starts), ﴾ on the left — whatever the system does with brackets.
+/// Copied and shared text keeps the plain characters, which is what other apps expect.
+func orn(_ t: String) -> String { "\u{2066}\u{FD3F}\u{2069}\(t)\u{2066}\u{FD3E}\u{2069}" }
