@@ -143,7 +143,7 @@ final class AudioPlayer: ObservableObject {
         else if index + 1 < queue.count { index += 1 } else if repeatMode == 1 { index = 0 }
         // the last one in the list (or a recitation opened on its own): «التالي» — on the lock screen too — goes on to the
         // sheikh's next recitation instead of doing nothing
-        else if let t = current, let n = neighbour(t, 1) { queue.insert(n, at: index + 1); index += 1 }
+        else if let t = current, let n = neighbour(t, 1) ?? following(t) { queue.insert(n, at: index + 1); index += 1 }
         else { return }
         load()
     }
@@ -158,6 +158,14 @@ final class AudioPlayer: ObservableObject {
         let l = (Repo.shared.data?.sortedTracks ?? []).filter { $0.reciterId == t.reciterId && !$0.isVideo && !$0.audio.isEmpty }
         guard let i = l.firstIndex(where: { $0.id == t.id }), l.indices.contains(i + d) else { return nil }
         let n = l[i + d]; return queue.contains(n) ? nil : n
+    }
+    /// past the sheikh's last recitation: the next one on the site's list (another sheikh), so listening goes on
+    private func following(_ t: Track) -> Track? {
+        let l = (Repo.shared.data?.sortedTracks ?? []).filter { !$0.isVideo && !$0.audio.isEmpty }
+        guard l.count > 1 else { return nil }
+        let i = l.firstIndex(where: { $0.id == t.id }) ?? -1
+        for k in 1..<l.count { let n = l[(i + k + l.count) % l.count]; if n.id != t.id, !queue.contains(n) { return n } }
+        return nil
     }
     /// where a seek is going: the bar stays there until it lands (it showed the old place for a moment and seemed to jump back)
     private var seekTo: Double?, seekAt = Date.distantPast, seekN = 0
@@ -260,7 +268,10 @@ final class AudioPlayer: ObservableObject {
         if repeatMode == 2 { seek(0); player.play(); return }
         if repN > 1 && repDone < repN { repDone += 1; seek(0); player.play(); return }
         if repN > 0 { repDone = 1 }
-        if index + 1 < queue.count || repeatMode == 1 || shuffle { next() } else { player.pause(); playing = false; nowPlaying() }
+        // the end of the list (or a recitation played on its own): on to the sheikh's next recitation, then the site's next one
+        if index + 1 < queue.count || repeatMode == 1 || shuffle { next() }
+        else if let t = current, let n = neighbour(t, 1) ?? following(t) { queue.insert(n, at: index + 1); index += 1; load() }
+        else { player.pause(); playing = false; nowPlaying() }
     }
 
     // MARK: lock screen
