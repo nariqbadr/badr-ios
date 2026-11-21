@@ -133,18 +133,25 @@ struct MqRoute {
         async let ap = apple(near: p)
         let osm: [Mosque]? = await withTaskGroup(of: ([Mosque]?, String).self) { g in
             for ep in Self.overpassServers { g.addTask { await self.overpass(p, ep) } }
+            g.addTask { await self.nominatim(p) }
             g.addTask {
                 let j = await self.get(["do": "mosques_near", "lat": String(format: "%.5f", p.latitude), "lng": String(format: "%.5f", p.longitude)])
                 let r = await self.items(j)
                 return (r, "site:" + (r.map { "\($0.count)" } ?? "x"))
             }
-            var empty = false
+            // OpenStreetMap's full list is waited for up to 6 s; then the quick one (Nominatim) is used
+            g.addTask { try? await Task.sleep(nanoseconds: 6_000_000_000); return (nil, "t") }
+            var empty = false, quick: [Mosque]?
             for await (r, tag) in g {
+                if tag == "t" { if let q = quick { g.cancelAll(); return q }; continue }
                 why.append(tag)
-                if let r, !r.isEmpty { g.cancelAll(); return r }
+                if let r, !r.isEmpty {
+                    if tag.hasPrefix("nominatim") { quick = r; continue }
+                    g.cancelAll(); return r
+                }
                 if r != nil { empty = true }
             }
-            return empty ? [] : nil
+            return quick ?? (empty ? [] : nil)
         }
         var r = osm.map(Self.dedupe)
         let a = await ap
@@ -199,20 +206,39 @@ struct MqRoute {
         for m in l.sorted(by: { !$0.unnamed && $1.unnamed }) where !out.contains(where: { d($0.coord, m.coord) < (m.unnamed ? 45 : 12) }) { out.append(m) }
         return out
     }
-    /// every way a mosque is marked on OpenStreetMap: a Muslim place of worship, a mosque building, or a place of worship named as one
+    /// a mosque on OpenStreetMap: a Muslim place of worship, or a mosque building
     nonisolated static func osmQuery(_ la: Double, _ lo: Double, _ r: Int) -> String {
         let a = "(around:\(r),\(la),\(lo))"
-        return "[out:json][timeout:20];(nwr[\"amenity\"=\"place_of_worship\"][\"religion\"=\"muslim\"]\(a);nwr[\"building\"=\"mosque\"]\(a);"
-            + "nwr[\"amenity\"=\"place_of_worship\"][\"name\"~\"مسجد|جامع|مصلى|زاوية|[Mm]osque|[Mm]asjid\"]\(a););out center tags 120;"
+        return "[out:json][timeout:20];(nwr[\"amenity\"=\"place_of_worship\"][\"religion\"=\"muslim\"]\(a);nwr[\"building\"=\"mosque\"]\(a););out center tags 120;"
     }
-    static let overpassServers = ["https://overpass-api.de/api/interpreter", "https://overpass.kumi.systems/api/interpreter",
-                                  "https://overpass.private.coffee/api/interpreter", "https://maps.mail.ru/osm/tools/overpass/api/interpreter"]
+    static let overpassServers = ["https://overpass-api.de/api/interpreter", "https://overpass.kumi.systems/api/interpreter", "https://overpass.private.coffee/api/interpreter"]
     /// «المشهورة»: the region's well-known mosques (the world's famous ones only when none is known around)
     func loadFamous() async {
         guard let p = pos else { return }
         if famousNear != nil, let a = famousAt, abs(a.latitude - p.latitude) < 0.05, abs(a.longitude - p.longitude) < 0.05 { return }
         guard let r = items(await get(["do": "mosques_famous", "lat": String(format: "%.4f", p.latitude), "lng": String(format: "%.4f", p.longitude)])) else { return }
         famousNear = r.sorted { dist($0) < dist($1) }; famousAt = p
+    }
+    /// OpenStreetMap's search (Nominatim): the places of worship in a box around the person, the mosques among them — quick
+    nonisolated private func nominatim(_ p: CLLocationCoordinate2D) async -> ([Mosque]?, String) {
+        let d = 0.027, la = p.latitude, lo = p.longitude
+        var u = URLComponents(string: "https://nominatim.openstreetmap.org/search")!
+        u.queryItems = [URLQueryItem(name: "amenity", value: "place_of_worship"), URLQueryItem(name: "viewbox", value: "\(lo - d),\(la + d),\(lo + d),\(la - d)"),
+                        URLQueryItem(name: "bounded", value: "1"), URLQueryItem(name: "format", value: "jsonv2"), URLQueryItem(name: "limit", value: "40"),
+                        URLQueryItem(name: "extratags", value: "1"), URLQueryItem(name: "namedetails", value: "1")]
+        var req = URLRequest(url: u.url!); req.timeoutInterval = 15
+        req.setValue("BadrTilawat/iOS (+https://bawazirquran.com)", forHTTPHeaderField: "User-Agent")
+        guard let (data, r) = try? await URLSession.shared.data(for: req), (r as? HTTPURLResponse)?.statusCode == 200,
+              let a = try? JSONSerialization.jsonObject(with: data) as? [[String: Any]] else { return (nil, "nominatim:x") }
+        let out: [Mosque] = a.compactMap { x in
+            let nd = x["namedetails"] as? [String: String] ?? [:], ex = x["extratags"] as? [String: String] ?? [:]
+            let n = nd["name"] ?? (x["name"] as? String ?? "")
+            let muslim = ex["religion"] == "muslim" || ex["building"] == "mosque" || n.range(of: "مسجد|جامع|مصلى|زاوية|mosque|masjid", options: [.regularExpression, .caseInsensitive]) != nil
+            guard muslim, let la = Double(x["lat"] as? String ?? ""), let lo = Double(x["lon"] as? String ?? "") else { return nil }
+            return Mosque(id: "\((x["osm_type"] as? String ?? "n").prefix(1))\((x["osm_id"] as? NSNumber)?.int64Value ?? 0)", name: n, area: "", lat: la, lng: lo,
+                          ar: nd["name:ar"] ?? "", en: nd["name:en"] ?? "", street: "")
+        }
+        return (out, "nominatim:\(out.count)")
     }
     /// straight from OpenStreetMap, from the phone
     nonisolated private func overpass(_ p: CLLocationCoordinate2D, _ ep: String) async -> ([Mosque]?, String) {
