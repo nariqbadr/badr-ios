@@ -15,20 +15,25 @@ jobs:
           con.execute("INSTALL httpfs; LOAD httpfs; INSTALL spatial; LOAD spatial; SET s3_region='us-west-2';")
           la,lo=30.111283,31.3412941
           d=0.02
+          src=f"read_parquet('s3://overturemaps-us-west-2/release/{rel}/theme=places/type=place/*', hive_partitioning=1)"
+          cols=[c[0] for c in con.execute(f"DESCRIBE SELECT * FROM {src}").fetchall()]
+          print("cols:",cols)
+          catx="CAST(basic_category AS VARCHAR)" if 'basic_category' in cols else "''"
+          altx="CAST(taxonomy AS VARCHAR)" if 'taxonomy' in cols else ("CAST(categories AS VARCHAR)" if 'categories' in cols else "''")
           q=f"""
-          SELECT id, names.primary AS name, categories.primary AS cat, CAST(categories.alternate AS VARCHAR) AS alt, confidence,
+          SELECT id, names.primary AS name, {catx} AS cat, {altx} AS alt, confidence,
                  ST_Y(geometry) AS y, ST_X(geometry) AS x, CAST(sources AS VARCHAR) AS src
-          FROM read_parquet('s3://overturemaps-us-west-2/release/{rel}/theme=places/type=place/*', hive_partitioning=1)
+          FROM {src}
           WHERE bbox.xmin BETWEEN {lo-d} AND {lo+d} AND bbox.ymin BETWEEN {la-d} AND {la+d}
           """
           rows=con.execute(q).fetchall()
           print("all places in box:",len(rows))
           def dist(y,x): return math.hypot((y-la)*111320,(x-lo)*111320*math.cos(math.radians(la)))
-          hit=[r for r in rows if (r[2] and ('mosque' in r[2] or 'islam' in r[2] or 'religious' in r[2] or 'place_of_worship' in r[2])) or (r[3] and 'mosque' in r[3]) or (r[1] and any(k in r[1] for k in ['مسجد','جامع','Mosque','mosque','Masjid','جويري','Gwairy','Juwayr','Gwiria','Goweria']))]
+          hit=[r for r in rows if any(k in ((r[2] or '')+(r[3] or '')) for k in ['mosque','islam','religious','place_of_worship','worship']) or (r[1] and any(k in r[1] for k in ['مسجد','جامع','Mosque','mosque','Masjid','جويري','Gwairy','Juwayr','Gwiria','Goweria']))]
           hit.sort(key=lambda r: dist(r[5],r[6]))
           print("mosques/religious within ~2km:",len(hit))
           for r in hit:
               m=dist(r[5],r[6])
               if m>2200: continue
-              print(f"{int(m):5d}m conf={r[4]:.2f} cat={r[2]} name={r[1]} @ {r[5]:.6f},{r[6]:.6f} src={(r[7] or '')[:60]}")
+              print(f"{int(m):5d}m conf={r[4]:.2f} cat={r[2]}|{(r[3] or '')[:50]} name={r[1]} @ {r[5]:.6f},{r[6]:.6f} src={(r[7] or '')[:60]}")
           P
