@@ -18,10 +18,14 @@ struct Mosque: Identifiable, Hashable {
         let latin = { (v: String) in !v.isEmpty && v.range(of: "[\\u0600-\\u06FF]", options: .regularExpression) == nil }
         var n = (rtl ? [ar, name, en] : [en, latin(name) ? name : "", name, ar]).first { !$0.isEmpty } ?? ""
         n = n.trimmingCharacters(in: .whitespaces)
-        if n.isEmpty || n == "مسجد" {
-            let st = street.isEmpty ? (area.components(separatedBy: "،").first ?? "") : street
-            return st.isEmpty ? tr("مسجد") : tr("مسجد في {0}", st)
+        let st = street.isEmpty ? (area.components(separatedBy: "،").first ?? "") : street
+        // only a Latin name in an Arabic-script language («Farouk Mosque», «inner mosque»): where it is, or «مسجد Farouk»
+        if rtl, latin(n) {
+            let core = n.replacingOccurrences(of: "\\b(mosque|masjid|masjed|jami|jamia|musalla|prayer room)\\b", with: "", options: [.regularExpression, .caseInsensitive])
+                .replacingOccurrences(of: "\\s+", with: " ", options: .regularExpression).trimmingCharacters(in: .whitespaces)
+            n = !st.isEmpty ? "" : core.isEmpty ? "" : tr("مسجد") + " " + core
         }
+        if n.isEmpty || n == "مسجد" { return st.isEmpty ? tr("مسجد") : tr("مسجد في {0}", st) }
         if L.code == "ar", !latin(n), n.range(of: "مسجد|جامع|مصلى|مصلّى|زاوية", options: .regularExpression) == nil { n = "مسجد " + n }
         return n
     }
