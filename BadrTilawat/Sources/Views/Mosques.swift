@@ -115,9 +115,12 @@ struct Mosque: Identifiable, Hashable {
     /// page opens with it at once and is refreshed behind it.
     func loadNear(force: Bool = false) async {
         guard let p = pos else { return }
-        if !force, near != nil, let a = nearAt, abs(a.latitude - p.latitude) < 0.002, abs(a.longitude - p.longitude) < 0.002, Date().timeIntervalSince(nearTime) < 86400 { return }
+        if !force, (near?.count ?? 0) >= 5, let a = nearAt, abs(a.latitude - p.latitude) < 0.002, abs(a.longitude - p.longitude) < 0.002, Date().timeIntervalSince(nearTime) < 86400 { return }
         var why: [String] = []
         async let ap = apple(near: p)
+        // every source is asked at once and ALL their answers are put together (the first answer alone was sometimes a
+        // short one — two mosques — and the full lists that came a moment later were thrown away). Up to 7 s is waited
+        // for the rest once one has answered; nothing yet by then: up to 20 s for the first.
         let osm: [Mosque]? = await withTaskGroup(of: ([Mosque]?, String).self) { g in
             for ep in Self.overpassServers { g.addTask { await self.overpass(p, ep) } }
             g.addTask { await self.nominatim(p) }
@@ -126,19 +129,19 @@ struct Mosque: Identifiable, Hashable {
                 let r = await self.items(j)
                 return (r, "site:" + (r.map { "\($0.count)" } ?? "x"))
             }
-            // OpenStreetMap's full list is waited for up to 6 s; then the quick one (Nominatim) is used
-            g.addTask { try? await Task.sleep(nanoseconds: 6_000_000_000); return (nil, "t") }
-            var empty = false, quick: [Mosque]?
+            g.addTask { try? await Task.sleep(nanoseconds: 7_000_000_000); return (nil, "t") }
+            g.addTask { try? await Task.sleep(nanoseconds: 20_000_000_000); return (nil, "T") }
+            var all: [Mosque] = [], answered = false, overpassFull = false, left = Self.overpassServers.count + 2
             for await (r, tag) in g {
-                if tag == "t" { if let q = quick { g.cancelAll(); return q }; continue }
-                why.append(tag)
-                if let r, !r.isEmpty {
-                    if tag.hasPrefix("nominatim") { quick = r; continue }
-                    g.cancelAll(); return r
-                }
-                if r != nil { empty = true }
+                if tag == "t" { if answered { break }; continue }
+                if tag == "T" { break }
+                why.append(tag); left -= 1
+                if let r { answered = true; all += r; if !tag.hasPrefix("site") && !tag.hasPrefix("nominatim") && !r.isEmpty { overpassFull = true } }
+                // a full OpenStreetMap list and the site's both in: nothing more is needed
+                if left == 0 || (overpassFull && why.contains(where: { $0.hasPrefix("site") }) && why.contains(where: { $0.hasPrefix("nominatim") })) { break }
             }
-            return quick ?? (empty ? [] : nil)
+            g.cancelAll()
+            return answered ? all : nil
         }
         var r = osm.map(Self.dedupe)
         let a = await ap
