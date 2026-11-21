@@ -147,6 +147,17 @@ struct HaramLiveView: View {
                         }
                         Spacer(minLength: 0)
                     }.padding(14).background(RoundedRectangle(cornerRadius: 20).fill(c.surface)).overlay(RoundedRectangle(cornerRadius: 20).stroke(c.gold.opacity(0.35)))
+                } else if Haram.slots(mosque) == nil, let up = Haram.upcoming(mosque) {
+                    Button { ui.path.append(.imams(mosque)) } label: {
+                        HStack(spacing: 10) {
+                            SiteIcon(name: "calendar", size: 20, color: c.gold)
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text(tr("جدول الأسبوع القادم")).font(F.plex(14, .semibold)).foregroundStyle(c.text)
+                                Text(tr("يبدأ هذا الجدول يوم {0}.", Haram.weekday(up.from))).font(F.plex(12)).foregroundStyle(c.muted)
+                            }
+                            Spacer(); SiteIcon(name: "chev-l", size: 16, color: c.muted)
+                        }.padding(14).background(RoundedRectangle(cornerRadius: 16).fill(c.surface)).overlay(RoundedRectangle(cornerRadius: 16).stroke(c.gold.opacity(0.35)))
+                    }.buttonStyle(.plain)
                 } else if Haram.week(mosque) == nil || Haram.slots(mosque) == nil {
                     Text(tr("جدول أئمة {0} لهذا الأسبوع لم يُنشر بعد.", m.name)).font(F.plex(13)).foregroundStyle(c.muted)
                 }
@@ -181,17 +192,20 @@ struct ImamsView: View {
     @State private var mosque = Haram.chosen
     var body: some View {
         let m = Haram.mosque(mosque), t = Haram.times(mosque)
+        let today = Haram.slots(mosque), up = today == nil ? Haram.upcoming(mosque) : nil
+        let wk: (from: String, to: String)? = up.map { ($0.from, $0.to) } ?? Haram.week(mosque)
         ScrollView {
             VStack(spacing: 14) {
                 MosqueChips(mosque: $mosque)
                 VStack(spacing: 6) {
-                    Text(tr("جدول الأئمة الأسبوعي في")).font(F.amiri(16)).foregroundStyle(c.muted)
+                    Text(up == nil ? tr("جدول الأئمة الأسبوعي في") : tr("جدول الأسبوع القادم لأئمة")).font(F.amiri(16)).foregroundStyle(c.muted)
                     Text(m.name).font(F.amiri(32, bold: true)).foregroundStyle(c.gold2)
-                    if let w = Haram.week(mosque) { Text(tr("من {0} إلى {1}", L.digits(w.from), L.digits(w.to))).font(F.plex(12)).foregroundStyle(c.muted).environment(\.layoutDirection, L.dir) }
+                    if let w = wk { Text(tr("من {0} إلى {1}", L.digits(w.from), L.digits(w.to))).font(F.plex(12)).foregroundStyle(c.muted).environment(\.layoutDirection, L.dir) }
+                    if let u = up { Text(tr("يبدأ هذا الجدول يوم {0}.", Haram.weekday(u.from))).font(F.plex(12.5, .semibold)).foregroundStyle(c.gold) }
                 }.padding(.vertical, 18).frame(maxWidth: .infinity)
                     .background(RoundedRectangle(cornerRadius: 24).fill(c.surface)).overlay(RoundedRectangle(cornerRadius: 24).stroke(c.gold.opacity(0.4)))
-                if let sl = Haram.slots(mosque) {
-                    let n = Haram.next(mosque)
+                if let sl = today ?? up?.slots {
+                    let n = today == nil ? nil : Haram.next(mosque)
                     ForEach(Haram.prayerKeys + ["jumuah"], id: \.self) { k in
                         if let s = sl[k], let p = Haram.person(s.imam) {
                             let on = n?.key == k

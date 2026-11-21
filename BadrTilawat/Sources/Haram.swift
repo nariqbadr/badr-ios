@@ -73,6 +73,21 @@ enum Haram {
         }
         return out
     }
+    /// A week published ahead of time, before it starts (the server gives it as «next»; an older server leaves it as the main week).
+    @MainActor static func upcoming(_ k: String) -> (from: String, to: String, slots: [String: (imam: String, backup: String)])? {
+        guard let w = live?["imams"][k] else { return nil }
+        let today = ymd(Date()), n = w["next"]["from"].str.isEmpty ? w : w["next"]
+        guard !n["from"].str.isEmpty, n["from"].str > today else { return nil }
+        var out: [String: (imam: String, backup: String)] = [:]
+        for (p, s) in n["slots"].dict { out[p] = (s["imam"].str, s["backup"].str) }
+        return (n["from"].str, n["to"].str, out)
+    }
+    /// «الأحد» for a «yyyy-MM-dd» day.
+    static func weekday(_ ymd: String) -> String {
+        let p = DateFormatter(); p.locale = Locale(identifier: "en_US_POSIX"); p.timeZone = ksa; p.dateFormat = "yyyy-MM-dd"
+        guard let d = p.date(from: ymd) else { return ymd }
+        let f = DateFormatter(); f.locale = L.locale; f.timeZone = ksa; f.dateFormat = "EEEE"; return f.string(from: d)
+    }
     @MainActor static func week(_ k: String) -> (from: String, to: String)? { let w = live?["imams"][k]; guard let w, !w["from"].str.isEmpty else { return nil }; return (w["from"].str, w["to"].str) }
 
     // ------------------------------------------------------------------ timing (editable in the dashboard)
