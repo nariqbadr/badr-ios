@@ -284,7 +284,10 @@ struct MqRoute {
         return MqRoute(dist: a.distance, dur: a.expectedTravelTime, line: line, steps: steps)
     }
     /// What to do at a step, in the app's language.
-    nonisolated static func say(_ type: String, _ mod: String, _ road: String) -> String {
+    nonisolated static func say(_ type: String, _ mod: String, _ road0: String) -> String {
+        // a street name only in the app's own script (an Arabic name is left out in English, and the other way round)
+        let rtl = ["ar", "ur", "fa"].contains(L.code)
+        let road = !road0.isEmpty && (road0.range(of: "[\\u0600-\\u06FF]", options: .regularExpression) != nil) == rtl ? road0 : ""
         let to = road.isEmpty ? "" : tr(" إلى {0}", road)
         switch type {
         case "depart": return road.isEmpty ? tr("انطلق") : tr("انطلق عبر {0}", road)
