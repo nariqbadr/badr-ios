@@ -16,7 +16,7 @@ struct Mosque: Identifiable, Hashable {
         let rtl = ["ar", "ur", "fa"].contains(L.code)
         let fits = { (v: String) in !v.isEmpty && (v.range(of: "[\\u0621-\\u064A\\u0671-\\u06D3]", options: .regularExpression) != nil) == rtl }
         var n = ((rtl ? [ar, name, en] : [en, name, ar]).first(where: fits) ?? "").trimmingCharacters(in: .whitespaces)
-        if n.isEmpty || n == "مسجد" { return tr("مسجد") }
+        if n.isEmpty || n == "مسجد" { return tr("مسجد بلا اسم") }
         if L.code == "ar", n.range(of: "مسجد|جامع|مصلى|مصلّى|زاوية", options: .regularExpression) == nil { n = "مسجد " + n }
         return n
     }
