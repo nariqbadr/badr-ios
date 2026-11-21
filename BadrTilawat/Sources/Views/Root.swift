@@ -245,9 +245,7 @@ struct RootView: View {
         case .blocked: BlockedView()
         case .cm(let a): CommunityView(arg: a)
         case .widgets: WidgetsHelpView()
-        case .mosques:
-            if #available(iOS 17.0, *) { MosquesView() }
-            else { Text(tr("تتطلب هذه الميزة iOS 17 أو أحدث")).font(F.plex(15)).foregroundStyle(.secondary).padding(30) }
+        case .mosques: MosquesView()
         case .imams(let m): ImamsView(start: m)
         case .imamAlerts: ImamAlertsView()
         case .liveAt(let m): HaramLiveView(start: m)
