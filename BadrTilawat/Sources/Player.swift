@@ -344,6 +344,21 @@ final class AyahPlayer: ObservableObject {
         for sr in d.surahReciters { let v = "sr:" + sr.id; let n = d.site.reciterName(v); if !n.hideAyah { out.append(Option(value: v, label: Repo.withSheikh(n.name.isEmpty ? sr.name : n.name), ok: (d.readableSr[sr.id] ?? []).contains(s))) } }
         return out
     }
+    /// What a voice can say in «آية اليوم»: (surah, from, to) in surah order for a voice with part of the Quran (his own
+    /// analysed recitations «tk:», whole prepared surahs «sr:»); nil for the everyayah voices, which have every ayah.
+    func scope(_ rv: String) -> [(Int, Int, Int)]? {
+        guard let d = Repo.shared.data else { return nil }
+        if rv.hasPrefix("tk:") {
+            let id = String(rv.dropFirst(3)); var seen = Set<String>(); var out: [(Int, Int, Int)] = []
+            for (tid, v) in d.readableTracks where v.count >= 3 && Repo.shared.track(tid)?.reciterId == id {
+                if seen.insert("\(v[0]):\(v[1]):\(v[2])").inserted { out.append((v[0], v[1], v[2])) }
+            }
+            return out.sorted { ($0.0, $0.1) < ($1.0, $1.1) }
+        }
+        if rv.hasPrefix("sr:") { return Array(Set(d.readableSr[String(rv.dropFirst(3))] ?? [])).sorted().map { ($0, 1, Quran.ayahs[max(0, min(113, $0 - 1))]) } }
+        return nil
+    }
+    static func inScope(_ sc: [(Int, Int, Int)]?, _ s: Int, _ a: Int) -> Bool { sc == nil || sc!.contains { $0.0 == s && a >= $0.1 && a <= $0.2 } }
     /// What this voice has recorded, for the «not available» line: «المتاح بصوته: سورة الجن (١–١٠)، سورة الملك …»
     func available(_ rv: String) -> String {
         guard let d = Repo.shared.data else { return "" }

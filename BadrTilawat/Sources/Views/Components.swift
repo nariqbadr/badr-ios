@@ -516,9 +516,11 @@ struct SheetHead: View {
     @Environment(\.dismiss) private var dismiss
     var body: some View {
         VStack(alignment: .leading, spacing: 2) {
-            HStack { Text(title).font(F.amiri(22)).foregroundStyle(c.text); Spacer(); Button { dismiss() } label: { SiteIcon(name: "close", size: 22, color: c.muted).frame(width: 40, height: 40) }.accessibilityLabel(tr("إغلاق")) }
+            // the sheet's own close button sits in its top corner (SheetSkin): the title keeps clear of it, and there is
+            // no second one here (two crosses, one over the title, on the iPhone)
+            HStack { Text(title).font(F.amiri(22)).foregroundStyle(c.text).lineLimit(2).minimumScaleFactor(0.8); Spacer(minLength: 0) }.frame(minHeight: 40)
             Ornament(width: 120).padding(.bottom, 8)
-        }.padding(.leading, 22).padding(.trailing, 10).padding(.top, 14)
+        }.padding(.leading, L.rtl ? 60 : 22).padding(.trailing, L.rtl ? 22 : 60).padding(.top, 14)
     }
 }
 

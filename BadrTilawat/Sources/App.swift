@@ -131,7 +131,7 @@ enum Route: Hashable {
     case home, recitations, quran, adhkar, community, library, fiqh, live, about, timeline, prayer, search, qibla
     case reciter(String), collection(String), surah(Int), mushaf, compose(String), user(String), people(String, String), thread(Int)
     case watch(String), clip(String), listen, maker(Int, Int), blocked, readIndex, read(String, String), cm(String), widgets
-    case imams(String), imamAlerts, liveAt(String)
+    case imams(String), imamAlerts, liveAt(String), mosques
     var tabKey: String? {
         switch self { case .home: return "home"; case .recitations: return "recitations"; case .quran: return "quran"; case .adhkar: return "adhkar"; case .community: return "community"
         case .library: return "library"; case .fiqh: return "fiqh"; case .live: return "live"; case .about: return "about"; case .timeline: return "timeline"; case .prayer: return "prayer"; default: return nil }
@@ -150,6 +150,7 @@ enum Route: Hashable {
         case "community": return p.count > 2 && p[1] == "p" ? Int(p[2]).map { .thread($0) } : .community
         case "read": return .readIndex
         case "maker": return .maker(0, 0)
+        case "mosques": return .mosques
         default: return tab(p[0])
         }
     }

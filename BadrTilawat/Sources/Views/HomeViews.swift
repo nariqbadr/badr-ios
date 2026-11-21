@@ -78,6 +78,9 @@ struct QuickHead: View {
     /* UI actions only: reading it does not redraw this view on every tab or sheet change */ private var ui: UIState { UIState.shared! }
     @Environment(\.pal) private var c
     var body: some View {
+        VStack(spacing: 0) { head }
+    }
+    @ViewBuilder private var head: some View {
         let h = Calendar.current.component(.hour, from: Date())
         let g = (4...11).contains(h) ? tr("صباح الخير") : (12...16).contains(h) ? tr("طاب يومك") : tr("مساء الخير")
         let greet = repo.data?.site.feat("greeting") != false
@@ -99,6 +102,8 @@ struct QuickHead: View {
                 Text([Prayers.hijri(), String(prayers.place.split(separator: tr("،")).first ?? "")].filter { !$0.isEmpty }.joined(separator: " · ")).font(F.plex(12.5)).foregroundStyle(c.muted).lineLimit(1)
             }.frame(maxWidth: .infinity, alignment: .leading)
         }.buttonStyle(.plain).padding(.horizontal, 16).padding(.top, 14)
+        // «بيوت الله»: the nearest mosque and the walk to it
+        if repo.data?.site.sec("mosques") != false { NearestMosquePill().frame(maxWidth: .infinity, alignment: .leading).padding(.horizontal, 16) }
     }
 }
 
@@ -113,10 +118,11 @@ struct QuickTiles: View {
     struct T: Hashable { let icon: String, title: String, go: String, sec: String? }
     private var all: [T] {
         let s = repo.data?.site
-        return [T(icon: "mic", title: tr("التلاوات"), go: "recitations", sec: "recitations"), T(icon: "play", title: tr("القرآن كاملًا"), go: "listen", sec: "mushaf"),
+        return [T(icon: "mic", title: tr("التلاوات"), go: "recitations", sec: "recitations"), T(icon: "mosque", title: tr("بيوت الله"), go: "mosques", sec: "mosques"),
                 T(icon: "book", title: tr("المصحف"), go: "quran", sec: "mushaf"), T(icon: "beads", title: tr("الأذكار"), go: "adhkar", sec: "adhkar"),
                 T(icon: "clock", title: tr("الصلاة"), go: "prayer", sec: "prayer"), T(icon: "compass", title: tr("القبلة"), go: "qibla", sec: nil),
                 T(icon: "image", title: tr("صمّم آية"), go: "maker", sec: "maker"), T(icon: "library", title: tr("مكتبتي"), go: "library", sec: nil),
+                T(icon: "play", title: tr("القرآن كاملًا"), go: "listen", sec: "mushaf"),
                 T(icon: "chat", title: tr("المجتمع"), go: "community", sec: "community"), T(icon: "live", title: tr("البث المباشر"), go: "live", sec: "live"),
                 T(icon: "scroll", title: tr("دروس الفقه"), go: "fiqh", sec: "fiqh"), T(icon: "clock", title: tr("الخط الزمني"), go: "timeline", sec: "timeline"),
                 T(icon: "user", title: tr("عن الشيخ"), go: "about", sec: "about")]
@@ -180,6 +186,7 @@ struct QuickTiles: View {
     private func open(_ go: String) {
         switch go {
         case "listen": ui.path.append(.listen)
+        case "mosques": ui.path.append(.mosques)
         case "qibla": ui.path.append(.qibla)
         case "maker": ui.path.append(.maker(0, 0))
         default: if let r = Route.tab(go) { ui.go(r) }
@@ -372,6 +379,8 @@ struct AyahOfDay: View {
     @State private var repeatN = 1
     @State private var tafsir = false
     @State private var picking = false
+    /// «اخترنا لك آية من المتاح بصوت …»: the ayah was changed to fit the chosen voice
+    @State private var note = ""
     var rv: String {
         let opts = AyahOfDay.opts(ayah, repo, ref.0, ref.1).map(\.value)
         let p = store.ayahReciter.isEmpty ? (repo.data?.site.dailyReciter ?? "yasser") : store.ayahReciter
@@ -391,6 +400,10 @@ struct AyahOfDay: View {
                 Chip(text: nil, icon: "refresh") { newAyah() }
             }
             Ornament().frame(maxWidth: .infinity).padding(.vertical, 6)
+            if !note.isEmpty {
+                HStack(spacing: 8) { SiteIcon(name: "info", size: 17, color: c.gold); Text(note).font(F.plex(12.5)).foregroundStyle(c.muted); Spacer(minLength: 0) }
+                    .padding(.horizontal, 12).padding(.vertical, 9).background(RoundedRectangle(cornerRadius: 14).fill(c.text.opacity(0.06))).overlay(RoundedRectangle(cornerRadius: 14).stroke(c.lineSoft))
+            }
             Group {
                 if let t = text { Text(orn(t)).font(F.quran(25)).foregroundStyle(c.text).lineSpacing(18).multilineTextAlignment(.center).frame(maxWidth: .infinity).padding(.vertical, 8) }
                 else { RoundedRectangle(cornerRadius: 14).fill(c.surface2).frame(height: 90).padding(.vertical, 10) }
@@ -402,7 +415,22 @@ struct AyahOfDay: View {
                     Text(mine ? ayah.status : tr("اختر القارئ واضغط تشغيل")).font(F.plex(11)).foregroundStyle(c.muted).lineLimit(4).fixedSize(horizontal: false, vertical: true)
                 }
             }.padding(.top, 6)
-            ReciterPhotos(opts: AyahOfDay.opts(ayah, repo, s, a).map { RecChoice(value: $0.value, label: $0.label, img: repo.recImg($0.value, $0.label)) }, value: rv) { store.ayahReciter = $0; ayah.stop() }.padding(.top, 10)
+            ReciterPhotos(opts: AyahOfDay.opts(ayah, repo, s, a).map { RecChoice(value: $0.value, label: $0.label, img: repo.recImg($0.value, $0.label)) }, value: rv) { v in store.ayahReciter = v; ayah.stop(); fit(v) }.padding(.top, 10)
+            // «المتاح بصوته»: his surahs (a tap gives an ayah from it)
+            if let sc = ayah.scope(rv), !sc.isEmpty {
+                Text(tr("المتاح بصوته")).font(F.plex(12, .medium)).foregroundStyle(c.muted).padding(.top, 12)
+                FlowLayout(spacing: 7) {
+                    ForEach(sc.indices, id: \.self) { i in
+                        let (ss, f, t) = sc[i]
+                        Button { setRef((ss, Int.random(in: f...max(f, t)))) } label: {
+                            HStack(spacing: 5) {
+                                Text(Quran.surahs[ss - 1]).font(F.plex(13, .semibold)).foregroundStyle(c.text)
+                                Text(f == 1 && t >= Quran.ayahs[ss - 1] ? tr("كاملة") : "\(f.ar)–\(t.ar)").font(F.plex(11)).foregroundStyle(c.muted)
+                            }.padding(.horizontal, 13).padding(.vertical, 7).overlay(Capsule().stroke(c.line))
+                        }.buttonStyle(Press())
+                    }
+                }.padding(.top, 2)
+            }
             OptMenu(label: tr("التكرار"), value: repeatN, opts: [(1, tr("مرة")), (3, tr("٣ مرات")), (5, tr("٥ مرات")), (10, tr("١٠ مرات")), (0, tr("مستمر"))]) { repeatN = $0; ayah.stop() }.padding(.top, 10)
             FlowLayout(spacing: 8) {
                 Chip(text: tr("اختر آية"), icon: "book") { picking = true }
@@ -421,7 +449,7 @@ struct AyahOfDay: View {
             if Date().timeIntervalSince(AyahOfDay.leftAt) > 600, ayah.key == nil { AyahOfDay.shown = AyahOfDay.newRef(); ref = AyahOfDay.shown }
         }
         .bzSheet(isPresented: $tafsir) { TafsirSheet(s: s, a: a, text: text ?? "").presentationDetents([.medium, .large]) }
-        .bzSheet(isPresented: $picking) { AyahPickSheet(s0: s, a0: a) { s2, a2 in picking = false; ayah.stop(); ref = (s2, a2) }.presentationDetents([.medium, .large]) }
+        .bzSheet(isPresented: $picking) { AyahPickSheet(s0: s, a0: a, rv: rv, rec: AyahOfDay.opts(ayah, repo, s, a).first { $0.value == rv }.map { RecChoice(value: $0.value, label: $0.label, img: repo.recImg($0.value, $0.label)) }) { s2, a2 in picking = false; setRef((s2, a2)) }.presentationDetents([.large]) }
     }
     /// the reciters, worked out once per ayah and data (not on every redraw while it plays)
     nonisolated(unsafe) private static var cache: (key: String, opts: [AyahPlayer.Option]) = ("", [])
@@ -431,8 +459,16 @@ struct AyahOfDay: View {
         return cache.opts
     }
     private func load(_ s: Int, _ a: Int) async -> String { ayahClean(s, a, (await repo.surahText(s))?[safe: a - 1] ?? "") }
+    private func setRef(_ r: (Int, Int)) { ayah.stop(); note = ""; ref = r }
+    /// the voice changed: the ayah stays if he recited it, else one he did is chosen, and the card says so (as on the site)
+    private func fit(_ v: String) {
+        guard let sc = ayah.scope(v), let p = sc.randomElement(), !AyahPlayer.inScope(sc, ref.0, ref.1) else { return }
+        ref = (p.0, Int.random(in: p.1...max(p.1, p.2)))
+        note = tr("اخترنا لك آية من المتاح بصوت {0}", ayah.label(v, p.0, p.1))
+    }
     private func newAyah() {
-        ayah.stop()
+        ayah.stop(); note = ""
+        if let sc = ayah.scope(rv), let p = sc.randomElement() { ref = (p.0, Int.random(in: p.1...max(p.1, p.2))); return }
         Task { for _ in 0..<5 { let r = Quran.random(); if let t = (await repo.surahText(r.0))?[safe: r.1 - 1], t.count <= 230 { ref = r; return } }; ref = (13, 28) }
     }
 }
@@ -504,26 +540,93 @@ struct TafsirSheet: View {
     }
 }
 
-/// Choosing an ayah: the surah, then the ayah number.
+/// «اختر آية»: the voice, his surahs (or all of them), every ayah of the surah as a number, a preview, then show it.
 struct AyahPickSheet: View {
-    let s0: Int, a0: Int; let pick: (Int, Int) -> Void
+    let s0: Int, a0: Int; var rv = ""; var rec: RecChoice? = nil; let pick: (Int, Int) -> Void
+    @EnvironmentObject var repo: Repo
     @Environment(\.pal) private var c
     @State private var s = 1
     @State private var a = 1
+    @State private var all = true
+    @State private var q = ""
+    @State private var prev = ""
+    private var sc: [(Int, Int, Int)]? { AyahPlayer.shared.scope(rv).flatMap { $0.isEmpty ? nil : $0 } }
+    /// his surahs, each with the first and last ayah he has in it
+    private var mine: [(Int, Int, Int)] { Dictionary(grouping: sc ?? [], by: { $0.0 }).map { k, v in (k, v.map { $0.1 }.min() ?? 1, v.map { $0.2 }.max() ?? 1) }.sorted { $0.0 < $1.0 } }
+    private var list: [(Int, Int, Int)] {
+        let base = all ? (1...114).map { ($0, 1, Quran.ayahs[$0 - 1]) } : mine
+        let t = q.trimmingCharacters(in: .whitespaces)
+        return t.isEmpty ? base : base.filter { Quran.surahs[$0.0 - 1].contains(t) || String($0.0) == t || $0.0.ar == t }
+    }
     var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            SheetHead(title: tr("اختر آية"))
-            HStack(spacing: 8) {
-                OptMenu(label: tr("السورة"), value: s, opts: (1...114).map { ($0, "\($0.ar) \(Quran.surahs[$0 - 1])") }) { s = $0; a = 1 }
-                OptMenu(label: tr("الآية"), value: a, opts: (1...Quran.ayahs[s - 1]).map { ($0, $0.ar) }) { a = $0 }
-            }.padding(.horizontal, 20)
-            GoldButton(title: tr("عرض الآية"), icon: "check") { pick(s, a) }.padding(.horizontal, 20)
-            Spacer()
+        ScrollView {
+            VStack(alignment: .leading, spacing: 12) {
+                SheetHead(title: tr("اختر آية"))
+                VStack(alignment: .leading, spacing: 12) {
+                    if let rec {
+                        HStack(spacing: 10) {
+                            Avatar2(img: rec.img, name: rec.label, size: 44, ring: true)
+                            VStack(alignment: .leading, spacing: 1) { Text(tr("بصوت")).font(F.plex(11)).foregroundStyle(c.muted); Text(rec.label).font(F.plex(14, .bold)).foregroundStyle(c.text).lineLimit(1) }
+                            Spacer(minLength: 0)
+                        }.padding(10).background(RoundedRectangle(cornerRadius: 18).fill(c.surface)).overlay(RoundedRectangle(cornerRadius: 18).stroke(c.lineSoft))
+                    }
+                    if sc != nil {
+                        HStack(spacing: 8) {
+                            Pill(title: tr("المتاح بصوته ({0})", mine.count.ar), on: !all) { all = false; if !mine.contains(where: { $0.0 == s }), let f = mine.first { s = f.0; a = f.1 } }
+                            Pill(title: tr("كل السور"), on: all) { all = true }
+                        }
+                    }
+                    HStack(spacing: 8) {
+                        SiteIcon(name: "search", size: 18, color: c.muted)
+                        TextField(tr("ابحث باسم السورة أو رقمها"), text: $q).font(F.plex(14)).foregroundStyle(c.text)
+                    }.padding(.horizontal, 14).frame(height: 44).background(RoundedRectangle(cornerRadius: 14).fill(c.surface)).overlay(RoundedRectangle(cornerRadius: 14).stroke(c.lineSoft))
+                    ScrollViewReader { sp in
+                        ScrollView(.horizontal, showsIndicators: false) {
+                            HStack(spacing: 8) {
+                                ForEach(list.map { SurahSpan(n: $0.0, f: $0.1, t: $0.2) }, id: \.n) { sp0 in
+                                    let it = (sp0.n, sp0.f, sp0.t); let on = it.0 == s
+                                    Button { s = it.0; a = all ? 1 : it.1 } label: {
+                                        VStack(alignment: .leading, spacing: 1) {
+                                            Text(Quran.surahs[it.0 - 1]).font(F.amiri(18)).foregroundStyle(c.text)
+                                            Text(all ? tr("{0} · {1} آية", it.0.ar, Quran.ayahs[it.0 - 1].ar) : tr("الآيات {0}–{1}", it.1.ar, it.2.ar)).font(F.plex(10.5)).foregroundStyle(c.muted).lineLimit(1)
+                                        }.padding(.horizontal, 14).padding(.vertical, 8)
+                                        .background(RoundedRectangle(cornerRadius: 16).fill(on ? c.gold.opacity(0.12) : c.surface))
+                                        .overlay(RoundedRectangle(cornerRadius: 16).stroke(on ? c.gold : c.line, lineWidth: on ? 2 : 1))
+                                    }.buttonStyle(Press()).id(it.0)
+                                }
+                            }
+                        }.onAppear { sp.scrollTo(s, anchor: .center) }.onChange(of: all) { _ in sp.scrollTo(s, anchor: .center) }
+                    }
+                    HStack { Text(tr("اختر الآية")).font(F.plex(14, .bold)).foregroundStyle(c.text); Spacer(); Text(tr("سورة {0} · {1} آية", Quran.surahs[s - 1], Quran.ayahs[s - 1].ar)).font(F.plex(11.5)).foregroundStyle(c.muted) }
+                    ScrollView {
+                        LazyVGrid(columns: [GridItem(.adaptive(minimum: 40), spacing: 6)], spacing: 6) {
+                            ForEach(1...Quran.ayahs[s - 1], id: \.self) { n in
+                                let on = n == a, has = AyahPlayer.inScope(sc, s, n)
+                                Button { a = n } label: {
+                                    Text(n.ar).font(F.plex(13, .semibold)).foregroundStyle(on ? c.onGold : c.text.opacity(has ? 1 : 0.45))
+                                        .frame(maxWidth: .infinity).frame(height: 36).background(RoundedRectangle(cornerRadius: 11).fill(on ? c.gold : c.surface)).overlay(RoundedRectangle(cornerRadius: 11).stroke(on ? c.gold : c.lineSoft))
+                                }.buttonStyle(.plain)
+                            }
+                        }
+                    }.frame(maxHeight: 236)
+                    if !prev.isEmpty {
+                        Text(orn(prev)).font(F.quran(19)).foregroundStyle(c.text).lineSpacing(12).multilineTextAlignment(.center).frame(maxWidth: .infinity)
+                            .padding(.horizontal, 14).padding(.vertical, 10).overlay(RoundedRectangle(cornerRadius: 18).stroke(c.line, style: StrokeStyle(lineWidth: 1, dash: [5, 4])))
+                    }
+                    GoldButton(title: tr("عرض الآية"), icon: "check") { pick(s, a) }.frame(maxWidth: .infinity)
+                }.padding(.horizontal, 18)
+            }.padding(.bottom, 24)
         }
         .background(c.bg2.ignoresSafeArea()).environment(\.layoutDirection, L.dir)
-        .onAppear { s = s0; a = a0 }
+        .onAppear {
+            all = sc == nil
+            if sc != nil, !mine.contains(where: { $0.0 == s0 }), let f = mine.first { s = f.0; a = f.1 } else { s = s0; a = a0 }
+        }
+        .task(id: s * 1000 + a) { prev = ayahClean(s, a, (await repo.surahText(s))?[safe: a - 1] ?? "") }
     }
 }
+
+struct SurahSpan: Hashable { let n: Int, f: Int, t: Int }
 
 extension Array { subscript(safe i: Int) -> Element? { indices.contains(i) ? self[i] : nil } }
 
