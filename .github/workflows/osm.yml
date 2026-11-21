@@ -5,16 +5,30 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - run: |
-          UA="BadrTilawat/check (+https://bawazirquran.com)"
-          Q='[out:json][timeout:25];nwr["amenity"="place_of_worship"](around:600,30.111283,31.3412941);out center tags meta;'
-          curl -s -A "$UA" --data-urlencode "data=$Q" https://overpass-api.de/api/interpreter > o.json
-          python3 - <<'P'
-          import json,math
-          d=json.load(open('o.json'))
+          pip install -q duckdb
+          REL=$(curl -s https://labs.overturemaps.org/data/releases.json | python3 -c "import json,sys;print(json.load(sys.stdin)['latest'])")
+          echo "release $REL"
+          python3 - "$REL" <<'P'
+          import duckdb,sys,math
+          rel=sys.argv[1]
+          con=duckdb.connect()
+          con.execute("INSTALL httpfs; LOAD httpfs; INSTALL spatial; LOAD spatial; SET s3_region='us-west-2';")
           la,lo=30.111283,31.3412941
-          for e in d['elements']:
-              y=e.get('lat') or e['center']['lat']; x=e.get('lon') or e['center']['lon']
-              m=math.hypot((y-la)*111320,(x-lo)*111320*math.cos(math.radians(la)))
-              t=e.get('tags',{})
-              print(f"{int(m):5d}m {e['type']}/{e['id']} {y:.6f},{x:.6f} name={t.get('name','-')} rel={t.get('religion','-')} bld={t.get('building','-')} user={e.get('user')} v={e.get('version')}")
+          d=0.02
+          q=f"""
+          SELECT id, names.primary AS name, categories.primary AS cat, CAST(categories.alternate AS VARCHAR) AS alt, confidence,
+                 ST_Y(geometry) AS y, ST_X(geometry) AS x, CAST(sources AS VARCHAR) AS src
+          FROM read_parquet('s3://overturemaps-us-west-2/release/{rel}/theme=places/type=place/*', hive_partitioning=1)
+          WHERE bbox.xmin BETWEEN {lo-d} AND {lo+d} AND bbox.ymin BETWEEN {la-d} AND {la+d}
+          """
+          rows=con.execute(q).fetchall()
+          print("all places in box:",len(rows))
+          def dist(y,x): return math.hypot((y-la)*111320,(x-lo)*111320*math.cos(math.radians(la)))
+          hit=[r for r in rows if (r[2] and ('mosque' in r[2] or 'islam' in r[2] or 'religious' in r[2] or 'place_of_worship' in r[2])) or (r[3] and 'mosque' in r[3]) or (r[1] and any(k in r[1] for k in ['مسجد','جامع','Mosque','mosque','Masjid','جويري','Gwairy','Juwayr','Gwiria','Goweria']))]
+          hit.sort(key=lambda r: dist(r[5],r[6]))
+          print("mosques/religious within ~2km:",len(hit))
+          for r in hit:
+              m=dist(r[5],r[6])
+              if m>2200: continue
+              print(f"{int(m):5d}m conf={r[4]:.2f} cat={r[2]} name={r[1]} @ {r[5]:.6f},{r[6]:.6f} src={(r[7] or '')[:60]}")
           P
