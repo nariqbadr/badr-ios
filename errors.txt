@@ -1,0 +1,2 @@
+        _ = conv.convert(to: ob, error: nil) { _, st in if fed { st.pointee = .endOfStream; return nil }; fed = true; st.pointee = .haveData; return ib }
+** BUILD SUCCEEDED **
