@@ -5,6 +5,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - run: |
+          set +e
           UA="BadrTilawat/check (+https://bawazirquran.com)"
           LA=30.1118; LO=31.3437
           A="(around:3000,$LA,$LO)"
