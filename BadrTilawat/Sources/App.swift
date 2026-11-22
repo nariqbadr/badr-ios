@@ -87,7 +87,7 @@ final class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCent
             }
             else if let k = info["iqama"] as? String { UIState.shared?.adhan = AdhanKey(key: k, iqama: true) }
             else if info["open"] as? String == "wird" { UIState.shared?.sheet = .wird }
-            else if info["open"] as? String == "mosques" { UIState.shared?.path = [.mosques] }
+            else if info["open"] as? String == "mosques", mosquesOn { UIState.shared?.path = [.mosques] }
             else if let o = info["open"] as? String, o.hasPrefix("live/") { UIState.shared?.path = [.liveAt(String(o.dropFirst(5)))] }
         }
     }
@@ -151,7 +151,7 @@ enum Route: Hashable {
         case "community": return p.count > 2 && p[1] == "p" ? Int(p[2]).map { .thread($0) } : .community
         case "read": return .readIndex
         case "maker": return .maker(0, 0)
-        case "mosques": return .mosques
+        case "mosques": return mosquesOn ? .mosques : tab("prayer")
         default: return tab(p[0])
         }
     }

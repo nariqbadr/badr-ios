@@ -104,7 +104,7 @@ struct Site {
     var notice: AppNotice { let n = j["app"]["announcement"]
         return AppNotice(enabled: n["enabled"].bool(), style: n["style"].str, title: n["title"].str, text: n["text"].str, image: n["image"].str, link: n["link"].str, linkLabel: n["linkLabel"].str, id: n["id"].str) }
     /// A section shows only if both the site and the app settings allow it.
-    func sec(_ n: String) -> Bool { j["sections"][n].bool(true) && j["app"]["sections"][n].bool(true) }
+    func sec(_ n: String) -> Bool { (n != "mosques" || mosquesOn) && j["sections"][n].bool(true) && j["app"]["sections"][n].bool(true) }
     func feat(_ n: String) -> Bool { j["features"][n].bool(true) }
     func reciterName(_ key: String) -> (name: String, hideAyah: Bool) { let r = j["reciterNames"][key]; return (r["name"].str, r["hideAyah"].bool()) }
 }
@@ -192,3 +192,6 @@ enum Fmt {
     }
     static func isNew(_ t: Track) -> Bool { Date().timeIntervalSince(t.stamp) < 7 * 86400 }
 }
+
+/// «بيوت الله» is off in this release, whatever the dashboard says (its code stays for a better version later)
+let mosquesOn = false

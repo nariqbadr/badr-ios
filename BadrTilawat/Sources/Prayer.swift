@@ -228,7 +228,7 @@ final class Prayers: NSObject, ObservableObject, CLLocationManagerDelegate {
             }
         }
         // «ذكّرني قبل الجمعة»: before Friday's prayer (at dhuhr), with my mosque's name
-        let jm = Mosques.shared.jumuahMin
+        let jm = mosquesOn ? Mosques.shared.jumuahMin : 0
         if jm > 0 {
             for d in 0..<10 {
                 guard let day = Calendar.current.date(byAdding: .day, value: d, to: now), Calendar.current.component(.weekday, from: day) == 6,

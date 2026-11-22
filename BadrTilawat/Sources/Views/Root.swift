@@ -32,7 +32,7 @@ struct RootView: View {
     private var tabs: [TabDef] {
         let s = repo.data?.site
         let chosen = (s?.tabs ?? ["home", "recitations", "quran", "adhkar", "community"]).compactMap { k in TAB_DEFS.first { $0.key == k } }
-            .filter { t in t.sec == nil || s?.sec(t.sec!) != false }.prefix(5)
+            .filter { t in (t.sec == nil || s?.sec(t.sec!) != false) && (t.sec != "mosques" || mosquesOn) }.prefix(5)
         return Array(chosen.isEmpty ? [TAB_DEFS[0]] : Array(chosen))
     }
 
@@ -147,7 +147,7 @@ struct RootView: View {
         case "imams": ui.path = [.imams("mk")]
         case "imamsMd": ui.path = [.imams("md")]
         case "imamAlerts": ui.path = [.imamAlerts]
-        case "mosques": ui.path = [.mosques]
+        case "mosques": if mosquesOn { ui.path = [.mosques] }
         case "liveMd": ui.path = [.liveAt("md")]
         case "lang": ui.sheet = .lang
         case "adhan": ui.adhan = AdhanKey(key: "fajr")
@@ -310,7 +310,7 @@ struct DrawerView: View {
     private struct Item: Identifiable { let id: String, label: String, icon: String, sec: String?; var feat: String? = nil; let action: () -> Void }
     var body: some View {
         let s = repo.data?.site
-        func ok(_ it: Item) -> Bool { (it.sec == nil || s?.sec(it.sec!) != false) && (it.feat == nil || s?.j["features"][it.feat!].bool(true) != false) && (it.id != "live" || s?.liveOn != false) && (it.id != "listen" || !repo.quranRecs().isEmpty) }
+        func ok(_ it: Item) -> Bool { (it.sec == nil || s?.sec(it.sec!) != false) && (it.sec != "mosques" || mosquesOn) && (it.feat == nil || s?.j["features"][it.feat!].bool(true) != false) && (it.id != "live" || s?.liveOn != false) && (it.id != "listen" || !repo.quranRecs().isEmpty) }
         let quick: [Item] = [
             Item(id: "home", label: tr("الرئيسية"), icon: "home", sec: nil) { ui.go(.home) }, Item(id: "recitations", label: tr("التلاوات"), icon: "mic", sec: "recitations") { ui.go(.recitations) },
             Item(id: "quran", label: tr("المصحف"), icon: "book", sec: "mushaf") { ui.go(.quran) }, Item(id: "prayer", label: tr("الصلاة"), icon: "clock", sec: "prayer") { ui.go(.prayer) },

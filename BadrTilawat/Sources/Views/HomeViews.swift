@@ -103,7 +103,7 @@ struct QuickHead: View {
             }.frame(maxWidth: .infinity, alignment: .leading)
         }.buttonStyle(.plain).padding(.horizontal, 16).padding(.top, 14)
         // «بيوت الله»: the nearest mosque and the walk to it
-        if repo.data?.site.sec("mosques") != false { NearestMosquePill().frame(maxWidth: .infinity, alignment: .leading).padding(.horizontal, 16) }
+        if mosquesOn, repo.data?.site.sec("mosques") != false { NearestMosquePill().frame(maxWidth: .infinity, alignment: .leading).padding(.horizontal, 16) }
     }
 }
 
@@ -126,7 +126,7 @@ struct QuickTiles: View {
                 T(icon: "chat", title: tr("المجتمع"), go: "community", sec: "community"), T(icon: "live", title: tr("البث المباشر"), go: "live", sec: "live"),
                 T(icon: "scroll", title: tr("دروس الفقه"), go: "fiqh", sec: "fiqh"), T(icon: "clock", title: tr("الخط الزمني"), go: "timeline", sec: "timeline"),
                 T(icon: "user", title: tr("عن الشيخ"), go: "about", sec: "about")]
-            .filter { $0.sec == nil || s?.sec($0.sec!) != false }.filter { $0.go != "listen" || !repo.quranRecs().isEmpty }.filter { $0.go != "live" || s?.liveOn != false }
+            .filter { $0.sec == nil || s?.sec($0.sec!) != false }.filter { $0.sec != "mosques" || mosquesOn }.filter { $0.go != "listen" || !repo.quranRecs().isEmpty }.filter { $0.go != "live" || s?.liveOn != false }
     }
     private var tiles: [T] {
         let mine = mineRaw.split(separator: ",").map(String.init)
@@ -186,7 +186,7 @@ struct QuickTiles: View {
     private func open(_ go: String) {
         switch go {
         case "listen": ui.path.append(.listen)
-        case "mosques": ui.path.append(.mosques)
+        case "mosques": if mosquesOn { ui.path.append(.mosques) }
         case "qibla": ui.path.append(.qibla)
         case "maker": ui.path.append(.maker(0, 0))
         default: if let r = Route.tab(go) { ui.go(r) }
