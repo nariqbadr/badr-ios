@@ -5,7 +5,7 @@ adb root; sleep 3
 adb shell wm size 1080x2340; adb shell wm density 440; sleep 2
 ( for i in $(seq 1 400); do adb emu geo fix 31.3016 30.0784 >/dev/null 2>&1; sleep 3; done ) &
 GEO=$!
-KEYS="#theme #prayer #lang #name #notices #ambient #qibla #wird"
+KEYS="#theme #prayer #notices #lang mushaf"
 setpref() { # $1 key $2 value
   adb shell am force-stop $P
   F=/data/data/$P/shared_prefs/badr.xml
@@ -17,8 +17,8 @@ perms() { for perm in ACCESS_FINE_LOCATION ACCESS_COARSE_LOCATION POST_NOTIFICAT
 shots() { # $1 prefix
   for k in $KEYS; do
     adb shell am force-stop $P
-    if [ "$k" = home ]; then adb shell am start -W -n $P/.MainActivity > /dev/null; else adb shell am start -W -n $P/.MainActivity --es open "'$k'" > /dev/null; fi
-    sleep 22; adb exec-out screencap -p > "shots/$1_$k.png"
+    if [ "$k" = home ]; then adb shell am start -W -n $P/.MainActivity > /dev/null; else adb shell am start -W -n $P/.MainActivity --es open "\\$k" > /dev/null; fi
+    sleep 22; timeout 30 adb exec-out screencap -p > "shots/$1_$k.png"
   done
 }
 # ---- the old version
@@ -36,7 +36,7 @@ shots new
 adb shell am force-stop $P
 adb shell cat /data/data/$P/shared_prefs/badr.xml > shots/new_prefs.xml
 adb logcat -d -b crash > shots/crash.txt 2>&1 || true
-adb shell ls -laR /data/data/$P > shots/new_files.txt
+timeout 60 adb shell ls -laR /data/data/$P > shots/new_files.txt
 # ---- the new version's first run (fresh install)
 adb uninstall $P; adb install new.apk >/dev/null 2>&1; perms
 adb shell am start -W -n $P/.MainActivity > /dev/null; sleep 25; adb exec-out screencap -p > shots/new_first.png
