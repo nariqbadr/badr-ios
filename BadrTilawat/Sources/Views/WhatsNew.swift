@@ -6,7 +6,10 @@ import SwiftUI
 @MainActor
 enum WhatsNew {
     private static func w(_ s: Site?) -> J? { guard let s else { return nil }; let j = s.j["app"]["whatsNew"]; return j.isNull ? nil : j }
-    private static func key(_ s: Site?) -> String { Repo.version + "#" + String(w(s)?["rev"].int ?? 0) }
+    /// The round of «ما الجديد» this build carries: changed only for an update that has a new screen (a bug-fix update keeps
+    /// it, so the screen does not come again) — the same round as on Android. The dashboard's «إعادة العرض للجميع» adds its count.
+    static let round = "2.10.95"
+    private static func key(_ s: Site?) -> String { round + "#" + String(w(s)?["rev"].int ?? 0) }
     static func shouldShow(_ s: Site?, existing: Bool) -> Bool {
         guard let j = w(s), j["enabled"].bool(true) else { return false }
         let until = j["until"].str
@@ -81,7 +84,7 @@ struct WhatsNewView: View {
         VStack(spacing: 12) {
             Image("Logo").resizable().scaledToFit().frame(width: 76, height: 76).clipShape(RoundedRectangle(cornerRadius: 21))
                 .padding(2).background(RoundedRectangle(cornerRadius: 23).fill(LinearGradient(colors: [c.gold2, c.gold.mix(.black, 0.3)], startPoint: .topLeading, endPoint: .bottomTrailing)))
-            Text(tr("الإصدار {0}", L.digits(Repo.version))).font(F.plex(13, .semibold)).foregroundStyle(c.gold2)
+            Text(tr("الإصدار {0}", L.digits(WhatsNew.round))).font(F.plex(13, .semibold)).foregroundStyle(c.gold2)
                 .padding(.horizontal, 14).padding(.vertical, 5).background(Capsule().fill(c.gold.opacity(0.08))).overlay(Capsule().strokeBorder(c.gold.opacity(0.35)))
             Text(tr("الجديد في بدر التلاوات")).font(F.amiri(32)).foregroundStyle(c.text).multilineTextAlignment(.center)
             body(tr("جمعنا لك أهم ما تغيّر في هذا التحديث."), 15)
