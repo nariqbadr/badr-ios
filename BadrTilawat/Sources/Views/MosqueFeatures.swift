@@ -75,7 +75,6 @@ struct MosqueDial: View {
     @ObservedObject private var mq = Mosques.shared
     @StateObject private var compass = Compass()
     @Environment(\.pal) private var c
-    @State private var pulse = false
     private var far: Double { max(600, min(3500, list.prefix(12).map { mq.dist($0) }.max() ?? 1000) * 1.12) }
     var body: some View {
         if let here = mq.pos { card(here) }
@@ -95,7 +94,7 @@ struct MosqueDial: View {
         }
         .padding(16)
         .background(RoundedRectangle(cornerRadius: 26).fill(c.surface.opacity(0.7))).overlay(RoundedRectangle(cornerRadius: 26).stroke(c.lineSoft))
-        .onAppear { compass.start(); withAnimation(.easeOut(duration: 1.4).repeatForever(autoreverses: false)) { pulse = true } }
+        .onAppear { compass.start() }
         .onDisappear { compass.stop() }
     }
     private static func at(_ o: CGPoint, _ r: CGFloat, _ b: Double, _ f: Double, _ rot: Double) -> CGPoint {
@@ -107,7 +106,12 @@ struct MosqueDial: View {
         let q = Prayers.shared.qibla(), far = far
         return ZStack {
             Canvas { ctx, _ in draw(&ctx, o, r, rot, q, far) }
-            Circle().stroke(c.gold.opacity(pulse ? 0 : 0.35), lineWidth: 2).frame(width: pulse ? 2 * r : 10, height: pulse ? 2 * r : 10).position(o)
+            // a ring that grows from me to the rim every 2 s (drawn from the clock: a repeating animation started on appear
+            // also moved the whole page with it, inside the scroll and the navigation)
+            TimelineView(.animation(minimumInterval: 1 / 30)) { t in
+                let ph = t.date.timeIntervalSinceReferenceDate.truncatingRemainder(dividingBy: 2) / 2
+                Circle().stroke(c.gold.opacity(0.35 * (1 - ph)), lineWidth: 2).frame(width: 10 + (2 * r - 10) * ph, height: 10 + (2 * r - 10) * ph).position(o)
+            }.allowsHitTesting(false)
             kaaba.position(Self.at(o, r, q, 1, rot))
             ForEach(list.prefix(25)) { m in
                 dot(m).position(Self.at(o, r, bearing(here, m.coord), min(1, mq.dist(m) / far), rot))

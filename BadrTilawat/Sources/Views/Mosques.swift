@@ -375,7 +375,10 @@ struct Mosque: Identifiable, Hashable {
     private func apple(near p: CLLocationCoordinate2D) async -> [Mosque] {
         let reg = MKCoordinateRegion(center: p, latitudinalMeters: 6000, longitudinalMeters: 6000)
         async let a1 = appleSearch("مسجد", region: reg); async let a2 = appleSearch("mosque", region: reg); async let a3 = appleSearch("جامع", region: reg)
-        let out = await a1 + a2 + a3
+        // Apple ranks a wide search by fame, not distance: the small mosque next door can be left out — so the 1 km around too
+        let close = MKCoordinateRegion(center: p, latitudinalMeters: 1200, longitudinalMeters: 1200)
+        async let b1 = appleSearch("مسجد", region: close); async let b2 = appleSearch("mosque", region: close); async let b3 = appleSearch("جامع", region: close)
+        let out = await b1 + b2 + b3 + a1 + a2 + a3
         var seen = Set<String>()
         return out.filter { seen.insert("\(Int($0.lat * 5000)):\(Int($0.lng * 5000))").inserted && dist($0) <= 3500 }
     }
