@@ -165,7 +165,7 @@ struct SurahView: View {
                         if let ayahs {
                             ForEach(1...ayahs.count, id: \.self) { a in
                                 let on = cur == a
-                                Text("\(ayahClean(s, a, ayahs[a - 1])) \(orn(a.qar))").font(F.quran(size)).foregroundStyle(on ? c.gold : c.text).lineSpacing(size * 0.75).multilineTextAlignment(.leading)
+                                Text("\(ayahClean(s, a, ayahs[a - 1])) \(ReadText.mark(a.qar))").font(F.quran(size)).foregroundStyle(on ? c.gold : c.text).lineSpacing(size * 0.75).multilineTextAlignment(.leading)
                                     .frame(maxWidth: .infinity, alignment: .leading).environment(\.layoutDirection, .rightToLeft).padding(.horizontal, 12).padding(.vertical, 10)
                                     .background(RoundedRectangle(cornerRadius: 18).fill(on ? c.gold.opacity(0.13) : .clear)).padding(.vertical, 3)
                                     .contentShape(Rectangle())
