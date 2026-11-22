@@ -42,6 +42,23 @@ final class Prayers: NSObject, ObservableObject, CLLocationManagerDelegate {
         return [PrayerTime(key: "fajr", name: tr("الفجر"), time: pt.fajr), PrayerTime(key: "sunrise", name: tr("الشروق"), time: pt.sunrise), PrayerTime(key: "dhuhr", name: tr("الظهر"), time: pt.dhuhr),
                 PrayerTime(key: "asr", name: tr("العصر"), time: pt.asr), PrayerTime(key: "maghrib", name: tr("المغرب"), time: pt.maghrib), PrayerTime(key: "isha", name: tr("العشاء"), time: pt.isha)]
     }
+    /// «الضحى» (a quarter of an hour after sunrise: the sun a spear's length high) and «قيام الليل» (the start of the night's
+    /// last third, from this day's maghrib to the next fajr) — after forDay's six, as on Android.
+    static let duhaMin = 15
+    func extras(_ date: Date = Date()) -> [PrayerTime] {
+        let (lat, lon) = coords
+        let comps = Calendar(identifier: .gregorian).dateComponents([.year, .month, .day], from: date)
+        guard let pt = PrayerTimes(coordinates: Coordinates(latitude: lat, longitude: lon), date: comps, calculationParameters: params()) else { return [] }
+        var out = [PrayerTime(key: "duha", name: tr("الضحى"), time: pt.sunrise.addingTimeInterval(Double(Prayers.duhaMin * 60)))]
+        if let st = SunnahTimes(from: pt) { out.append(PrayerTime(key: "qiyam", name: tr("قيام الليل"), time: st.lastThirdOfTheNight)) }
+        return out
+    }
+    /// today's whole timeline: fajr, sunrise, duha, dhuhr, asr, maghrib, isha, then the night's last third
+    func timeline(_ date: Date = Date()) -> [PrayerTime] {
+        let six = forDay(date), ex = extras(date)
+        guard !six.isEmpty else { return six }
+        return Array(six.prefix(2)) + ex.filter { $0.key == "duha" } + Array(six.dropFirst(2)) + ex.filter { $0.key == "qiyam" }
+    }
     func next() -> PrayerTime? {
         let now = Date()
         if let p = forDay().first(where: { $0.key != "sunrise" && $0.time > now }) { return p }
@@ -104,8 +121,24 @@ final class Prayers: NSObject, ObservableObject, CLLocationManagerDelegate {
 
     // MARK: alerts (like adhan apps): per prayer adhan / notification / off, plus an early reminder
     static let modes = ["adhan", "notify", "off"]
-    func mode(_ k: String) -> String { let m = Store.shared.str("pmode_" + k, k == "sunrise" ? "off" : "adhan"); return Prayers.modes.contains(m) ? m : "adhan" }
-    func setMode(_ k: String, _ m: String) { Store.shared.set("pmode_" + k, m); schedule() }
+    /// the keys with no adhan (a notification or nothing)
+    static let quiet: Set<String> = ["sunrise", "duha", "qiyam"]
+    func mode(_ k: String) -> String {
+        let q = Prayers.quiet.contains(k)
+        let m = Store.shared.str("pmode_" + k, q ? "off" : "adhan")
+        if !Prayers.modes.contains(m) { return q ? "off" : "adhan" }
+        return q && m == "adhan" ? "notify" : m
+    }
+    func setMode(_ k: String, _ m: String) { Store.shared.set("pmode_" + k, m); rev += 1; schedule() }
+    /// «يرنّ حتى في الصامت»: on iOS 26 the adhan is also set as a system alarm (AlarmKit), which sounds through the silent switch
+    var ringSilent: Bool { Store.shared.str("ringSilent", "0") == "1" }
+    var ringSilentAvailable: Bool { if #available(iOS 26.0, *) { return true }; return false }
+    func setRingSilent(_ on: Bool) async -> Bool {
+        if on {
+            guard await SilentAlarms.authorize() else { Store.shared.set("ringSilent", "0"); rev += 1; return false }
+        }
+        Store.shared.set("ringSilent", on ? "1" : "0"); rev += 1; schedule(); return true
+    }
     var alertsOn: Bool { Store.shared.bool("adhan", true) }
     func setAlerts(_ on: Bool) { Store.shared.set("adhan", on); schedule() }
     // «الإقامة»: a notification a set number of minutes after each adhan (not Friday's jumuah, whose khutbah sets the time) — as on Android
@@ -194,6 +227,13 @@ final class Prayers: NSObject, ObservableObject, CLLocationManagerDelegate {
                 for r in reqs { c.add(r) }
             }
         }
+        // «يرنّ حتى في الصامت»: the next two days' adhans as system alarms (their notifications then come without a second sound)
+        let alarmDays = ringSilent && alertsOn ? 2 : 0
+        SilentAlarms.sync(alarmDays == 0 ? [] : (0..<alarmDays).flatMap { d -> [PrayerTime] in
+            guard let day = Calendar.current.date(byAdding: .day, value: d, to: Date()) else { return [] }
+            return forDay(day).filter { $0.key != "sunrise" && mode($0.key) == "adhan" && $0.time > Date() }
+        })
+        let alarmUntil = Calendar.current.date(byAdding: .day, value: alarmDays, to: Calendar.current.startOfDay(for: Date())) ?? Date()
         guard alertsOn else { replace(wird); return }
         let pre = preMinutes
         var reqs: [UNNotificationRequest] = []
@@ -209,6 +249,7 @@ final class Prayers: NSObject, ObservableObject, CLLocationManagerDelegate {
                     let who = Adhan.voice.map { $0.muezzin.isEmpty ? $0.name : $0.muezzin } ?? ""
                     n.body = m == "adhan" && p.key != "sunrise" ? (who.isEmpty ? tr("انقر للاستماع إلى الأذان كاملًا") : tr("بصوت {0} · انقر للاستماع إلى الأذان كاملًا", who)) : tr("حيّ على الصلاة")
                     n.sound = m == "adhan" ? UNNotificationSound(named: UNNotificationSoundName(Adhan.soundName(p.key == "fajr") ?? "adhan.caf")) : .default
+                    if m == "adhan" && p.key != "sunrise" && alarmDays > 0 && p.time < alarmUntil { n.sound = nil }
                     if m == "adhan" && p.key != "sunrise" { n.userInfo = ["adhan": p.key] }
                     if #available(iOS 15.0, *) { n.interruptionLevel = .timeSensitive }
                     reqs.append(UNNotificationRequest(identifier: "p-\(p.key)-\(Int(p.time.timeIntervalSince1970))", content: n, trigger: trigger(p.time)))
@@ -225,6 +266,17 @@ final class Prayers: NSObject, ObservableObject, CLLocationManagerDelegate {
                     let n = UNMutableNotificationContent(); n.title = tr("اقتربت صلاة {0}", p.name); n.body = tr("بعد {0} دقيقة", pre.ar); n.sound = .default
                     reqs.append(UNNotificationRequest(identifier: "pre-\(p.key)-\(Int(p.time.timeIntervalSince1970))", content: n, trigger: trigger(p.time.addingTimeInterval(Double(-pre * 60)))))
                 }
+            }
+        }
+        // «الضحى» and «قيام الليل»: a notification only, when chosen
+        for d in 0..<10 {
+            guard let day = Calendar.current.date(byAdding: .day, value: d, to: now) else { continue }
+            for p in extras(day) where mode(p.key) != "off" && p.time > now {
+                let n = UNMutableNotificationContent()
+                n.title = p.key == "duha" ? tr("دخل وقت صلاة الضحى") : tr("الثلث الأخير من الليل")
+                n.body = p.key == "duha" ? tr("صلاة الأوّابين حين ترمض الفصال") : tr("ينزل ربنا إلى السماء الدنيا فيقول: من يدعوني فأستجيب له")
+                n.sound = .default
+                reqs.append(UNNotificationRequest(identifier: "x-\(p.key)-\(Int(p.time.timeIntervalSince1970))", content: n, trigger: trigger(p.time)))
             }
         }
         // «ذكّرني قبل الجمعة»: before Friday's prayer (at dhuhr), with my mosque's name

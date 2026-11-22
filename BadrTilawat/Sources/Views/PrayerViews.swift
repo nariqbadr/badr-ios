@@ -112,55 +112,8 @@ struct PrayerView: View {
                         let left = max(0, Int(n.time.timeIntervalSince(now)))
                         let span = max(1, n.time.timeIntervalSince(prev?.time ?? n.time.addingTimeInterval(-6 * 3600)))
                         let frac = 1 - min(1, max(0, Double(left) / span))
-                        Panel(pad: 22) {
-                            VStack(spacing: 0) {
-                                Button { ui.sheet = .prayer } label: {
-                                    HStack(spacing: 4) { SiteIcon(name: "pin", size: 18, color: c.gold); Text(prayers.place.isEmpty ? tr("حدّد مدينتك") : prayers.place).font(F.plex(14, .semibold)).foregroundStyle(c.text); SiteIcon(name: "chev-d", size: 20, color: c.muted) }.padding(6)
-                                }.buttonStyle(.plain)
-                                Text(Prayers.hijri()).font(F.plex(12.5)).foregroundStyle(c.muted)
-                                ZStack {
-                                    Rosette(color: c.gold.opacity(0.14))
-                                    Circle().stroke(c.lineSoft, lineWidth: 6).padding(18)
-                                    Circle().trim(from: 0, to: frac).stroke(c.goldBrush, style: StrokeStyle(lineWidth: 6, lineCap: .round)).rotationEffect(.degrees(-90)).padding(18)
-                                    VStack(spacing: 0) {
-                                        Text(tr("الصلاة القادمة")).font(F.plex(12.5, .medium)).foregroundStyle(c.muted)
-                                        Text(n.name).font(F.amiri(34)).foregroundStyle(c.goldBrushV)
-                                        Text(String(format: "%02d:%02d:%02d", left / 3600, left % 3600 / 60, left % 60)).font(F.plex(24, .bold)).foregroundStyle(c.text).monospacedDigit().environment(\.layoutDirection, .leftToRight)
-                                        Text(Fmt.time(n.time)).font(F.plex(12.5)).foregroundStyle(c.muted)
-                                    }
-                                }.frame(width: 210, height: 210).padding(.top, 14)
-                            }.frame(maxWidth: .infinity)
-                        }
-                        Panel(pad: 8, lattice: false) {
-                            ForEach(list) { p in
-                                let on = p.key == n.key && p.time == n.time, past = p.time < now && !on
-                                HStack(spacing: 12) {
-                                    Ico(name: p.key == "sunrise" ? "sunrise" : ["fajr", "maghrib", "isha"].contains(p.key) ? "moon" : "sun", size: 24, color: on ? c.onGold : past ? c.faint : c.gold)
-                                    VStack(alignment: .leading, spacing: 0) {
-                                        Text(p.key == "dhuhr" && Calendar.current.component(.weekday, from: p.time) == 6 ? tr("الجمعة") : p.name).font(F.plex(16, .semibold)).foregroundStyle(on ? c.onGold : past ? c.faint : c.text)
-                                        if p.key == "sunrise" { Text(tr("لا يُرفع له أذان")).font(F.plex(11)).foregroundStyle(on ? c.onGold.opacity(0.8) : c.muted) }
-                                    }
-                                    Spacer()
-                                    Text(Fmt.time(p.time)).font(F.plex(16, .semibold)).foregroundStyle(on ? c.onGold : past ? c.faint : c.text)
-                                    if prayers.alertsOn {
-                                        if p.key == "sunrise" { Color.clear.frame(width: 34, height: 34) }
-                                        else {
-                                            let m = modes[p.key] ?? prayers.mode(p.key)
-                                            Button {
-                                                let nx = m == "adhan" ? "notify" : m == "notify" ? "off" : "adhan"
-                                                prayers.setMode(p.key, nx); modes[p.key] = nx
-                                                ui.say(nx == "adhan" ? tr("سيُرفع الأذان لصلاة {0}", p.name) : nx == "notify" ? tr("إشعار فقط لصلاة {0}", p.name) : tr("بدون تنبيه لصلاة {0}", p.name))
-                                            } label: {
-                                                SiteIcon(name: m == "adhan" ? "volume" : m == "notify" ? "bell" : "mute", size: 19, color: on ? c.onGold : m == "off" ? c.faint : c.gold)
-                                                    .frame(width: 34, height: 34).background(RoundedRectangle(cornerRadius: 11).fill(on ? c.onGold.opacity(0.12) : m == "off" ? .clear : c.gold.opacity(0.13)))
-                                            }.buttonStyle(.plain).accessibilityLabel(tr("تنبيه {0}", p.name))
-                                        }
-                                    }
-                                }
-                                .padding(.horizontal, 16).padding(.vertical, 13)
-                                .background(RoundedRectangle(cornerRadius: 16).fill(on ? AnyShapeStyle(c.goldBrush) : AnyShapeStyle(Color.clear))).padding(2)
-                            }
-                        }
+                        NextPanel(n: n, left: left, frac: frac)
+                        PrayerTimeline(now: now)
                     }
                 }.id(prayers.rev)
                 HStack(spacing: 10) {
@@ -169,6 +122,48 @@ struct PrayerView: View {
                 }
                 QiblaCard()
             }.padding(16).padding(.bottom, 10)
+        }
+    }
+}
+
+/// The prayer page's head: the next prayer in its ring (a clock's marks round it), the time left, then its adhan and iqama.
+struct NextPanel: View {
+    @EnvironmentObject var prayers: Prayers
+    private var ui: UIState { UIState.shared! }
+    @Environment(\.pal) private var c
+    let n: PrayerTime; let left: Int; let frac: Double
+    var body: some View {
+        Panel(pad: 16, lattice: false) {
+            VStack(spacing: 0) {
+                HStack {
+                    Button { ui.sheet = .prayer } label: {
+                        HStack(spacing: 4) { SiteIcon(name: "pin", size: 17, color: c.gold); Text(prayers.place.isEmpty ? tr("حدّد مدينتك") : prayers.place).font(F.plex(14, .semibold)).foregroundStyle(c.text).lineLimit(1); SiteIcon(name: "chev-d", size: 20, color: c.muted) }.padding(.vertical, 6)
+                    }.buttonStyle(.plain)
+                    Spacer()
+                    Text(Prayers.hijri()).font(F.plex(12)).foregroundStyle(c.muted).lineLimit(1)
+                }
+                ZStack {
+                    // a clock's marks round the ring, then the ring and its knob
+                    ForEach(0..<60, id: \.self) { i in
+                        Rectangle().fill(c.text.opacity(i % 5 == 0 ? 0.35 : 0.14)).frame(width: 1.2, height: i % 5 == 0 ? 6 : 4)
+                            .offset(y: -102 + (i % 5 == 0 ? 0 : 1)).rotationEffect(.degrees(Double(i) * 6))
+                    }
+                    Circle().stroke(c.text.opacity(0.07), lineWidth: 5).padding(17)
+                    Circle().trim(from: 0, to: frac).stroke(c.goldBrush, style: StrokeStyle(lineWidth: 5, lineCap: .round)).rotationEffect(.degrees(-90)).padding(17)
+                    Circle().fill(c.gold2).frame(width: 12, height: 12).overlay(Circle().stroke(c.surface, lineWidth: 2.5))
+                        .offset(y: -88).rotationEffect(.degrees(360 * frac))
+                    VStack(spacing: 0) {
+                        Text(tr("الصلاة القادمة")).font(F.plex(12, .medium)).foregroundStyle(c.muted)
+                        Text(n.name).font(F.amiri(36)).foregroundStyle(c.goldBrushV)
+                        Text(hms(left)).font(F.amiri(28)).foregroundStyle(c.text).monospacedDigit().environment(\.layoutDirection, .leftToRight)
+                    }
+                }.frame(width: 210, height: 210).padding(.top, 8)
+                HStack(spacing: 0) {
+                    VStack(spacing: 1) { Text(tr("الأذان")).font(F.plex(11.5)).foregroundStyle(c.muted); Text(Fmt.time(n.time)).font(F.amiri(18)).foregroundStyle(c.text) }.frame(maxWidth: .infinity).padding(.vertical, 10)
+                    Rectangle().fill(c.text.opacity(0.07)).frame(width: 1, height: 52)
+                    VStack(spacing: 1) { Text(tr("الإقامة")).font(F.plex(11.5)).foregroundStyle(c.muted); Text(prayers.iqamaAt(n).map { Fmt.time($0) } ?? "—").font(F.amiri(18)).foregroundStyle(c.text) }.frame(maxWidth: .infinity).padding(.vertical, 10)
+                }.background(RoundedRectangle(cornerRadius: 14).fill(Color.black.opacity(0.22))).padding(.top, 14)
+            }.frame(maxWidth: .infinity)
         }
     }
 }
@@ -201,155 +196,233 @@ struct PrayerSettings: View {
     @State private var locOk: Bool?
     @ObservedObject private var adhanP = AdhanPlayer.shared
     @ObservedObject private var files = AdhanFiles.shared
+    @State private var ringSilent = false
+    private var sub: Color { c.faint.mix(c.muted, 0.5) }
     var body: some View {
         ScrollView {
-            VStack(alignment: .leading, spacing: 12) {
-                Text(tr("مواقيت الصلاة والأذان")).font(F.amiri(24)).foregroundStyle(c.text)
-                Label(prayers.place.isEmpty ? tr("لم تُحدَّد مدينتك بعد") : prayers.place, systemImage: "mappin").font(F.plex(14)).foregroundStyle(c.muted)
-                if notifDenied {
-                    HStack { Text(tr("الإشعارات متوقفة — لن يصلك تنبيه الأذان")).font(F.plex(13)); Spacer(); Button(tr("اسمح")) { if let u = URL(string: UIApplication.openSettingsURLString) { UIApplication.shared.open(u) } }.font(F.plex(13, .bold)) }
-                        .padding(12).background(RoundedRectangle(cornerRadius: 14).fill(c.danger.opacity(0.12)))
-                }
-                ForEach(prayers.forDay()) { p in
-                    let m = modes[p.key] ?? prayers.mode(p.key)
-                    HStack {
-                        VStack(alignment: .leading) { Text(p.name).font(F.plex(15, .semibold)); Text(Fmt.time(p.time)).font(F.plex(12)).foregroundStyle(c.muted) }
-                        Spacer()
-                        ForEach(["adhan", "notify", "off"].filter { p.key != "sunrise" || $0 != "adhan" }, id: \.self) { k in
-                            Button { prayers.setMode(p.key, k); modes[p.key] = k } label: {
-                                VStack(spacing: 2) { Ico(name: icon(k), size: 20); Text(k == "adhan" ? tr("أذان") : k == "notify" ? tr("إشعار") : tr("بدون")).font(F.plex(10)) }
-                                    .foregroundStyle(m == k ? c.gold : c.muted).padding(.horizontal, 9).padding(.vertical, 6).background(RoundedRectangle(cornerRadius: 12).fill(m == k ? c.gold.opacity(0.18) : .clear))
-                            }.buttonStyle(.plain).disabled(!on)
-                        }
-                    }.padding(.horizontal, 12).padding(.vertical, 6).background(RoundedRectangle(cornerRadius: 16).fill(c.surface.opacity(0.6)))
-                }
-                Toggle(isOn: Binding(get: { on }, set: { v in on = v; prayers.setAlerts(v); if v { Task { notifDenied = !(await prayers.requestNotifications()) } } })) {
-                    VStack(alignment: .leading) { Text(tr("تنبيهات الصلاة")).font(F.plex(15, .semibold)); Text(tr("أذان أو إشعار عند دخول كل وقت حسب اختيارك")).font(F.plex(12)).foregroundStyle(c.muted) }
-                }.tint(c.gold)
-                Text(tr("تنبيه قبل الصلاة")).font(F.plex(15, .semibold))
-                HStack(spacing: 6) { ForEach([0, 5, 10, 15, 30], id: \.self) { m in Pill(title: m == 0 ? tr("بدون") : tr("{0} د", m.ar), on: pre == m) { pre = m; prayers.setPre(m) } } }
-                // «الإقامة»: minutes after each adhan, per prayer
-                Toggle(isOn: Binding(get: { iqOn }, set: { v in iqOn = v; prayers.setIqOn(v) })) {
-                    VStack(alignment: .leading) { Text(tr("تنبيه وقت الإقامة")).font(F.plex(15, .semibold)); Text(tr("بعد الأذان بالمدة التي تختارها لكل صلاة (عدا صلاة الجمعة)")).font(F.plex(12)).foregroundStyle(c.muted) }
-                }.tint(c.gold).disabled(!on)
-                if iqOn && on {
-                    ForEach(Prayers.iqKeys, id: \.self) { k in
-                        let v = iq[k] ?? prayers.iqMin(k)
-                        HStack {
-                            Text(tr(Prayers.names.first { $0.0 == k }?.1 ?? "")).font(F.plex(14.5)).foregroundStyle(c.text)
-                            Spacer()
-                            Button { let n = max(5, v - 5); iq[k] = n; prayers.setIqMin(k, n) } label: { Text("−").font(.system(size: 22, weight: .medium)).foregroundStyle(c.gold).frame(width: 40, height: 36) }.buttonStyle(.plain).disabled(v <= 5)
-                            Text(tr("بعد {0} د", v.ar)).font(F.plex(14)).foregroundStyle(c.text).frame(width: 80)
-                            Button { let n = min(60, v + 5); iq[k] = n; prayers.setIqMin(k, n) } label: { Text("+").font(.system(size: 22, weight: .medium)).foregroundStyle(c.gold).frame(width: 40, height: 36) }.buttonStyle(.plain).disabled(v >= 60)
-                        }.padding(.horizontal, 14).padding(.vertical, 2).background(RoundedRectangle(cornerRadius: 14).fill(c.surface.opacity(0.5)))
-                    }
-                    // «صوت الإقامة»: the usual alert sound, or a voice uploaded from the dashboard — each heard here, and tested
-                    Text(tr("صوت الإقامة")).font(F.plex(15, .semibold)).padding(.top, 4)
-                    ForEach([Adhan.Voice(id: "", name: tr("الصوت العادي"), muezzin: tr("صوت التنبيه المعتاد"), url: "", fajr: "")] + Adhan.iqVoices, id: \.id) { v in
-                        let playingIt = !v.id.isEmpty && adhanP.playing && adhanP.what == "iq:" + v.id
-                        HStack(spacing: 10) {
-                            if v.id.isEmpty { Ico(name: "bell", size: 17).foregroundStyle(c.gold).frame(width: 40, height: 40).background(Circle().fill(c.surface3)) }
-                            else {
-                                Button { if playingIt { adhanP.stop() } else { adhanP.playIqama(v) } } label: {
-                                    Ico(name: playingIt ? "pause.fill" : "play.fill", size: 17).foregroundStyle(playingIt ? c.onGold : c.gold).frame(width: 40, height: 40).background(Circle().fill(playingIt ? c.gold : c.surface3))
-                                }.buttonStyle(.plain).accessibilityLabel(playingIt ? tr("إيقاف") : tr("استماع"))
-                            }
-                            Button { iqVoice = v.id; Adhan.setIqVoice(v.id); ui.say(v.id.isEmpty ? tr("ستصلك الإقامة بصوت التنبيه العادي") : tr("حُفظ صوت الإقامة")) } label: {
-                                HStack { VStack(alignment: .leading) { Text(v.name).font(F.plex(14.5, .semibold)).foregroundStyle(c.text); if !v.muezzin.isEmpty { Text(v.muezzin).font(F.plex(12)).foregroundStyle(c.muted) } }
-                                    Spacer(); Image(systemName: iqVoice == v.id ? "checkmark.circle.fill" : "circle").foregroundStyle(iqVoice == v.id ? c.gold : c.faint) }.contentShape(Rectangle())
-                            }.buttonStyle(.plain)
-                        }
-                        .padding(10).background(RoundedRectangle(cornerRadius: 14).fill(c.surface.opacity(0.6))).overlay(RoundedRectangle(cornerRadius: 14).stroke(iqVoice == v.id ? c.gold : c.lineSoft))
-                    }
-                    GhostButton(title: tr("تجربة إشعار الإقامة"), icon: "bell") {
-                        UIImpactFeedbackGenerator(style: .medium).impactOccurred()
-                        Task { let ok = await prayers.testIqama(); ui.say(ok ? tr("أُرسل إشعار الإقامة الآن") : tr("اسمح للتطبيق بالإشعارات من الإعدادات أولًا")) }
-                    }.frame(maxWidth: .infinity)
-                }
-                Text(tr("صوت الأذان")).font(F.plex(15, .semibold))
-                ForEach(Adhan.voices, id: \.id) { v in
-                    Button { voice = v.id; Adhan.setVoice(v.id) } label: {
-                        HStack { VStack(alignment: .leading) { Text(v.name).font(F.plex(14.5, .semibold)).foregroundStyle(c.text); Text(v.muezzin).font(F.plex(12)).foregroundStyle(c.muted) }
-                            Spacer()
-                            // saved on the phone (heard at once, without internet), downloading, or a tap to download it
-                            let _ = files.changed
-                            if let p = files.progress(v) {
-                                HStack(spacing: 6) { ProgressView(value: p).frame(width: 46).tint(c.gold); Text("\(Int(p * 100).ar)٪").font(F.plex(11.5)).foregroundStyle(c.muted) }
-                            } else if Adhan.saved(v) {
-                                Label(tr("محفوظ على الجهاز"), systemImage: "checkmark.icloud").font(F.plex(11.5)).foregroundStyle(c.muted).labelStyle(.titleAndIcon)
-                            } else {
-                                Button { Adhan.download(v) } label: { Label(tr("تحميل"), systemImage: "arrow.down.circle").font(F.plex(12, .semibold)).foregroundStyle(c.gold) }.buttonStyle(.plain)
-                            }
-                            Image(systemName: voice == v.id ? "checkmark.circle.fill" : "circle").foregroundStyle(voice == v.id ? c.gold : c.faint) }
-                        .padding(12).background(RoundedRectangle(cornerRadius: 14).fill(c.surface.opacity(0.6))).overlay(RoundedRectangle(cornerRadius: 14).stroke(voice == v.id ? c.gold : c.lineSoft))
-                    }.buttonStyle(.plain)
-                }
-                // two tests: hear the chosen adhan now, and the real notification at once
-                HStack(spacing: 10) {
-                    GhostButton(title: adhanP.playing ? tr("إيقاف") : tr("استماع للأذان"), icon: adhanP.playing ? "stop.fill" : "play.fill") {
-                        if adhanP.playing { adhanP.stop() } else { adhanP.play(fajr: false) }
-                    }.frame(maxWidth: .infinity)
-                    GhostButton(title: tr("تجربة الإشعار"), icon: "bell") {
-                        withAnimation(.spring(response: 0.45, dampingFraction: 0.7)) { testMsg = tr("جارٍ التجهيز…") }
-                        UIImpactFeedbackGenerator(style: .medium).impactOccurred()
-                        Task {
-                            let ok = await prayers.testNotification()
-                            testMsg = ok ? tr("أُرسل إشعار الأذان الآن — إن لم يظهر فراجع إذن الإشعارات وعدم الإزعاج") : tr("اسمح للتطبيق بالإشعارات من الإعدادات أولًا")
-                        }
-                    }.frame(maxWidth: .infinity)
-                }
-                if !testMsg.isEmpty {
-                    HStack(spacing: 8) {
-                        Ico(name: "bell", size: 14).foregroundStyle(c.onGold).frame(width: 24, height: 24).background(Circle().fill(c.gold))
-                        Text(testMsg).font(F.plex(12.5, .semibold)).foregroundStyle(c.text)
-                        Spacer(minLength: 0)
-                    }
-                    .padding(.horizontal, 12).padding(.vertical, 9)
-                    .background(RoundedRectangle(cornerRadius: 14).fill(c.gold.opacity(0.12)))
-                    .overlay(RoundedRectangle(cornerRadius: 14).stroke(c.gold.opacity(0.45)))
-                    .transition(.scale(scale: 0.92).combined(with: .opacity))
-                }
-                Text(tr("في الإشعار يُسمع أول ٣٠ ثانية من الأذان (أقصى ما يسمح به الآيفون)، والمس الإشعار لسماعه كاملًا.")).font(F.plex(12)).foregroundStyle(c.muted)
-                GhostButton(title: busy ? tr("جارٍ التحديد…") : tr("حدّد موقعي تلقائيًا"), icon: "location") {
-                    busy = true; locOk = nil
-                    Task {
-                        let ok = await prayers.locate(); busy = false
-                        withAnimation(.spring(response: 0.45, dampingFraction: 0.7)) { locOk = ok }
-                        if ok { UINotificationFeedbackGenerator().notificationOccurred(.success) }
-                    }
-                }.frame(maxWidth: .infinity)
-                // the result under the button (a toast was hidden behind this sheet)
-                if let ok = locOk {
-                    HStack(spacing: 8) {
-                        Ico(name: ok ? "check" : "xmark", size: 14).foregroundStyle(ok ? c.onGold : .white)
-                            .frame(width: 24, height: 24).background(Circle().fill(ok ? c.gold : Color.red.opacity(0.75)))
-                        VStack(alignment: .leading, spacing: 1) {
-                            Text(ok ? tr("تم تحديث الموقع") : tr("تعذّر تحديد الموقع — اكتب مدينتك")).font(F.plex(13, .bold)).foregroundStyle(c.text)
-                            if ok { Text(prayers.place).font(F.plex(12)).foregroundStyle(c.gold).lineLimit(1) }
-                        }
-                        Spacer(minLength: 0)
-                    }
-                    .padding(.horizontal, 12).padding(.vertical, 9)
-                    .background(RoundedRectangle(cornerRadius: 14).fill(c.gold.opacity(ok ? 0.12 : 0.05)))
-                    .overlay(RoundedRectangle(cornerRadius: 14).stroke(c.gold.opacity(ok ? 0.45 : 0.15)))
-                    .transition(.asymmetric(insertion: .scale(scale: 0.92).combined(with: .opacity), removal: .opacity))
-                }
-                Text(tr("أو اكتب مدينتك يدويًا:")).font(F.plex(13)).foregroundStyle(c.muted)
-                TextField(tr("المدينة — مثال: القاهرة"), text: $city).padding(12).background(RoundedRectangle(cornerRadius: 14).fill(c.surface))
-                TextField(tr("الدولة — مثال: مصر"), text: $country).padding(12).background(RoundedRectangle(cornerRadius: 14).fill(c.surface))
-                GoldButton(title: tr("حفظ المدينة"), icon: "checkmark") {
-                    guard !city.isEmpty else { return }
-                    Task { let ok = await prayers.setCity(city, country); ui.say(ok ? tr("تم حفظ المدينة") : tr("لم نجد هذه المدينة")); if ok { dismiss() } }
-                }.frame(maxWidth: .infinity)
-            }.padding(20)
+            VStack(alignment: .leading, spacing: 0) {
+                head
+                alertsSection
+                generalSection
+                preSection
+                iqamaSection
+                adhanSection
+                placeSection
+            }.padding(.horizontal, 18).padding(.top, 20).padding(.bottom, 28)
         }
         .font(F.plex(15)).background(c.bg2.ignoresSafeArea()).environment(\.layoutDirection, L.dir)
         .fullScreenCover(isPresented: $testAdhan) { AdhanScreen(key: "test") }
         .onDisappear { if adhanP.playing { adhanP.stop() } }
         .onAppear {
-            pre = prayers.preMinutes; on = prayers.alertsOn; iqOn = prayers.iqOn; voice = Adhan.voiceId; iqVoice = Adhan.iqVoiceId; Task { await Adhan.prepare(); prayers.schedule() }
+            pre = prayers.preMinutes; on = prayers.alertsOn; iqOn = prayers.iqOn; ringSilent = prayers.ringSilent; voice = Adhan.voiceId; iqVoice = Adhan.iqVoiceId; Task { await Adhan.prepare(); prayers.schedule() }
             UNUserNotificationCenter.current().getNotificationSettings { s in DispatchQueue.main.async { notifDenied = s.authorizationStatus == .denied } }
         }
+    }
+}
+
+
+extension PrayerSettings {
+    private func toggleRow(_ on: Bool, _ t: String, _ subT: String?, new: Bool = false, set: @escaping (Bool) -> Void) -> some View {
+        Toggle(isOn: Binding(get: { on }, set: set)) {
+            VStack(alignment: .leading, spacing: 1) {
+                HStack(spacing: 6) { Text(t).font(F.plex(15, .semibold)).foregroundStyle(c.text); if new { NewBadge() } }
+                if let subT { Text(subT).font(F.plex(12.5)).foregroundStyle(sub) }
+            }
+        }.tint(c.gold).padding(.vertical, 10)
+    }
+    private func radio(_ sel: Bool) -> some View {
+        ZStack { Circle().fill(sel ? c.gold : .clear); Circle().strokeBorder(sel ? c.gold : c.faint, lineWidth: 1.5); if sel { SiteIcon(name: "check", size: 14, color: c.onGold) } }.frame(width: 22, height: 22)
+    }
+    @ViewBuilder var head: some View {
+        Text(tr("مواقيت الصلاة والأذان")).font(F.amiri(28)).foregroundStyle(c.text)
+        HStack(spacing: 5) {
+            SiteIcon(name: "pin", size: 15, color: c.gold)
+            Text(prayers.place.isEmpty ? tr("لم تُحدَّد مدينتك بعد") : prayers.place).font(F.plex(13)).foregroundStyle(c.muted).lineLimit(1)
+            Spacer()
+            Text(Prayers.hijri()).font(F.plex(12)).foregroundStyle(sub)
+        }.padding(.horizontal, 4).padding(.top, 4)
+        if notifDenied {
+            HStack { Text(tr("الإشعارات متوقفة — لن يصلك تنبيه الأذان")).font(F.plex(13)); Spacer(); Button(tr("اسمح")) { if let u = URL(string: UIApplication.openSettingsURLString) { UIApplication.shared.open(u) } }.font(F.plex(13, .bold)) }
+                .padding(12).background(RoundedRectangle(cornerRadius: 14).fill(c.danger.opacity(0.12))).padding(.top, 10)
+        }
+    }
+    @ViewBuilder var alertsSection: some View {
+        let day = prayers.forDay(), ex = prayers.extras()
+        GroupHead(title: tr("الصلوات الخمس"), sub: tr("أذان كامل، أو إشعار، أو بدون تنبيه"))
+        SettingsGroup {
+            let five = day.filter { $0.key != "sunrise" }
+            ForEach(Array(five.enumerated()), id: \.element.id) { i, p in
+                if i > 0 { Hairline(inset: 38) }
+                PrayerAlertRow(p: p)
+            }
+        }
+        GroupHead(title: tr("أوقات أخرى"))
+        SettingsGroup {
+            if let sr = day.first(where: { $0.key == "sunrise" }) { PrayerAlertRow(p: sr) }
+            ForEach(ex) { p in
+                Hairline(inset: 38)
+                PrayerAlertRow(p: p, new: true, sub: p.key == "qiyam" ? tr("{0}، الثلث الأخير", Fmt.time(p.time)) : nil)
+            }
+        }
+    }
+    @ViewBuilder var generalSection: some View {
+        GroupHead(title: tr("عام"))
+        SettingsGroup {
+            toggleRow(on, tr("تنبيهات الصلاة"), tr("أذان أو إشعار عند دخول كل وقت")) { v in on = v; prayers.setAlerts(v); if v { Task { notifDenied = !(await prayers.requestNotifications()) } } }
+            if prayers.ringSilentAvailable {
+                Hairline()
+                toggleRow(ringSilent, tr("يرنّ حتى في الصامت"), tr("الأذان منبّه بالصوت الذي اخترته"), new: true) { v in
+                    ringSilent = v
+                    Task { let ok = await prayers.setRingSilent(v); if v && !ok { ringSilent = false; ui.say(tr("اسمح للتطبيق بالمنبّهات من الإعدادات أولًا")) } }
+                }
+            }
+        }
+    }
+    @ViewBuilder var preSection: some View {
+        GroupHead(title: tr("تنبيه قبل الصلاة"))
+        HStack(spacing: 2) {
+            ForEach([0, 5, 10, 15, 30], id: \.self) { m in
+                let sel = pre == m
+                Button { pre = m; prayers.setPre(m) } label: {
+                    Text(m == 0 ? tr("بدون") : tr("{0} د", m.ar)).font(F.plex(13.5, sel ? .bold : .medium)).foregroundStyle(sel ? c.text : c.muted)
+                        .frame(maxWidth: .infinity).frame(height: 38)
+                        .background(RoundedRectangle(cornerRadius: 10).fill(sel ? c.surface3.mix(c.gold, 0.08) : .clear))
+                        .overlay(RoundedRectangle(cornerRadius: 10).strokeBorder(sel ? c.gold.opacity(0.28) : .clear))
+                }.buttonStyle(.plain)
+            }
+        }.padding(3).background(RoundedRectangle(cornerRadius: 13).fill(Color.black.opacity(0.28))).overlay(RoundedRectangle(cornerRadius: 13).strokeBorder(c.text.opacity(0.06)))
+    }
+    @ViewBuilder var iqamaSection: some View {
+        GroupHead(title: tr("الإقامة"), sub: tr("بعد الأذان بالمدة التي تختارها لكل صلاة، عدا الجمعة"))
+        SettingsGroup { toggleRow(iqOn, tr("تنبيه وقت الإقامة"), nil) { v in iqOn = v; prayers.setIqOn(v) } }
+        if iqOn && on {
+            SettingsGroup {
+                ForEach(Array(Prayers.iqKeys.enumerated()), id: \.element) { i, k in
+                    if i > 0 { Hairline(inset: 38) }
+                    iqRow(k)
+                }
+            }.padding(.top, 8)
+            GroupHead(title: tr("صوت الإقامة"))
+            SettingsGroup {
+                let list = [Adhan.Voice(id: "", name: tr("الصوت العادي"), muezzin: tr("صوت التنبيه المعتاد"), url: "", fajr: "")] + Adhan.iqVoices
+                ForEach(Array(list.enumerated()), id: \.element.id) { i, v in
+                    if i > 0 { Hairline(inset: 48) }
+                    iqVoiceRow(v)
+                }
+            }
+            GhostButton(title: tr("تجربة إشعار الإقامة"), icon: "bell") {
+                UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+                Task { let ok = await prayers.testIqama(); ui.say(ok ? tr("أُرسل إشعار الإقامة الآن") : tr("اسمح للتطبيق بالإشعارات من الإعدادات أولًا")) }
+            }.padding(.top, 10)
+        }
+    }
+    private func iqRow(_ k: String) -> some View {
+        let v = iq[k] ?? prayers.iqMin(k)
+        return HStack(spacing: 14) {
+            RoundedRectangle(cornerRadius: 8).fill(PrayerSky.swatch(k)).frame(width: 24, height: 24)
+            Text(tr(Prayers.names.first { $0.0 == k }?.1 ?? "")).font(F.plex(15, .semibold)).foregroundStyle(c.text)
+            Spacer()
+            HStack(spacing: 0) {
+                Button { let n = min(60, v + 5); iq[k] = n; prayers.setIqMin(k, n) } label: { Text("+").font(.system(size: 18, weight: .medium)).foregroundStyle(c.text).frame(width: 36, height: 32) }.buttonStyle(.plain).disabled(v >= 60)
+                Text(tr("بعد {0} د", v.ar)).font(F.plex(13, .semibold)).foregroundStyle(c.text).frame(width: 70)
+                Button { let n = max(5, v - 5); iq[k] = n; prayers.setIqMin(k, n) } label: { Text("−").font(.system(size: 18, weight: .medium)).foregroundStyle(c.text).frame(width: 36, height: 32) }.buttonStyle(.plain).disabled(v <= 5)
+            }.padding(2).background(RoundedRectangle(cornerRadius: 11).fill(Color.black.opacity(0.28)))
+        }.frame(minHeight: 56)
+    }
+    private func iqVoiceRow(_ v: Adhan.Voice) -> some View {
+        let playingIt = !v.id.isEmpty && adhanP.playing && adhanP.what == "iq:" + v.id
+        let sel = iqVoice == v.id
+        return HStack(spacing: 12) {
+            if v.id.isEmpty { SiteIcon(name: "bell", size: 16, color: c.text).frame(width: 36, height: 36).background(Circle().fill(c.surface3)) }
+            else {
+                Button { if playingIt { adhanP.stop() } else { adhanP.playIqama(v) } } label: {
+                    Ico(name: playingIt ? "pause.fill" : "play.fill", size: 14).foregroundStyle(playingIt ? c.onGold : c.text).frame(width: 36, height: 36).background(Circle().fill(playingIt ? c.gold : c.surface3))
+                }.buttonStyle(.plain).accessibilityLabel(playingIt ? tr("إيقاف") : tr("استماع"))
+            }
+            Button { iqVoice = v.id; Adhan.setIqVoice(v.id); ui.say(v.id.isEmpty ? tr("ستصلك الإقامة بصوت التنبيه العادي") : tr("حُفظ صوت الإقامة")) } label: {
+                HStack {
+                    VStack(alignment: .leading, spacing: 1) { Text(v.name).font(F.plex(15, .semibold)).foregroundStyle(sel ? c.gold2 : c.text); if !v.muezzin.isEmpty { Text(v.muezzin).font(F.plex(12.5)).foregroundStyle(sub) } }
+                    Spacer(); radio(sel)
+                }.contentShape(Rectangle())
+            }.buttonStyle(.plain)
+        }.frame(minHeight: 62)
+    }
+    @ViewBuilder var adhanSection: some View {
+        GroupHead(title: tr("صوت الأذان"))
+        SettingsGroup {
+            ForEach(Array(Adhan.voices.enumerated()), id: \.element.id) { i, v in
+                if i > 0 { Hairline() }
+                adhanRow(v)
+            }
+        }
+        HStack(spacing: 10) {
+            GhostButton(title: adhanP.playing ? tr("إيقاف") : tr("استماع للأذان"), icon: adhanP.playing ? "stop.fill" : "play.fill") {
+                if adhanP.playing { adhanP.stop() } else { adhanP.play(fajr: false) }
+            }.frame(maxWidth: .infinity)
+            GhostButton(title: tr("تجربة الإشعار"), icon: "bell") {
+                withAnimation(.spring(response: 0.45, dampingFraction: 0.7)) { testMsg = tr("جارٍ التجهيز…") }
+                UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+                Task { let ok = await prayers.testNotification(); testMsg = ok ? tr("أُرسل إشعار الأذان الآن — إن لم يظهر فراجع إذن الإشعارات وعدم الإزعاج") : tr("اسمح للتطبيق بالإشعارات من الإعدادات أولًا") }
+            }.frame(maxWidth: .infinity)
+        }.padding(.top, 10)
+        if !testMsg.isEmpty {
+            HStack(spacing: 8) {
+                Ico(name: "bell", size: 14).foregroundStyle(c.onGold).frame(width: 24, height: 24).background(Circle().fill(c.gold))
+                Text(testMsg).font(F.plex(12.5, .semibold)).foregroundStyle(c.text)
+                Spacer(minLength: 0)
+            }.padding(.horizontal, 12).padding(.vertical, 9)
+            .background(RoundedRectangle(cornerRadius: 14).fill(c.gold.opacity(0.12))).overlay(RoundedRectangle(cornerRadius: 14).stroke(c.gold.opacity(0.45))).padding(.top, 10)
+            .transition(.scale(scale: 0.92).combined(with: .opacity))
+        }
+        Text(tr("في الإشعار يُسمع أول ٣٠ ثانية من الأذان (أقصى ما يسمح به الآيفون)، والمس الإشعار لسماعه كاملًا.")).font(F.plex(12)).foregroundStyle(sub).padding(.horizontal, 6).padding(.top, 10)
+    }
+    private func adhanRow(_ v: Adhan.Voice) -> some View {
+        let sel = voice == v.id
+        return Button { voice = v.id; Adhan.setVoice(v.id) } label: {
+            HStack(spacing: 8) {
+                VStack(alignment: .leading, spacing: 1) { Text(v.name).font(F.plex(15, .semibold)).foregroundStyle(sel ? c.gold2 : c.text); Text(v.muezzin).font(F.plex(12.5)).foregroundStyle(sub) }
+                Spacer()
+                let _ = files.changed
+                if let p = files.progress(v) {
+                    HStack(spacing: 6) { ProgressView(value: p).frame(width: 46).tint(c.gold); Text("\(Int(p * 100).ar)٪").font(F.plex(11.5)).foregroundStyle(c.muted) }
+                } else if Adhan.saved(v) {
+                    Label(tr("على الجهاز"), systemImage: "checkmark.icloud").font(F.plex(11.5)).foregroundStyle(sub).labelStyle(.titleAndIcon)
+                } else {
+                    Button { Adhan.download(v) } label: { Label(tr("تحميل"), systemImage: "arrow.down.circle").font(F.plex(12, .semibold)).foregroundStyle(c.gold) }.buttonStyle(.plain)
+                }
+                radio(sel)
+            }.frame(minHeight: 62).contentShape(Rectangle())
+        }.buttonStyle(.plain)
+    }
+    @ViewBuilder var placeSection: some View {
+        GroupHead(title: tr("الموقع"))
+        SettingsGroup {
+            Button {
+                busy = true; locOk = nil
+                Task { let ok = await prayers.locate(); busy = false; withAnimation(.spring(response: 0.45, dampingFraction: 0.7)) { locOk = ok }; if ok { UINotificationFeedbackGenerator().notificationOccurred(.success) } }
+            } label: {
+                HStack(spacing: 10) { SiteIcon(name: "locate", size: 18, color: c.gold2); Text(busy ? tr("جارٍ التحديد…") : tr("حدّد موقعي تلقائيًا")).font(F.plex(15, .semibold)).foregroundStyle(c.gold2); Spacer() }.frame(minHeight: 52).contentShape(Rectangle())
+            }.buttonStyle(.plain)
+            Hairline()
+            HStack(spacing: 12) { Text(tr("المدينة")).font(F.plex(14)).foregroundStyle(c.muted).frame(width: 64, alignment: .leading); TextField(tr("مثال: القاهرة"), text: $city).font(F.plex(15)) }.frame(minHeight: 52)
+            Hairline()
+            HStack(spacing: 12) { Text(tr("الدولة")).font(F.plex(14)).foregroundStyle(c.muted).frame(width: 64, alignment: .leading); TextField(tr("مثال: مصر"), text: $country).font(F.plex(15)) }.frame(minHeight: 52)
+        }
+        if let ok = locOk {
+            HStack(spacing: 8) {
+                Ico(name: ok ? "check" : "xmark", size: 14).foregroundStyle(ok ? c.onGold : .white).frame(width: 24, height: 24).background(Circle().fill(ok ? c.gold : Color.red.opacity(0.75)))
+                VStack(alignment: .leading, spacing: 1) {
+                    Text(ok ? tr("تم تحديث الموقع") : tr("تعذّر تحديد الموقع — اكتب مدينتك")).font(F.plex(13, .bold)).foregroundStyle(c.text)
+                    if ok { Text(prayers.place).font(F.plex(12)).foregroundStyle(c.gold).lineLimit(1) }
+                }
+                Spacer(minLength: 0)
+            }.padding(.horizontal, 12).padding(.vertical, 9)
+            .background(RoundedRectangle(cornerRadius: 14).fill(c.gold.opacity(ok ? 0.12 : 0.05))).overlay(RoundedRectangle(cornerRadius: 14).stroke(c.gold.opacity(ok ? 0.45 : 0.15))).padding(.top, 10)
+        }
+        GoldButton(title: tr("حفظ المدينة"), icon: "checkmark") {
+            guard !city.isEmpty else { return }
+            Task { let ok = await prayers.setCity(city, country); ui.say(ok ? tr("تم حفظ المدينة") : tr("لم نجد هذه المدينة")); if ok { dismiss() } }
+        }.frame(maxWidth: .infinity).padding(.top, 16)
     }
 }
 

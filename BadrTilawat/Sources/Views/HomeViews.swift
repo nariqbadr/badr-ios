@@ -637,54 +637,6 @@ struct SurahSpan: Hashable { let n: Int, f: Int, t: Int }
 
 extension Array { subscript(safe i: Int) -> Element? { indices.contains(i) ? self[i] : nil } }
 
-/// Prayer strip on the home screen (like the site): the city and the hijri date, the day's times, the time left to the next.
-struct PrayerBand: View {
-    @EnvironmentObject var prayers: Prayers
-    /* UI actions only: reading it does not redraw this view on every tab or sheet change */ private var ui: UIState { UIState.shared! }
-    @Environment(\.pal) private var c
-    var body: some View {
-        TimelineView(.periodic(from: .now, by: 1)) { ctx in
-            let list = prayers.forDay(); let next = prayers.next()
-            Panel(pad: 16) {
-                HStack {
-                    Button { ui.sheet = .prayer } label: {
-                        HStack(spacing: 4) {
-                            SiteIcon(name: "pin", size: 18, color: c.gold)
-                            Text(prayers.place.isEmpty ? tr("حدّد مدينتك") : prayers.place).font(F.plex(14, .semibold)).foregroundStyle(c.text).lineLimit(1)
-                            SiteIcon(name: "chev-d", size: 18, color: c.muted)
-                        }.padding(.vertical, 4)
-                    }.buttonStyle(.plain)
-                    Spacer()
-                    Text(Prayers.hijri()).font(F.plex(12.5, .medium)).foregroundStyle(c.muted)
-                }
-                HStack(spacing: 0) {
-                    ForEach(list) { p in
-                        let on = p.key == next?.key && p.time == next?.time, sun = p.key == "sunrise"
-                        VStack(spacing: 2) {
-                            Text(p.key == "dhuhr" && Calendar.current.component(.weekday, from: p.time) == 6 ? tr("الجمعة") : p.name).font(F.plex(12, .medium)).foregroundStyle(on ? c.onGold : sun ? c.faint : c.muted)
-                            Text(hm(p.time)).font(F.plex(15, .bold)).foregroundStyle(on ? c.onGold : sun ? c.faint : c.text)
-                        }.frame(maxWidth: .infinity).padding(.vertical, 8)
-                        .background(RoundedRectangle(cornerRadius: 14).fill(on ? AnyShapeStyle(c.goldBrush) : AnyShapeStyle(Color.clear))).padding(.horizontal, 2)
-                    }
-                }.padding(.vertical, 12)
-                if let n = next {
-                    let left = max(0, Int(n.time.timeIntervalSince(ctx.date)))
-                    Button { ui.go(.prayer) } label: {
-                        HStack {
-                            Text(tr("المتبقي على {0}", n.name)).font(F.plex(14)).foregroundStyle(c.muted)
-                            Spacer()
-                            Text(String(format: "%02d:%02d:%02d", left / 3600, left % 3600 / 60, left % 60)).font(F.plex(22, .medium)).foregroundStyle(c.gold).monospacedDigit().environment(\.layoutDirection, .leftToRight)
-                        }.padding(.horizontal, 14).padding(.vertical, 10).background(RoundedRectangle(cornerRadius: 16).fill(c.bg2.opacity(0.6)))
-                    }.buttonStyle(.plain)
-                }
-            }
-        }
-        .padding(.horizontal, 16).padding(.vertical, 8)
-        .id(prayers.rev)
-    }
-    private func hm(_ d: Date) -> String { let f = DateFormatter(); f.locale = L.locale; f.dateFormat = "h:mm"; return f.string(from: d) }
-}
-
 /// The live stream on the home page (like the site): plays by itself without sound; a button turns the sound on;
 /// the next prayer's countdown in the corner; a tap opens the live page.
 struct LiveStage: View {

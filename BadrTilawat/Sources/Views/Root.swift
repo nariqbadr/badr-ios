@@ -26,6 +26,8 @@ struct RootView: View {
     private static let shot = ProcessInfo.processInfo.environment["BZ_ROUTE"]
     @State private var intro = RootView.shot == nil || RootView.shot == "intro"
     @State private var onboard = RootView.shot == nil && !UserDefaults.standard.bool(forKey: "onboarded")
+    @State private var wnExisting = UserDefaults.standard.bool(forKey: "onboarded")
+    @State private var wnDone = false
     @State private var barH: CGFloat = 70
     @State private var opened: [String] = []
 
@@ -85,6 +87,8 @@ struct RootView: View {
             if let m = repo.data?.site.maintenance, m.on { Maintenance(title: m.title, message: m.message) }
             else if intro && repo.data?.site.introOn != false { IntroView { withAnimation(.easeOut(duration: 0.5)) { intro = false } } }
             else if onboard { Onboarding { withAnimation { onboard = false } } }
+            // «الجديد في بدر التلاوات» once after an update, then the dashboard's message (never both at once)
+            else if RootView.shot == "whatsnew" ? !wnDone : (!wnDone && RootView.shot == nil && WhatsNew.shouldShow(repo.data?.site, existing: wnExisting)) { WhatsNewView { go in wnDone = true; go?() } }
             else if let s = repo.data?.site, RootView.shot == nil { AppMessages(site: s) }
         }
         .fullScreenCover(isPresented: $ui.playerOpen) { PlayerView() }
@@ -114,7 +118,9 @@ struct RootView: View {
             let env = ProcessInfo.processInfo.environment
             if let l = env["BZ_LOGIN"], let p = env["BZ_PASS"], !l.isEmpty { try? await Community.shared.login(l, p) }
             #endif
-            await repo.refresh(); WidgetBridge.tracks(); if let t = repo.data?.site.defaultTheme { store.applyDefaultTheme(t) }; if let r = RootView.shot { openShot(r) }
+            await repo.refresh(); WidgetBridge.tracks(); if let t = repo.data?.site.defaultTheme { store.applyDefaultTheme(t) }
+            if RootView.shot != nil, let th = ProcessInfo.processInfo.environment["BZ_THEME"], !th.isEmpty { store.theme = th }
+            if let r = RootView.shot { openShot(r) }
         }
         .onAppear { if !opened.contains(ui.tab) { opened.append(ui.tab) } }
         // the last three tabs stay alive: more of them made every change redraw many hidden pages
@@ -150,6 +156,7 @@ struct RootView: View {
         case "mosques": if mosquesOn { ui.path = [.mosques] }
         case "liveMd": ui.path = [.liveAt("md")]
         case "lang": ui.sheet = .lang
+        case "prayerSettings": ui.sheet = .prayer
         case "adhan": ui.adhan = AdhanKey(key: "fajr")
         default: if let t = Route.tab(r) { ui.go(t) }
         }

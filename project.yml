@@ -23,8 +23,8 @@ targets:
         CODE_SIGN_ENTITLEMENTS: BadrTilawat/BadrTilawat.entitlements
         PRODUCT_BUNDLE_IDENTIFIER: com.bawazirquran.app
         PRODUCT_NAME: BadrTilawat
-        MARKETING_VERSION: "2.10.123"
-        CURRENT_PROJECT_VERSION: "138"
+        MARKETING_VERSION: "2.10.124"
+        CURRENT_PROJECT_VERSION: "139"
         TARGETED_DEVICE_FAMILY: "1"
         SWIFT_VERSION: "5.0"
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
@@ -54,6 +54,7 @@ targets:
         UISupportedInterfaceOrientations: [UIInterfaceOrientationPortrait, UIInterfaceOrientationLandscapeLeft, UIInterfaceOrientationLandscapeRight]
         UIStatusBarStyle: UIStatusBarStyleLightContent
         UIViewControllerBasedStatusBarAppearance: true
+        NSAlarmKitUsageDescription: ليرنّ الأذان في وقت كل صلاة حتى لو كان الهاتف على الصامت، بالصوت الذي اخترته.
         NSLocationWhenInUseUsageDescription: لحساب مواقيت الصلاة واتجاه القبلة لمدينتك، ولعرض أقرب المساجد إليك والطريق إليها.
         NSPhotoLibraryUsageDescription: لإرفاق الصور في منشورات المجتمع.
         NSPhotoLibraryAddUsageDescription: لحفظ تصاميم الآيات في الصور.
@@ -69,8 +70,8 @@ targets:
         PRODUCT_BUNDLE_IDENTIFIER: com.bawazirquran.app.widgets
         IPHONEOS_DEPLOYMENT_TARGET: "17.0"
         PRODUCT_NAME: BadrWidgets
-        MARKETING_VERSION: "2.10.123"
-        CURRENT_PROJECT_VERSION: "138"
+        MARKETING_VERSION: "2.10.124"
+        CURRENT_PROJECT_VERSION: "139"
         TARGETED_DEVICE_FAMILY: "1"
         SWIFT_VERSION: "5.0"
         GENERATE_INFOPLIST_FILE: NO
