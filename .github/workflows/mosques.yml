@@ -1,0 +1,30 @@
+name: mosques data
+# «بيوت الله»: the mosques of Egypt (OpenStreetMap + Overture) rebuilt every day into the "mosques" branch, served by jsDelivr
+on:
+  schedule: [{ cron: "17 3 * * *" }]
+  workflow_dispatch:
+  push: { branches: [mosques-build] }
+permissions: { contents: write }
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - run: sudo apt-get -qq update && sudo apt-get -qq install -y osmium-tool >/dev/null && pip install -q duckdb
+      - name: OpenStreetMap (Egypt, today's)
+        run: |
+          curl -sSfL -o eg.osm.pbf https://download.geofabrik.de/africa/egypt-latest.osm.pbf
+          # the newest edits too (the extract is a day old at most): today's changes from the minutely diffs are not needed
+          osmium tags-filter eg.osm.pbf nwr/amenity=place_of_worship nwr/building=mosque -o pw.osm.pbf --overwrite
+          osmium export pw.osm.pbf -f geojsonseq --add-unique-id=type_id -a type,id -o pw.geojsonseq --overwrite
+          ls -la pw.geojsonseq
+      - name: Build
+        run: python3 tools/mosques/build.py out
+      - name: Publish
+        run: |
+          cd out
+          git init -q -b mosques && git add -A
+          git -c user.name="mosques-bot" -c user.email="noreply@github.com" commit -qm "mosques $(date -u +%F)"
+          git push -qf "https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}.git" mosques
+          curl -s "https://purge.jsdelivr.net/gh/${{ github.repository }}@mosques/meta.json" >/dev/null || true
