@@ -5,7 +5,7 @@ adb root; sleep 3
 adb shell wm size 1080x2340; adb shell wm density 440; sleep 2
 ( for i in $(seq 1 400); do adb emu geo fix 31.3016 30.0784 >/dev/null 2>&1; sleep 3; done ) &
 GEO=$!
-KEYS="home recitations quran adhkar community library listen mushaf"
+KEYS="thread"
 setpref() { # $1 key $2 value
   adb shell am force-stop $P
   F=/data/data/$P/shared_prefs/badr.xml
@@ -20,6 +20,10 @@ d=json.load(sys.stdin); d=d.get('data',d); r=d.get('readable',{}).get('tracks',{
 ts=[t for t in d.get('recitations',[]) if ((t.get('video') or {}).get('q')) and t.get('id') in r]
 ts.sort(key=lambda t:(t.get('publishAt') or t.get('createdAt') or '', t.get('order',0)), reverse=True)
 print(ts[0]['id'] if ts else '')" 2>/dev/null); echo "CLIP=$CLIP"
+TID=$(curl -s --max-time 60 "https://bawazirquran.com/wp-admin/admin-ajax.php?action=bz&do=c_feed&tab=all&before=0" | python3 -c "
+import json,sys
+d=json.load(sys.stdin); d=d.get('data',d); its=d.get('items') or d.get('posts') or []
+print(next((p['id'] for p in its if (p.get('replies') or 0)>0), its[0]['id'] if its else ''))" 2>/dev/null); echo "TID=$TID"
 tapText() {
   timeout 30 adb shell uiautomator dump /sdcard/ui.xml >/dev/null 2>&1; timeout 30 adb pull /sdcard/ui.xml /tmp/ui.xml >/dev/null 2>&1
   B=$(python3 - "$1" <<'PY'
@@ -40,6 +44,7 @@ shots() { # $1 prefix
   for k in $KEYS; do
     adb shell am force-stop $P
     if [ "$k" = home ]; then adb shell am start -W -n $P/.MainActivity > /dev/null
+    elif [ "$k" = thread ]; then if [ "$1" = old ]; then R="community/p:$TID"; else R="community/p/$TID"; fi; timeout 40 adb shell am start -W -n $P/.MainActivity --es open "$R" > /dev/null
     elif [ "$k" = clipnav ]; then timeout 40 adb shell am start -W -n $P/.MainActivity --es open "watch/$CLIP" > /dev/null; sleep 20; for t in 1 2 3 4; do tapText "اصنع مقطع" && [ -n "$B" ] && break; adb shell input swipe 540 1500 540 800 600; sleep 2; done
     elif [ "$k" = prayerdown ]; then timeout 40 adb shell am start -W -n $P/.MainActivity --es open "prayer" > /dev/null; sleep 18; adb shell input swipe 540 1500 540 600 700; sleep 1; adb shell input swipe 540 1500 540 600 700
     else timeout 40 adb shell am start -W -n $P/.MainActivity --es open "\\$k" > /dev/null; fi
