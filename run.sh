@@ -2,6 +2,7 @@ set -x
 P=com.bawazirquran.app
 mkdir -p shots
 adb root; sleep 3
+adb shell wm size 1080x2340; adb shell wm density 440; sleep 2
 ( for i in $(seq 1 400); do adb emu geo fix 31.3016 30.0784 >/dev/null 2>&1; sleep 3; done ) &
 GEO=$!
 KEYS="home recitations quran adhkar prayer library listen read maker widgets community search about timeline fiqh live imams mushaf"
@@ -27,18 +28,15 @@ shots old
 adb shell am force-stop $P
 adb shell cat /data/data/$P/shared_prefs/badr.xml > shots/old_prefs.xml
 adb shell ls -laR /data/data/$P > shots/old_files.txt
-adb shell "cd /data/data && tar cf /data/local/tmp/old.tar $P"
-# ---- the new version, first run
-adb uninstall $P
+# ---- the new version installed over the old one (an update: the data stays)
 adb install -r new.apk > shots/install_new.txt 2>&1; perms
-adb shell am start -W -n $P/.MainActivity > /dev/null; sleep 25; adb exec-out screencap -p > shots/new_first.png
-adb shell am force-stop $P
-# ---- the old data under the new version (as an update keeps it)
-U=$(adb shell stat -c %u /data/data/$P | tr -d '\r')
-adb shell "cd /data/data && rm -rf $P && tar xf /data/local/tmp/old.tar && chown -R $U:$U $P && restorecon -R $P"
 shots new
 adb shell am force-stop $P
 adb shell cat /data/data/$P/shared_prefs/badr.xml > shots/new_prefs.xml
 adb logcat -d -b crash > shots/crash.txt 2>&1 || true
+adb shell ls -laR /data/data/$P > shots/new_files.txt
+# ---- the new version's first run (fresh install)
+adb uninstall $P; adb install new.apk >/dev/null 2>&1; perms
+adb shell am start -W -n $P/.MainActivity > /dev/null; sleep 25; adb exec-out screencap -p > shots/new_first.png
 kill $GEO 2>/dev/null || true
 ls -la shots
