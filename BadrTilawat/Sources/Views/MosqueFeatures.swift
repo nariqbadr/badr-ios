@@ -109,8 +109,9 @@ struct MosqueDial: View {
             // a ring that grows from me to the rim every 2 s (drawn from the clock: a repeating animation started on appear
             // also moved the whole page with it, inside the scroll and the navigation)
             TimelineView(.animation(minimumInterval: 1 / 30)) { t in
-                let ph = t.date.timeIntervalSinceReferenceDate.truncatingRemainder(dividingBy: 2) / 2
-                Circle().stroke(c.gold.opacity(0.35 * (1 - ph)), lineWidth: 2).frame(width: 10 + (2 * r - 10) * ph, height: 10 + (2 * r - 10) * ph).position(o)
+                let ph = CGFloat(t.date.timeIntervalSinceReferenceDate.truncatingRemainder(dividingBy: 2) / 2)
+                let d: CGFloat = 10 + (2 * r - 10) * ph
+                Circle().stroke(c.gold.opacity(Double(0.35 * (1 - ph))), lineWidth: 2).frame(width: d, height: d).position(o)
             }.allowsHitTesting(false)
             kaaba.position(Self.at(o, r, q, 1, rot))
             ForEach(list.prefix(25)) { m in
