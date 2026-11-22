@@ -164,7 +164,8 @@ struct StepsCard: View {
             return (mq.walks.filter { $0.at >= from && $0.at < to }.reduce(0) { $0 + $1.steps }, from)
         }
         let top = max(1, days.map(\.0).max() ?? 1)
-        let f = DateFormatter(); f.locale = L.locale; f.dateFormat = "EEE"
+        var cl = Calendar(identifier: .gregorian); cl.locale = L.locale
+        let names = cl.veryShortStandaloneWeekdaySymbols
         return VStack(alignment: .leading, spacing: 10) {
             HStack(alignment: .center) {
                 VStack(alignment: .leading, spacing: 1) {
@@ -180,7 +181,7 @@ struct StepsCard: View {
                     let (v, d) = days[i]
                     VStack(spacing: 4) {
                         RoundedRectangle(cornerRadius: 6).fill(v > 0 ? c.gold : c.line).frame(height: max(3, 44 * CGFloat(v) / CGFloat(top)))
-                        Text(String(f.string(from: d).prefix(3))).font(F.plex(10)).foregroundStyle(c.faint).lineLimit(1)
+                        Text(names[cal.component(.weekday, from: d) - 1]).font(F.plex(10)).foregroundStyle(c.faint).lineLimit(1)
                     }.frame(maxWidth: .infinity)
                 }
             }.frame(height: 64, alignment: .bottom)
