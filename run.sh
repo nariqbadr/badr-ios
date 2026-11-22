@@ -17,7 +17,7 @@ perms() { for perm in ACCESS_FINE_LOCATION ACCESS_COARSE_LOCATION POST_NOTIFICAT
 shots() { # $1 prefix
   for k in $KEYS; do
     adb shell am force-stop $P
-    if [ "$k" = home ]; then adb shell am start -W -n $P/.MainActivity > /dev/null; else adb shell am start -W -n $P/.MainActivity --es open "$k" > /dev/null; fi
+    if [ "$k" = home ]; then adb shell am start -W -n $P/.MainActivity > /dev/null; else adb shell am start -W -n $P/.MainActivity --es open "'$k'" > /dev/null; fi
     sleep 22; adb exec-out screencap -p > "shots/$1_$k.png"
   done
 }
