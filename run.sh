@@ -5,7 +5,7 @@ adb root; sleep 3
 adb shell wm size 1080x2340; adb shell wm density 440; sleep 2
 ( for i in $(seq 1 400); do adb emu geo fix 31.3016 30.0784 >/dev/null 2>&1; sleep 3; done ) &
 GEO=$!
-KEYS="#theme #lang #prayer #name #ambient #qibla #wird"
+KEYS="#lang #prayer #name #ambient #qibla #wird #theme"
 setpref() { # $1 key $2 value
   adb shell am force-stop $P
   F=/data/data/$P/shared_prefs/badr.xml
@@ -19,6 +19,7 @@ shots() { # $1 prefix
     adb shell am force-stop $P
     if [ "$k" = home ]; then adb shell am start -W -n $P/.MainActivity > /dev/null; else adb shell am start -W -n $P/.MainActivity --es open "\\$k" > /dev/null; fi
     sleep 22; timeout 30 adb exec-out screencap -p > "shots/$1_$k.png"
+    timeout 20 adb logcat -d -t 300 > "shots/log_$1_$k.txt" 2>&1; adb logcat -c 2>/dev/null || true
   done
 }
 # ---- the old version
