@@ -5,7 +5,7 @@ adb root; sleep 3
 adb shell wm size 1080x2340; adb shell wm density 440; sleep 2
 ( for i in $(seq 1 400); do adb emu geo fix 31.3016 30.0784 >/dev/null 2>&1; sleep 3; done ) &
 GEO=$!
-KEYS="#lang #prayer #name #ambient #qibla #wird"
+KEYS="#prayer #qibla prayerdown clipnav"
 setpref() { # $1 key $2 value
   adb shell am force-stop $P
   F=/data/data/$P/shared_prefs/badr.xml
@@ -14,10 +14,35 @@ setpref() { # $1 key $2 value
 }
 setlong() { adb shell "sed -i 's#<long name=\"$1\" value=\"[^\"]*\" />##; s#</map>#<long name=\"$1\" value=\"$2\" /></map>#' /data/data/$P/shared_prefs/badr.xml"; }
 perms() { for perm in ACCESS_FINE_LOCATION ACCESS_COARSE_LOCATION POST_NOTIFICATIONS; do adb shell pm grant $P android.permission.$perm || true; done; }
+CLIP=$(curl -s --max-time 60 "https://bawazirquran.com/wp-admin/admin-ajax.php?action=bz&do=data" | python3 -c "
+import json,sys
+d=json.load(sys.stdin); d=d.get('data',d); r=d.get('readable',{}).get('tracks',{})
+ts=[t for t in d.get('recitations',[]) if ((t.get('video') or {}).get('q')) and t.get('id') in r]
+ts.sort(key=lambda t:(t.get('publishAt') or t.get('createdAt') or '', t.get('order',0)), reverse=True)
+print(ts[0]['id'] if ts else '')" 2>/dev/null); echo "CLIP=$CLIP"
+tapText() {
+  timeout 30 adb shell uiautomator dump /sdcard/ui.xml >/dev/null 2>&1; timeout 30 adb pull /sdcard/ui.xml /tmp/ui.xml >/dev/null 2>&1
+  B=$(python3 - "$1" <<'PY'
+import re,sys
+try: x=open('/tmp/ui.xml',encoding='utf-8').read()
+except Exception: x=''
+for m in re.finditer(r'<node [^>]*>', x):
+    n=m.group(0)
+    if sys.argv[1] in n:
+        b=re.search(r'bounds="\[(\d+),(\d+)\]\[(\d+),(\d+)\]"',n)
+        if b:
+            a=list(map(int,b.groups())); print((a[0]+a[2])//2,(a[1]+a[3])//2); break
+PY
+)
+  echo "tap $1 -> $B"; [ -n "$B" ] && adb shell input tap $B
+}
 shots() { # $1 prefix
   for k in $KEYS; do
     adb shell am force-stop $P
-    if [ "$k" = home ]; then adb shell am start -W -n $P/.MainActivity > /dev/null; else adb shell am start -W -n $P/.MainActivity --es open "\\$k" > /dev/null; fi
+    if [ "$k" = home ]; then adb shell am start -W -n $P/.MainActivity > /dev/null
+    elif [ "$k" = clipnav ]; then timeout 40 adb shell am start -W -n $P/.MainActivity --es open "watch/$CLIP" > /dev/null; sleep 20; tapText "اصنع مقطع"; sleep 4; tapText "مقطع"
+    elif [ "$k" = prayerdown ]; then timeout 40 adb shell am start -W -n $P/.MainActivity --es open "prayer" > /dev/null; sleep 18; adb shell input swipe 540 1900 540 500 700; sleep 1; adb shell input swipe 540 1900 540 500 700
+    else timeout 40 adb shell am start -W -n $P/.MainActivity --es open "\\$k" > /dev/null; fi
     sleep 22; timeout 30 adb exec-out screencap -p > "shots/$1_$k.png"
     timeout 20 adb logcat -d -t 300 > "shots/log_$1_$k.txt" 2>&1; timeout 10 adb logcat -c 2>/dev/null || true
   done
