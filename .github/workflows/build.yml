@@ -82,7 +82,7 @@ jobs:
             SIMCTL_CHILD_BZ_LANG=ar SIMCTL_CHILD_BZ_ROUTE=surah SIMCTL_CHILD_BZ_ORN=$o xcrun simctl launch --terminate-running-process "$UDID" com.bawazirquran.app >/dev/null 2>&1
             sleep 16; xcrun simctl io "$UDID" screenshot "shots/orn-$o.png" >/dev/null 2>&1 || true
           done
-          for h in 8:4:1; do
+          for h in 8:4:1.6; do
             SIMCTL_CHILD_BZ_LANG=ar SIMCTL_CHILD_BZ_ROUTE=mushaf SIMCTL_CHILD_BZ_HI=$h xcrun simctl launch --terminate-running-process "$UDID" com.bawazirquran.app >/dev/null 2>&1
             sleep 14; xcrun simctl io "$UDID" screenshot "shots/hi-$(echo $h | tr ':.' '__').png" >/dev/null 2>&1 || true
           done

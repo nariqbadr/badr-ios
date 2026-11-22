@@ -83,4 +83,7 @@ enum F {
 /// put in a tiny left-to-right island (U+2066 … U+2069): there nothing is ever mirrored, and each one keeps the shape it
 /// is drawn with — ﴿ on the right (where the verse starts), ﴾ on the left — whatever the system does with brackets.
 /// Copied and shared text keeps the plain characters, which is what other apps expect.
+/// a paragraph of Arabic laid out right to left whatever the text view decides: the ayah's number came at the start of its
+/// last line (the line read left to right) instead of after its last word
+func rtlText(_ t: String) -> String { "\u{202B}\(t)\u{202C}" }
 func orn(_ t: String) -> String { "\u{2066}\u{FD3F}\u{2069}\(t)\u{2066}\u{FD3E}\u{2069}" }

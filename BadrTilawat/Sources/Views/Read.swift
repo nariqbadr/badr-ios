@@ -454,10 +454,9 @@ struct ReadText: UIViewRepresentable {
         }
         if scrollTo == nil { co.scrolled = -1 }
     }
-    /// the number at an ayah's end in the running text: no direction marks inside (the text view placed a number wrapped in
-    /// them at the start of the ayah's last line instead of after its last word)
+    /// the number at an ayah's end (BZ_ORN: other forms, for the simulator's comparison shots)
     static func mark(_ n: String) -> String {
-        switch ProcessInfo.processInfo.environment["BZ_ORN"] ?? "1" {
+        switch ProcessInfo.processInfo.environment["BZ_ORN"] ?? "0" {
         case "0": return orn(n)
         case "2": return "\u{FD3F}\(n)\u{FD3E}"
         case "3": return "\u{06DD}\(n)"
