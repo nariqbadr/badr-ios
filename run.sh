@@ -35,7 +35,7 @@ adb install -r new.apk > shots/install_new.txt 2>&1; perms
 shots new
 adb shell am force-stop $P
 adb shell cat /data/data/$P/shared_prefs/badr.xml > shots/new_prefs.xml
-adb logcat -d -b crash > shots/crash.txt 2>&1 || true
+timeout 60 adb logcat -d -b crash > shots/crash.txt 2>&1 || true
 timeout 60 adb shell ls -laR /data/data/$P > shots/new_files.txt
 # ---- the new version's first run (fresh install)
 adb uninstall $P; adb install new.apk >/dev/null 2>&1; perms
