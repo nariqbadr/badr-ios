@@ -24,18 +24,19 @@ struct CatchCard: View {
             if let j = mq.nextJamaah() { card(ctx.date, j.0, j.1, j.2) }
         }
     }
-    @ViewBuilder private func card(_ now: Date, _ p: PrayerTime, _ iq: Date, _ friday: Bool) -> some View {
+    private func card(_ now: Date, _ p: PrayerTime, _ iq: Date, _ friday: Bool) -> some View {
         let walk = Mosques.walkS(mq.dist(m))
         let left = iq.timeIntervalSince(now) - walk - 120
         let far = p.time.timeIntervalSince(now) > 3 * 3600
         let ok = Color(red: 0.25, green: 0.75, blue: 0.5)
-        let (head, sub, col): (String, String, Color) =
-            far ? (tr("الصلاة القادمة: {0}", p.name), tr("الأذان {0} · الإقامة {1}", L.digits(Fmt.time(p.time)), L.digits(Fmt.time(iq))), c.gold)
-            : left > 60 ? (tr("اخرج خلال {0} لتلحق الجماعة", Mosques.mins(left)), tr("إقامة {0} {1} · المشي {2}", p.name, L.digits(Fmt.time(iq)), Mosques.mins(walk)), ok)
-            : left > -240 ? (tr("اخرج الآن لتلحق {0}", p.name), tr("الإقامة {0} · المشي {1}", L.digits(Fmt.time(iq)), Mosques.mins(walk)), c.gold)
-            : (tr("قد تفوتك تكبيرة الإحرام في {0}", p.name), tr("أسرع إن خرجت الآن — والصلاة في جماعة خير"), c.danger)
-        let frac = far ? 1 : min(1, max(0, left / 3600))
-        VStack(alignment: .leading, spacing: 12) {
+        let iqT = L.digits(Fmt.time(iq)), wT = Mosques.mins(walk)
+        let head: String, sub: String, col: Color
+        if far { head = tr("الصلاة القادمة: {0}", p.name); sub = tr("الأذان {0} · الإقامة {1}", L.digits(Fmt.time(p.time)), iqT); col = c.gold }
+        else if left > 60 { head = tr("اخرج خلال {0} لتلحق الجماعة", Mosques.mins(left)); sub = tr("إقامة {0} {1} · المشي {2}", p.name, iqT, wT); col = ok }
+        else if left > -240 { head = tr("اخرج الآن لتلحق {0}", p.name); sub = tr("الإقامة {0} · المشي {1}", iqT, wT); col = c.gold }
+        else { head = tr("قد تفوتك تكبيرة الإحرام في {0}", p.name); sub = tr("أسرع إن خرجت الآن — والصلاة في جماعة خير"); col = c.danger }
+        let frac: Double = far ? 1 : min(1, max(0, left / 3600))
+        return VStack(alignment: .leading, spacing: 12) {
             HStack(alignment: .center, spacing: 12) {
                 VStack(alignment: .leading, spacing: 3) {
                     Text(friday ? tr("الجمعة") : tr("تلحق الجماعة؟")).font(F.plex(12.5, .bold)).foregroundStyle(col)
@@ -75,63 +76,80 @@ struct MosqueDial: View {
     @StateObject private var compass = Compass()
     @Environment(\.pal) private var c
     @State private var pulse = false
+    private var far: Double { max(600, min(3500, list.prefix(12).map { mq.dist($0) }.max() ?? 1000) * 1.12) }
     var body: some View {
-        if let here = mq.pos {
-            let q = Prayers.shared.qibla()
-            let far = max(600, min(3500, list.prefix(12).map { mq.dist($0) }.max() ?? 1000) * 1.12)
-            let hd = compass.heading
-            VStack(spacing: 10) {
-                HStack {
-                    Text(tr("المساجد حولك")).font(F.plex(15, .bold)).foregroundStyle(c.gold)
-                    Spacer()
-                    Text(hd == nil ? tr("الشمال أعلى") : tr("يدور مع جوالك")).font(F.plex(11)).foregroundStyle(c.muted)
-                }
-                GeometryReader { g in
-                    let side = min(g.size.width, g.size.height), r = side / 2 - 14, o = CGPoint(x: g.size.width / 2, y: g.size.height / 2)
-                    let rot = -(hd ?? 0)
-                    let at = { (b: Double, f: Double) -> CGPoint in let t = (b + rot) * .pi / 180; return CGPoint(x: o.x + sin(t) * r * f, y: o.y - cos(t) * r * f) }
-                    ZStack {
-                        Canvas { ctx, _ in
-                            let disc = Path(ellipseIn: CGRect(x: o.x - r, y: o.y - r, width: 2 * r, height: 2 * r))
-                            ctx.fill(disc, with: .radialGradient(Gradient(colors: [c.surface3, c.surface, c.bg2]), center: o, startRadius: 0, endRadius: r))
-                            for k in [500.0, 1000, 2000, 3000] where k < far {
-                                let rr = r * k / far
-                                ctx.stroke(Path(ellipseIn: CGRect(x: o.x - rr, y: o.y - rr, width: 2 * rr, height: 2 * rr)), with: .color(c.line), style: StrokeStyle(lineWidth: 1, dash: [3, 4]))
-                            }
-                            ctx.stroke(disc, with: .color(c.gold.opacity(0.55)), lineWidth: 2.5)
-                            for i in 0..<72 {
-                                let t = (Double(i) * 5 + rot) * .pi / 180, major = i % 18 == 0, len: Double = major ? 10 : 4
-                                var l = Path(); l.move(to: CGPoint(x: o.x + sin(t) * r, y: o.y - cos(t) * r)); l.addLine(to: CGPoint(x: o.x + sin(t) * (r - len), y: o.y - cos(t) * (r - len)))
-                                ctx.stroke(l, with: .color(i == 0 ? c.danger : c.faint), style: StrokeStyle(lineWidth: major ? 3 : 1.2, lineCap: .round))
-                            }
-                            // the qibla: a line to the rim
-                            var ql = Path(); ql.move(to: o); ql.addLine(to: at(q, 1))
-                            ctx.stroke(ql, with: .linearGradient(Gradient(colors: [.clear, c.gold.opacity(0.7)]), startPoint: o, endPoint: at(q, 1)), style: StrokeStyle(lineWidth: 3, lineCap: .round, dash: [6, 4]))
-                            ctx.fill(Path(ellipseIn: CGRect(x: o.x - 6, y: o.y - 6, width: 12, height: 12)), with: .color(c.gold))
-                            ctx.fill(Path(ellipseIn: CGRect(x: o.x - 2.5, y: o.y - 2.5, width: 5, height: 5)), with: .color(c.surface))
-                        }
-                        Circle().stroke(c.gold.opacity(pulse ? 0 : 0.35), lineWidth: 2).frame(width: pulse ? 2 * r : 10, height: pulse ? 2 * r : 10).position(o)
-                        // the Kaaba on the rim
-                        RoundedRectangle(cornerRadius: 4).fill(Color(white: 0.08)).overlay(RoundedRectangle(cornerRadius: 4).stroke(c.gold, lineWidth: 1.5))
-                            .overlay(Rectangle().fill(c.gold).frame(height: 2.5).offset(y: -3)).frame(width: 22, height: 22).position(at(q, 1))
-                        ForEach(list.prefix(25)) { m in
-                            let on = m.id == selected
-                            Button { pick(m) } label: {
-                                Circle().fill(on ? c.gold : c.gold2.opacity(0.75)).overlay(Circle().stroke(c.bg2, lineWidth: 2))
-                                    .frame(width: on ? 16 : 10, height: on ? 16 : 10).frame(width: 30, height: 30).contentShape(Circle())
-                            }.buttonStyle(.plain).position(at(bearing(here, m.coord), min(1, mq.dist(m) / far))).accessibilityLabel(m.title)
-                        }
-                    }
-                }
+        if let here = mq.pos { card(here) }
+    }
+    private func card(_ here: CLLocationCoordinate2D) -> some View {
+        let hd = compass.heading
+        return VStack(spacing: 10) {
+            HStack {
+                Text(tr("المساجد حولك")).font(F.plex(15, .bold)).foregroundStyle(c.gold)
+                Spacer()
+                Text(hd == nil ? tr("الشمال أعلى") : tr("يدور مع جوالك")).font(F.plex(11)).foregroundStyle(c.muted)
+            }
+            GeometryReader { g in dial(here, g.size, -(hd ?? 0)) }
                 .aspectRatio(1, contentMode: .fit).padding(.horizontal, 10)
                 .environment(\.layoutDirection, .leftToRight)
-                Text(tr("الخط الذهبي إلى الكعبة · النقاط مساجد · الدوائر ٥٠٠ م و١ كم و٢ كم")).font(F.plex(11)).foregroundStyle(c.faint).multilineTextAlignment(.center)
-            }
-            .padding(16)
-            .background(RoundedRectangle(cornerRadius: 26).fill(c.surface.opacity(0.7))).overlay(RoundedRectangle(cornerRadius: 26).stroke(c.lineSoft))
-            .onAppear { compass.start(); withAnimation(.easeOut(duration: 1.4).repeatForever(autoreverses: false)) { pulse = true } }
-            .onDisappear { compass.stop() }
+            Text(tr("الخط الذهبي إلى الكعبة · النقاط مساجد · الدوائر ٥٠٠ م و١ كم و٢ كم")).font(F.plex(11)).foregroundStyle(c.faint).multilineTextAlignment(.center)
         }
+        .padding(16)
+        .background(RoundedRectangle(cornerRadius: 26).fill(c.surface.opacity(0.7))).overlay(RoundedRectangle(cornerRadius: 26).stroke(c.lineSoft))
+        .onAppear { compass.start(); withAnimation(.easeOut(duration: 1.4).repeatForever(autoreverses: false)) { pulse = true } }
+        .onDisappear { compass.stop() }
+    }
+    private static func at(_ o: CGPoint, _ r: CGFloat, _ b: Double, _ f: Double, _ rot: Double) -> CGPoint {
+        let t = (b + rot) * .pi / 180
+        return CGPoint(x: o.x + CGFloat(sin(t) * f) * r, y: o.y - CGFloat(cos(t) * f) * r)
+    }
+    private func dial(_ here: CLLocationCoordinate2D, _ size: CGSize, _ rot: Double) -> some View {
+        let side = min(size.width, size.height), r: CGFloat = side / 2 - 14, o = CGPoint(x: size.width / 2, y: size.height / 2)
+        let q = Prayers.shared.qibla(), far = far
+        return ZStack {
+            Canvas { ctx, _ in draw(&ctx, o, r, rot, q, far) }
+            Circle().stroke(c.gold.opacity(pulse ? 0 : 0.35), lineWidth: 2).frame(width: pulse ? 2 * r : 10, height: pulse ? 2 * r : 10).position(o)
+            kaaba.position(Self.at(o, r, q, 1, rot))
+            ForEach(list.prefix(25)) { m in
+                dot(m).position(Self.at(o, r, bearing(here, m.coord), min(1, mq.dist(m) / far), rot))
+            }
+        }
+    }
+    private var kaaba: some View {
+        RoundedRectangle(cornerRadius: 4).fill(Color(white: 0.08))
+            .overlay(RoundedRectangle(cornerRadius: 4).stroke(c.gold, lineWidth: 1.5))
+            .overlay(Rectangle().fill(c.gold).frame(height: 2.5).offset(y: -3))
+            .frame(width: 22, height: 22)
+    }
+    private func dot(_ m: Mosque) -> some View {
+        let on = m.id == selected
+        let size: CGFloat = on ? 16 : 10
+        return Button { pick(m) } label: {
+            Circle().fill(on ? c.gold : c.gold2.opacity(0.75)).overlay(Circle().stroke(c.bg2, lineWidth: 2))
+                .frame(width: size, height: size).frame(width: 30, height: 30).contentShape(Circle())
+        }.buttonStyle(.plain).accessibilityLabel(m.title)
+    }
+    private func draw(_ ctx: inout GraphicsContext, _ o: CGPoint, _ r: CGFloat, _ rot: Double, _ q: Double, _ far: Double) {
+        let disc = Path(ellipseIn: CGRect(x: o.x - r, y: o.y - r, width: 2 * r, height: 2 * r))
+        ctx.fill(disc, with: .radialGradient(Gradient(colors: [c.surface3, c.surface, c.bg2]), center: o, startRadius: 0, endRadius: r))
+        for k: Double in [500, 1000, 2000, 3000] where k < far {
+            let rr = r * CGFloat(k / far)
+            ctx.stroke(Path(ellipseIn: CGRect(x: o.x - rr, y: o.y - rr, width: 2 * rr, height: 2 * rr)), with: .color(c.line), style: StrokeStyle(lineWidth: 1, dash: [3, 4]))
+        }
+        ctx.stroke(disc, with: .color(c.gold.opacity(0.55)), lineWidth: 2.5)
+        for i in 0..<72 {
+            let major = i % 18 == 0
+            let len: CGFloat = major ? 10 : 4
+            var l = Path()
+            l.move(to: Self.at(o, r, Double(i) * 5, 1, rot))
+            l.addLine(to: Self.at(o, r - len, Double(i) * 5, 1, rot))
+            ctx.stroke(l, with: .color(i == 0 ? c.danger : c.faint), style: StrokeStyle(lineWidth: major ? 3 : 1.2, lineCap: .round))
+        }
+        // the qibla: a line to the rim
+        let end = Self.at(o, r, q, 1, rot)
+        var ql = Path(); ql.move(to: o); ql.addLine(to: end)
+        ctx.stroke(ql, with: .linearGradient(Gradient(colors: [.clear, c.gold.opacity(0.7)]), startPoint: o, endPoint: end), style: StrokeStyle(lineWidth: 3, lineCap: .round, dash: [6, 4]))
+        ctx.fill(Path(ellipseIn: CGRect(x: o.x - 6, y: o.y - 6, width: 12, height: 12)), with: .color(c.gold))
+        ctx.fill(Path(ellipseIn: CGRect(x: o.x - 2.5, y: o.y - 2.5, width: 5, height: 5)), with: .color(c.surface))
     }
 }
 
@@ -303,7 +321,7 @@ struct WalkSheet: View {
         .presentationDetents([.medium, .large])
         .onAppear { start = Date(); t.start() }
         .onDisappear { finish(); t.stop() }
-        .onChange(of: left) { _, v in if v < 35 && Date().timeIntervalSince(start) > 20 { finish() } }
+        .onChange(of: left) { v in if v < 35 && Date().timeIntervalSince(start) > 20 { finish() } }
     }
     private func finish() {
         guard !done else { return }
