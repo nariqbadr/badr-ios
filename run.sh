@@ -57,6 +57,7 @@ shots() { # $1 prefix
     elif [ "$k" = prayerdown ]; then timeout 40 adb shell am start -W -n $P/.MainActivity --es open "prayer" > /dev/null; sleep 18; adb shell input swipe 540 1500 540 600 700; sleep 1; adb shell input swipe 540 1500 540 600 700
     else timeout 40 adb shell am start -W -n $P/.MainActivity --es open "\\$k" > /dev/null; fi
     sleep 22; timeout 30 adb exec-out screencap -p > "shots/$1_$k.png"
+    if [ "$k" = thread ]; then adb shell input swipe 540 1350 540 450 800; sleep 3; timeout 30 adb exec-out screencap -p > "shots/$1_threadb.png"; fi
     if [ "$k" = clipnav ]; then
       adb shell input swipe 540 1350 540 450 800; sleep 3; timeout 30 adb exec-out screencap -p > "shots/$1_clip0b.png"
       adb shell input swipe 540 1350 540 450 800; sleep 3; timeout 30 adb exec-out screencap -p > "shots/$1_clip0c.png"
