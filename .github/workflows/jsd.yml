@@ -1,0 +1,12 @@
+name: jsdelivr-check
+on: push
+jobs:
+  c:
+    runs-on: ubuntu-latest
+    steps:
+      - run: |
+          B=https://cdn.jsdelivr.net/gh/nariqbadr/badr-ios@mosque-tiles
+          for f in meta.json t/30_31.json t/26_50.json t/21_39.json; do curl -s -o /dev/null -w "before $f %{http_code}\n" $B/$f; done
+          for f in meta.json t/30_31.json t/26_50.json t/21_39.json t/24_46.json t/33_44.json; do curl -s -w "\n" https://purge.jsdelivr.net/gh/nariqbadr/badr-ios@mosque-tiles/$f | head -c 300; echo; done
+          sleep 20
+          for f in meta.json t/30_31.json t/26_50.json t/21_39.json t/1_103.json; do curl -s -o /dev/null -w "after $f %{http_code}\n" $B/$f; done
