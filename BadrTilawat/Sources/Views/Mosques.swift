@@ -15,7 +15,8 @@ struct Mosque: Identifiable, Hashable {
         // only a name written in the app's own script: Arabic letters for Arabic, Urdu and Persian, Latin for the rest
         let rtl = ["ar", "ur", "fa"].contains(L.code)
         let fits = { (v: String) in !v.isEmpty && (v.range(of: "[\\u0621-\\u064A\\u0671-\\u06D3]", options: .regularExpression) != nil) == rtl }
-        var n = ((rtl ? [ar, name, en] : [en, name, ar]).first(where: fits) ?? "").trimmingCharacters(in: .whitespaces)
+        // no name in the app's script: the one it has (a mosque is never shown without its name)
+        var n = ((rtl ? [ar, name, en] : [en, name, ar]).first(where: fits) ?? [name, ar, en].first { !$0.isEmpty } ?? "").trimmingCharacters(in: .whitespaces)
         if n.isEmpty || n == "مسجد" { return tr("مسجد بلا اسم") }
         if L.code == "ar", n.range(of: "مسجد|جامع|مصلى|مصلّى|زاوية", options: .regularExpression) == nil { n = "مسجد " + n }
         return n
@@ -26,7 +27,7 @@ struct Mosque: Identifiable, Hashable {
         let fits = { (v: String) in !v.isEmpty && (v.range(of: "[\\u0621-\\u064A\\u0671-\\u06D3]", options: .regularExpression) != nil) == rtl }
         return fits(area) ? area : fits(street) ? street : ""
     }
-    var unnamed: Bool { name.isEmpty && ar.isEmpty && en.isEmpty }
+    var unnamed: Bool { ![name, ar, en].contains { let t = $0.trimmingCharacters(in: .whitespaces); return !t.isEmpty && !["مسجد", "جامع", "mosque", "Mosque"].contains(t) } }
 }
 
 @MainActor final class Mosques: NSObject, ObservableObject, CLLocationManagerDelegate {
@@ -110,72 +111,126 @@ struct Mosque: Identifiable, Hashable {
     /// what each source answered last time (shown small under «تعذّر…», to find out why)
     @Published var diag = ""
     private var nearTime = Date.distantPast
-    /// The mosques around: from the phone itself first — OpenStreetMap (four servers, the first to answer) and Apple Maps,
-    /// all at once — and the site alongside; whichever answers first with mosques is used. The last list is kept, so the
-    /// page opens with it at once and is refreshed behind it.
+    /// The mosques around. In Egypt: our own list of every mosque (OpenStreetMap and Overture put together, rebuilt every
+    /// day — the same place always gives the same list), with OpenStreetMap asked live alongside for what was added today.
+    /// Elsewhere: OpenStreetMap, its search, Apple Maps and the site together. A mosque with no name is never listed, and a
+    /// source that fails never takes mosques away from the list already shown.
     func loadNear(force: Bool = false) async {
         guard let p = pos else { return }
         if !force, (near?.count ?? 0) >= 5, let a = nearAt, abs(a.latitude - p.latitude) < 0.002, abs(a.longitude - p.longitude) < 0.002, Date().timeIntervalSince(nearTime) < 1800 { return }
         var why: [String] = []
-        async let ap = apple(near: p)
-        // every source is asked at once and ALL their answers are put together (the first answer alone was sometimes a
-        // short one — two mosques — and the full lists that came a moment later were thrown away). Up to 7 s is waited
-        // for the rest once one has answered; nothing yet by then: up to 20 s for the first.
-        let osm: [Mosque]? = await withTaskGroup(of: ([Mosque]?, String).self) { g in
-            for ep in Self.overpassServers { g.addTask { await self.overpass(p, ep) } }
-            g.addTask { await self.nominatim(p) }
-            g.addTask {
-                let j = await self.get(["do": "mosques_near", "lat": String(format: "%.5f", p.latitude), "lng": String(format: "%.5f", p.longitude)])
-                let r = await self.items(j)
-                return (r, "site:" + (r.map { "\($0.count)" } ?? "x"))
+        var r: [Mosque]?
+        var full = false
+        if Self.inData(p) {
+            async let live = overpassAny(p)
+            let base = await tiles(p)
+            why.append("tiles:" + (base.map { "\($0.count)" } ?? "x"))
+            let (lv, tag) = await live
+            why.append(tag)
+            if let base {
+                full = true
+                // what OpenStreetMap has that the daily list does not yet (added today): none of the list's within 40 m
+                r = base + (lv ?? []).filter { x in !base.contains { Self.d($0.coord, x.coord) < 40 } }
+            } else if let lv { r = lv; full = true }
+        } else {
+            async let ap = apple(near: p)
+            let all: [Mosque]? = await withTaskGroup(of: ([Mosque]?, String).self) { g in
+                for ep in Self.overpassServers { g.addTask { await self.overpass(p, ep) } }
+                g.addTask { await self.nominatim(p) }
+                g.addTask {
+                    let j = await self.get(["do": "mosques_near", "lat": String(format: "%.5f", p.latitude), "lng": String(format: "%.5f", p.longitude)])
+                    let r = await self.items(j)
+                    return (r, "site:" + (r.map { "\($0.count)" } ?? "x"))
+                }
+                g.addTask { try? await Task.sleep(nanoseconds: 25_000_000_000); return (nil, "T") }
+                var all: [Mosque] = [], answered = false, overpassOK = false, siteOK = false, left = Self.overpassServers.count + 2
+                for await (r, tag) in g {
+                    if tag == "T" { break }
+                    why.append(tag); left -= 1
+                    if let r { answered = true; all += r; if tag.hasPrefix("site") { siteOK = true } else if !tag.hasPrefix("nominatim") { overpassOK = true } }
+                    if left == 0 || (overpassOK && siteOK) { break }
+                }
+                g.cancelAll()
+                full = overpassOK
+                return answered ? all : nil
             }
-            g.addTask { try? await Task.sleep(nanoseconds: 7_000_000_000); return (nil, "t") }
-            g.addTask { try? await Task.sleep(nanoseconds: 20_000_000_000); return (nil, "T") }
-            var all: [Mosque] = [], answered = false, overpassFull = false, left = Self.overpassServers.count + 2
-            for await (r, tag) in g {
-                if tag == "t" { if answered { break }; continue }
-                if tag == "T" { break }
-                why.append(tag); left -= 1
-                if let r { answered = true; all += r; if !tag.hasPrefix("site") && !tag.hasPrefix("nominatim") && !r.isEmpty { overpassFull = true } }
-                // a full OpenStreetMap list and the site's both in: nothing more is needed
-                if left == 0 || (overpassFull && why.contains(where: { $0.hasPrefix("site") }) && why.contains(where: { $0.hasPrefix("nominatim") })) { break }
-            }
-            g.cancelAll()
-            return answered ? all : nil
+            let a = await ap
+            why.append("apple:\(a.count)")
+            if let all { let d = Self.dedupe(all); r = d + a.filter { x in !d.contains { Self.d($0.coord, x.coord) < 60 } } } else if !a.isEmpty { r = a }
         }
-        var r = osm.map(Self.dedupe)
-        let a = await ap
-        why.append("apple:\(a.count)")
-        if r?.isEmpty ?? true {
-            if !a.isEmpty { r = a }
-        } else if let rr = r {
-            // the mosques Apple Maps knows that OpenStreetMap lacks (none of its own within 60 m)
-            r = rr + a.filter { x in !rr.contains { Self.d($0.coord, x.coord) < 60 } }
-        }
-        if let rr = r, rr.contains(where: { $0.unnamed }) {
-            // a mosque OpenStreetMap has no name for: the name Apple Maps knows at the same place (within 80 m)
-            r = rr.map { m in
-                guard m.unnamed, let x = a.min(by: { Self.d(m.coord, $0.coord) < Self.d(m.coord, $1.coord) }), Self.d(m.coord, x.coord) < 80 else { return m }
-                return Mosque(id: m.id, name: x.name, area: m.area.isEmpty ? x.area : m.area, lat: m.lat, lng: m.lng, street: m.street)
-            }
-        }
-        // the mosques added by hand in the dashboard, within 3 km (an unnamed point at the same place gives way to them)
+        // the mosques added by hand in the dashboard, within 3 km (a point at the same place gives way to them)
         let extra: [Mosque] = (Repo.shared.data?.site.mosquesExtra ?? []).compactMap { x in
             guard let la = x["lat"].double, let lo = x["lng"].double, !x["name"].str.isEmpty else { return nil }
             let n = x["name"].str, arabic = n.range(of: "[\\u0621-\\u064A]", options: .regularExpression) != nil
             let m = Mosque(id: "x" + x["id"].str, name: n, area: x["area"].str, lat: la, lng: lo, ar: arabic ? n : "", en: x["en"].str.isEmpty ? (arabic ? "" : n) : x["en"].str)
             return Self.d(p, m.coord) <= 3000 ? m : nil
         }
-        if !extra.isEmpty {
-            let base = (r ?? []).filter { o in !o.id.hasPrefix("x") && !extra.contains { Self.d($0.coord, o.coord) < 40 } }
-            r = extra + base
-        }
+        if !extra.isEmpty { r = extra + (r ?? []).filter { o in !o.id.hasPrefix("x") && !extra.contains { Self.d($0.coord, o.coord) < 40 } } }
+        // no mosque without a name; only within 3 km
+        r = r.map { Self.dedupe($0).filter { !$0.unnamed && Self.d(p, $0.coord) <= 3000 } }
         diag = why.joined(separator: " · ")
-        if r == nil, near?.isEmpty == false { error = ""; return }   // the kept list stays
-        error = r == nil ? tr("تعذّر جلب المساجد الآن، حاول بعد قليل") : ""
-        near = (r ?? []).sorted { dist($0) < dist($1) }; nearAt = p; nearTime = Date()
-        if let n = near, r != nil { keepNear(n, p) }
+        guard var rr = r else { error = near?.isEmpty == false ? "" : tr("تعذّر جلب المساجد الآن، حاول بعد قليل"); return }
+        // a partial answer (a source failed) at the same place: what was already shown stays, nothing disappears
+        if !full, let old = near, let a = nearAt, Self.d(a, p) < 300 {
+            rr += old.filter { o in !rr.contains { Self.d($0.coord, o.coord) < 40 } && Self.d(p, o.coord) <= 3000 }
+        }
+        error = ""
+        near = rr.sorted { dist($0) < dist($1) }; nearAt = p; nearTime = Date()
+        if let n = near { keepNear(n, p) }
         await placeNames(p)
+    }
+
+    /// Our daily list of Egypt's mosques covers this place
+    nonisolated static func inData(_ p: CLLocationCoordinate2D) -> Bool { p.latitude > 21.7 && p.latitude < 31.7 && p.longitude > 24.7 && p.longitude < 36.9 }
+    nonisolated static let dataURLs = ["https://raw.githubusercontent.com/nariqbadr/badr-ios/mosques/", "https://cdn.jsdelivr.net/gh/nariqbadr/badr-ios@mosques/"]
+    /// The tiles (0.1°) around the person from the daily list, each kept on the phone for an hour (offline it is still there)
+    nonisolated private func tiles(_ p: CLLocationCoordinate2D) async -> [Mosque]? {
+        var keys = Set<String>()
+        for dla in [-0.03, 0, 0.03] { for dlo in [-0.035, 0, 0.035] { keys.insert("\(Int(floor((p.latitude + dla) * 10)))_\(Int(floor((p.longitude + dlo) * 10)))") } }
+        let dir = FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask)[0].appendingPathComponent("mosques")
+        try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        let got: [[Mosque]?] = await withTaskGroup(of: [Mosque]?.self) { g in
+            for k in keys { g.addTask { await Self.tile(k, dir) } }
+            var out: [[Mosque]?] = []; for await x in g { out.append(x) }; return out
+        }
+        if got.contains(where: { $0 == nil }) { return nil }
+        return got.compactMap { $0 }.flatMap { $0 }
+    }
+    nonisolated private static func tile(_ k: String, _ dir: URL) async -> [Mosque]? {
+        let f = dir.appendingPathComponent(k + ".json")
+        let age = ((try? FileManager.default.attributesOfItem(atPath: f.path))?[.modificationDate] as? Date).map { Date().timeIntervalSince($0) } ?? .infinity
+        var data: Data? = age < 3600 ? try? Data(contentsOf: f) : nil
+        if data == nil {
+            for base in dataURLs {
+                var req = URLRequest(url: URL(string: base + "t/" + k + ".json")!); req.timeoutInterval = 15
+                guard let (d, r) = try? await URLSession.shared.data(for: req) else { continue }
+                let code = (r as? HTTPURLResponse)?.statusCode ?? 0
+                if code == 404 { data = Data("[]".utf8); break }      // no mosque in this tile (sea, desert)
+                if code == 200 { data = d; break }
+            }
+            if let data { try? data.write(to: f) } else { data = try? Data(contentsOf: f) }   // offline: yesterday's copy
+        }
+        guard let data, let a = try? JSONSerialization.jsonObject(with: data) as? [[Any]] else { return nil }
+        return a.compactMap { x in
+            guard x.count >= 7, let id = x[0] as? String, let la = (x[1] as? NSNumber)?.doubleValue, let lo = (x[2] as? NSNumber)?.doubleValue else { return nil }
+            let s = { (i: Int) in x[i] as? String ?? "" }
+            return Mosque(id: id, name: s(3), area: "", lat: la, lng: lo, ar: s(4), en: s(5), street: s(6))
+        }
+    }
+    /// OpenStreetMap live, from the phone: the first of its servers to answer in full
+    nonisolated private func overpassAny(_ p: CLLocationCoordinate2D) async -> ([Mosque]?, String) {
+        await withTaskGroup(of: ([Mosque]?, String).self) { g in
+            for ep in Self.overpassServers { g.addTask { await self.overpass(p, ep) } }
+            g.addTask { try? await Task.sleep(nanoseconds: 25_000_000_000); return (nil, "T") }
+            var tags: [String] = []
+            for await (r, tag) in g {
+                if tag == "T" { break }
+                tags.append(tag)
+                if let r { g.cancelAll(); return (r, tags.joined(separator: ",")) }
+                if tags.count == Self.overpassServers.count { break }
+            }
+            g.cancelAll(); return (nil, tags.joined(separator: ","))
+        }
     }
     /// under each of the nearest, where it is — in the app's language (the phone's map, asked in that language)
     private func placeNames(_ p: CLLocationCoordinate2D) async {
@@ -190,10 +245,10 @@ struct Mosque: Identifiable, Hashable {
     }
     private func keepNear(_ n: [Mosque], _ p: CLLocationCoordinate2D) {
         let a = n.prefix(60).map { ["id": $0.id, "name": $0.name, "area": $0.area, "lat": $0.lat, "lng": $0.lng, "ar": $0.ar, "en": $0.en, "street": $0.street] as [String: Any] }
-        UserDefaults.standard.set(["lat": p.latitude, "lng": p.longitude, "at": Date().timeIntervalSince1970, "items": a] as [String: Any], forKey: "mqNear")
+        UserDefaults.standard.set(["lat": p.latitude, "lng": p.longitude, "at": Date().timeIntervalSince1970, "items": a] as [String: Any], forKey: "mqNear2")
     }
     private func restoreNear() {
-        guard let d = UserDefaults.standard.dictionary(forKey: "mqNear"), let la = d["lat"] as? Double, let lo = d["lng"] as? Double, let a = d["items"] as? [[String: Any]] else { return }
+        guard let d = UserDefaults.standard.dictionary(forKey: "mqNear2"), let la = d["lat"] as? Double, let lo = d["lng"] as? Double, let a = d["items"] as? [[String: Any]] else { return }
         near = a.compactMap { d in
             guard let id = d["id"] as? String, let n = d["name"] as? String, let la = d["lat"] as? Double, let lo = d["lng"] as? Double else { return nil }
             return Mosque(id: id, name: n, area: d["area"] as? String ?? "", lat: la, lng: lo, ar: d["ar"] as? String ?? "", en: d["en"] as? String ?? "", street: d["street"] as? String ?? "")
@@ -210,7 +265,7 @@ struct Mosque: Identifiable, Hashable {
     /// a mosque on OpenStreetMap: a Muslim place of worship, or a mosque building
     nonisolated static func osmQuery(_ la: Double, _ lo: Double, _ r: Int) -> String {
         let a = "(around:\(r),\(la),\(lo))"
-        return "[out:json][timeout:20];(nwr[\"amenity\"=\"place_of_worship\"][\"religion\"=\"muslim\"]\(a);nwr[\"building\"=\"mosque\"]\(a););out center tags 120;"
+        return "[out:json][timeout:20];(nwr[\"amenity\"=\"place_of_worship\"][\"religion\"=\"muslim\"]\(a);nwr[\"building\"=\"mosque\"]\(a););out center tags;"
     }
     static let overpassServers = ["https://overpass-api.de/api/interpreter", "https://overpass.kumi.systems/api/interpreter", "https://overpass.private.coffee/api/interpreter"]
     /// «المشهورة»: the region's well-known mosques (the world's famous ones only when none is known around)
@@ -245,7 +300,7 @@ struct Mosque: Identifiable, Hashable {
     nonisolated private func overpass(_ p: CLLocationCoordinate2D, _ ep: String) async -> ([Mosque]?, String) {
         let host = URL(string: ep)?.host ?? ep
         let q = Mosques.osmQuery(p.latitude, p.longitude, 3000)
-        var req = URLRequest(url: URL(string: ep)!); req.httpMethod = "POST"; req.timeoutInterval = 20
+        var req = URLRequest(url: URL(string: ep)!); req.httpMethod = "POST"; req.timeoutInterval = 25
         req.setValue("application/x-www-form-urlencoded", forHTTPHeaderField: "Content-Type")
         req.setValue("BadrTilawat/iOS (+https://bawazirquran.com)", forHTTPHeaderField: "User-Agent")
         req.httpBody = ("data=" + (q.addingPercentEncoding(withAllowedCharacters: .alphanumerics) ?? "")).data(using: .utf8)
