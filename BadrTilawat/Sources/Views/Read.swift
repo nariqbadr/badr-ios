@@ -454,15 +454,9 @@ struct ReadText: UIViewRepresentable {
         }
         if scrollTo == nil { co.scrolled = -1 }
     }
-    /// the number at an ayah's end (BZ_ORN: other forms, for the simulator's comparison shots)
-    static func mark(_ n: String) -> String {
-        switch ProcessInfo.processInfo.environment["BZ_ORN"] ?? "0" {
-        case "0": return orn(n)
-        case "2": return "\u{FD3F}\(n)\u{FD3E}"
-        case "3": return "\u{06DD}\(n)"
-        default: return "\u{FD3E}\(n)\u{FD3F}"
-        }
-    }
+    /// the number at an ayah's end in right-to-left text: ﴿ then the number then ﴾, no direction marks (with them the
+    /// brackets came out facing away from the number, and in the surah page the number went to the start of the line)
+    static func mark(_ n: String) -> String { "\u{FD3F}\(n)\u{FD3E}" }
     private func build() -> (NSAttributedString, [Int]) {
         let font = UIFont(name: "AmiriQuran-Regular", size: 25 * size) ?? .systemFont(ofSize: 25 * size)
         let ps = NSMutableParagraphStyle(); ps.alignment = .justified; ps.baseWritingDirection = .rightToLeft; ps.minimumLineHeight = 54 * size; ps.maximumLineHeight = 54 * size
