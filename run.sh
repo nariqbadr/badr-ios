@@ -45,10 +45,10 @@ shots() { # $1 prefix
     else timeout 40 adb shell am start -W -n $P/.MainActivity --es open "\\$k" > /dev/null; fi
     sleep 22; timeout 30 adb exec-out screencap -p > "shots/$1_$k.png"
     if [ "$k" = clipnav ]; then
-      adb shell input swipe 540 1700 540 900 600; sleep 3; timeout 30 adb exec-out screencap -p > "shots/$1_clip0b.png"
-      adb shell input swipe 540 1700 540 900 600; sleep 3; timeout 30 adb exec-out screencap -p > "shots/$1_clip0c.png"
-      adb shell input swipe 540 900 540 1900 400; sleep 1; adb shell input swipe 540 900 540 1900 400; sleep 2
-      n=1; for tb in "الآيات" "شكل النص" "البيانات" "الإطار" "الحركة" "الشكل"; do tapText "$tb"; if [ -n "$B" ]; then sleep 4; timeout 30 adb exec-out screencap -p > "shots/$1_clip$n.png"; adb shell input swipe 540 1700 540 900 600; sleep 3; timeout 30 adb exec-out screencap -p > "shots/$1_clip${n}b.png"; adb shell input swipe 540 900 540 1900 400; sleep 2; fi; n=$((n+1)); done
+      adb shell input swipe 540 1350 540 450 800; sleep 3; timeout 30 adb exec-out screencap -p > "shots/$1_clip0b.png"
+      adb shell input swipe 540 1350 540 450 800; sleep 3; timeout 30 adb exec-out screencap -p > "shots/$1_clip0c.png"
+      adb shell input swipe 540 500 540 1400 400; sleep 1; adb shell input swipe 540 500 540 1400 400; sleep 2
+      n=1; for tb in "الآيات" "شكل النص" "البيانات" "الإطار" "الحركة" "الشكل"; do tapText "$tb"; if [ -n "$B" ]; then sleep 4; timeout 30 adb exec-out screencap -p > "shots/$1_clip$n.png"; adb shell input swipe 540 1350 540 450 800; sleep 3; timeout 30 adb exec-out screencap -p > "shots/$1_clip${n}b.png"; adb shell input swipe 540 1350 540 450 800; sleep 3; timeout 30 adb exec-out screencap -p > "shots/$1_clip${n}c.png"; adb shell input swipe 540 500 540 1400 400; sleep 1; adb shell input swipe 540 500 540 1400 400; sleep 2; fi; n=$((n+1)); done
     fi
     timeout 20 adb logcat -d -t 300 > "shots/log_$1_$k.txt" 2>&1; timeout 10 adb logcat -c 2>/dev/null || true
   done
