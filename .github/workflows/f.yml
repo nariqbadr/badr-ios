@@ -1,0 +1,28 @@
+name: sitefetch
+on: { push: { branches: [sitefetch] } }
+permissions: { contents: write }
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    steps:
+      - run: |
+          mkdir o && cd o
+          A="https://bawazirquran.com/wp-admin/admin-ajax.php?action=bz"
+          curl -s "$A&do=data" -o data.json
+          python3 - <<'PY'
+          import json,subprocess
+          d=json.load(open('data.json'))
+          recs=d.get('recitations') or d.get('data',{}).get('recitations') or []
+          out=[]
+          for r in recs:
+              t=r.get('title','')+' '+str(r.get('surah',''))
+              if 'تبارك' in t or 'الملك' in t:
+                  out.append((r['id'],t))
+          print(out)
+          for i,t in out:
+              subprocess.run(['curl','-s',f"https://bawazirquran.com/wp-admin/admin-ajax.php?action=bz&do=track_times&id={i}",'-o',f'tt-{i}.json'])
+          json.dump(out,open('list.json','w'),ensure_ascii=False)
+          PY
+          rm data.json
+          git init -q && git checkout -q -b sitefetch-out && git add -A && git -c user.name=ci -c user.email=ci@x commit -qm out
+          git push -q -f "https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}.git" sitefetch-out
