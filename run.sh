@@ -20,10 +20,18 @@ d=json.load(sys.stdin); d=d.get('data',d); r=d.get('readable',{}).get('tracks',{
 ts=[t for t in d.get('recitations',[]) if ((t.get('video') or {}).get('q')) and t.get('id') in r]
 ts.sort(key=lambda t:(t.get('publishAt') or t.get('createdAt') or '', t.get('order',0)), reverse=True)
 print(ts[0]['id'] if ts else '')" 2>/dev/null); echo "CLIP=$CLIP"
-TID=$(curl -s --max-time 60 "https://bawazirquran.com/wp-admin/admin-ajax.php?action=bz&do=c_feed&tab=all&before=0" | python3 -c "
+TID=$(curl -s --max-time 60 "https://bawazirquran.com/wp-admin/admin-ajax.php?action=bz&do=c_feed&tab=all&before=0" | tee /tmp/feed.json | python3 -c "
 import json,sys
-d=json.load(sys.stdin); d=d.get('data',d); its=d.get('items') or d.get('posts') or []
-print(next((p['id'] for p in its if (p.get('replies') or 0)>0), its[0]['id'] if its else ''))" 2>/dev/null); echo "TID=$TID"
+d=json.load(sys.stdin); best=[]
+def walk(x):
+    if isinstance(x,dict):
+        if 'id' in x and 'author' in x and isinstance(x.get('id'),int): best.append(x)
+        for v in x.values(): walk(v)
+    elif isinstance(x,list):
+        for v in x: walk(v)
+walk(d)
+r=[p for p in best if (p.get('replies') or 0)>0]
+print((r or best)[0]['id'] if best else '')" 2>/dev/null); head -c 400 /tmp/feed.json; echo; echo "TID=$TID"
 tapText() {
   timeout 30 adb shell uiautomator dump /sdcard/ui.xml >/dev/null 2>&1; timeout 30 adb pull /sdcard/ui.xml /tmp/ui.xml >/dev/null 2>&1
   B=$(python3 - "$1" <<'PY'
