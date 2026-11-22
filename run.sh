@@ -5,7 +5,7 @@ adb root; sleep 3
 adb shell wm size 1080x2340; adb shell wm density 440; sleep 2
 ( for i in $(seq 1 400); do adb emu geo fix 31.3016 30.0784 >/dev/null 2>&1; sleep 3; done ) &
 GEO=$!
-KEYS="home prayer prayerdown prayerSettings"
+KEYS="home prayer"
 setpref() { # $1 key $2 value
   adb shell am force-stop $P
   F=/data/data/$P/shared_prefs/badr.xml
@@ -91,7 +91,7 @@ KEYS="whatsnew"; shots new
 adb shell input swipe 540 1700 540 500 700; sleep 3; timeout 30 adb exec-out screencap -p > shots/new_whatsnew2.png
 adb shell input swipe 540 1700 540 500 700; sleep 3; timeout 30 adb exec-out screencap -p > shots/new_whatsnew3.png
 adb shell input swipe 540 1700 540 500 700; sleep 3; timeout 30 adb exec-out screencap -p > shots/new_whatsnew4.png
-setpref theme silver; KEYS="whatsnew home prayer prayerdown prayerSettings"; shots silver
+setpref theme silver; KEYS="whatsnew"; shots silver; adb shell input swipe 540 1700 540 500 700; sleep 3; timeout 30 adb exec-out screencap -p > shots/silver_whatsnew2.png
 adb shell am force-stop $P
 adb shell cat /data/data/$P/shared_prefs/badr.xml > shots/new_prefs.xml
 timeout 60 adb logcat -d -b crash > shots/crash.txt 2>&1 || true
