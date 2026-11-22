@@ -5,7 +5,7 @@ adb root; sleep 3
 adb shell wm size 1080x2340; adb shell wm density 440; sleep 2
 ( for i in $(seq 1 400); do adb emu geo fix 31.3016 30.0784 >/dev/null 2>&1; sleep 3; done ) &
 GEO=$!
-KEYS="#prayer #qibla prayerdown clipnav"
+KEYS="prayerdown clipnav"
 setpref() { # $1 key $2 value
   adb shell am force-stop $P
   F=/data/data/$P/shared_prefs/badr.xml
@@ -40,8 +40,8 @@ shots() { # $1 prefix
   for k in $KEYS; do
     adb shell am force-stop $P
     if [ "$k" = home ]; then adb shell am start -W -n $P/.MainActivity > /dev/null
-    elif [ "$k" = clipnav ]; then timeout 40 adb shell am start -W -n $P/.MainActivity --es open "watch/$CLIP" > /dev/null; sleep 20; tapText "اصنع مقطع"; sleep 4; tapText "مقطع"
-    elif [ "$k" = prayerdown ]; then timeout 40 adb shell am start -W -n $P/.MainActivity --es open "prayer" > /dev/null; sleep 18; adb shell input swipe 540 1900 540 500 700; sleep 1; adb shell input swipe 540 1900 540 500 700
+    elif [ "$k" = clipnav ]; then timeout 40 adb shell am start -W -n $P/.MainActivity --es open "watch/$CLIP" > /dev/null; sleep 20; for t in 1 2 3 4; do tapText "اصنع مقطع" && [ -n "$B" ] && break; adb shell input swipe 540 1500 540 800 600; sleep 2; done
+    elif [ "$k" = prayerdown ]; then timeout 40 adb shell am start -W -n $P/.MainActivity --es open "prayer" > /dev/null; sleep 18; adb shell input swipe 540 1500 540 600 700; sleep 1; adb shell input swipe 540 1500 540 600 700
     else timeout 40 adb shell am start -W -n $P/.MainActivity --es open "\\$k" > /dev/null; fi
     sleep 22; timeout 30 adb exec-out screencap -p > "shots/$1_$k.png"
     timeout 20 adb logcat -d -t 300 > "shots/log_$1_$k.txt" 2>&1; timeout 10 adb logcat -c 2>/dev/null || true
