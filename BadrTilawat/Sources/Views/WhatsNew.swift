@@ -82,8 +82,9 @@ struct WhatsNewView: View {
     }
     private var head: some View {
         VStack(spacing: 12) {
-            Image("Logo").resizable().scaledToFit().frame(width: 76, height: 76).clipShape(RoundedRectangle(cornerRadius: 21))
-                .padding(2).background(RoundedRectangle(cornerRadius: 23).fill(LinearGradient(colors: [c.gold2, c.gold.mix(.black, 0.3)], startPoint: .topLeading, endPoint: .bottomTrailing)))
+            // the home-screen icon the user picked under «أيقونة التطبيق»
+            Image("IconPreview-\(UIApplication.shared.alternateIconName.map { String($0.dropFirst("AppIcon-".count)) } ?? "emerald")").resizable().scaledToFill()
+                .frame(width: 80, height: 80).clipShape(RoundedRectangle(cornerRadius: 21, style: .continuous)).shadow(color: .black.opacity(0.4), radius: 10, y: 4)
             Text(tr("الإصدار {0}", L.digits(WhatsNew.round))).font(F.plex(13, .semibold)).foregroundStyle(c.gold2)
                 .padding(.horizontal, 14).padding(.vertical, 5).background(Capsule().fill(c.gold.opacity(0.08))).overlay(Capsule().strokeBorder(c.gold.opacity(0.35)))
             Text(tr("الجديد في بدر التلاوات")).font(F.amiri(32)).foregroundStyle(c.text).multilineTextAlignment(.center)
@@ -146,11 +147,7 @@ struct WhatsNewView: View {
         card {
             eyebrow(tr("المصحف")); Text(tr("المصحف يتابعك")).font(F.amiri(26)).foregroundStyle(c.text)
             body(tr("مع التلاوة تنزل الصفحة وحدها إلى الآية التي يقرؤها الشيخ، فلا تحتاج أن تبحث عنها."))
-            let ink = Color(red: 0.16, green: 0.14, blue: 0.09)
-            (Text(verbatim: "\u{202B}وَٱلَّيۡلِ إِذَا عَسۡعَسَ \(ReadText.mark("١٧")) وَٱلصُّبۡحِ إِذَا تَنَفَّسَ \(ReadText.mark("١٨")) ").foregroundColor(ink.opacity(0.55))
-             + Text(verbatim: "إِنَّهُۥ لَقَوۡلُ رَسُولࣲ كَرِيمࣲ \(ReadText.mark("١٩"))").foregroundColor(ink).underline(true, color: Color(red: 0.79, green: 0.64, blue: 0.36))
-             + Text(verbatim: " ذِي قُوَّةٍ عِندَ ذِي ٱلۡعَرۡشِ مَكِينࣲ \(ReadText.mark("٢٠"))\u{202C}").foregroundColor(ink.opacity(0.55)))
-                .font(F.quran(18)).multilineTextAlignment(.center).lineSpacing(10).frame(maxWidth: .infinity).padding(16)
+            VerseSample().padding(16).frame(maxWidth: .infinity)
                 .background(RoundedRectangle(cornerRadius: 16).fill(Color(red: 0.957, green: 0.925, blue: 0.847))).padding(.top, 10)
         }
     }
@@ -204,5 +201,57 @@ struct WhatsNewView: View {
                 }
             }
         }
+    }
+}
+
+/// Four ayahs on a mushaf page, the one being read under a rounded gold band drawn on its own words, line by line (the
+/// text laid out by TextKit, so each band sits exactly on the ayah's glyphs) — as on Android.
+struct VerseSample: UIViewRepresentable {
+    func makeUIView(context: Context) -> BandTextView { BandTextView() }
+    func updateUIView(_ v: BandTextView, context: Context) {}
+    func sizeThatFits(_ p: ProposedViewSize, uiView v: BandTextView, context: Context) -> CGSize? {
+        let w = p.width ?? 320
+        return CGSize(width: w, height: ceil(v.sizeThatFits(CGSize(width: w, height: .greatestFiniteMagnitude)).height))
+    }
+}
+final class BandTextView: UITextView {
+    private let band = CAShapeLayer()
+    private var hi = NSRange()
+    init() {
+        let tc = NSTextContainer(size: .zero), lm = NSLayoutManager(), ts = NSTextStorage()
+        lm.addTextContainer(tc); ts.addLayoutManager(lm)
+        super.init(frame: .zero, textContainer: tc)
+        isEditable = false; isSelectable = false; isScrollEnabled = false; backgroundColor = .clear
+        textContainerInset = UIEdgeInsets(top: 4, left: 0, bottom: 4, right: 0); textContainer.lineFragmentPadding = 0
+        let ink = UIColor(red: 0.16, green: 0.14, blue: 0.09, alpha: 1)
+        let pre = "وَٱلَّيۡلِ إِذَا عَسۡعَسَ \(ReadText.mark("١٧")) وَٱلصُّبۡحِ إِذَا تَنَفَّسَ \(ReadText.mark("١٨")) "
+        let mid = "إِنَّهُۥ لَقَوۡلُ رَسُولࣲ كَرِيمࣲ \(ReadText.mark("١٩"))"
+        let post = " ذِي قُوَّةٍ عِندَ ذِي ٱلۡعَرۡشِ مَكِينࣲ \(ReadText.mark("٢٠"))"
+        let ps = NSMutableParagraphStyle(); ps.alignment = .center; ps.baseWritingDirection = .rightToLeft; ps.lineSpacing = 12
+        let font = UIFont(name: "AmiriQuran-Regular", size: 18) ?? .systemFont(ofSize: 18)
+        let soft: [NSAttributedString.Key: Any] = [.font: font, .paragraphStyle: ps, .foregroundColor: ink.withAlphaComponent(0.55)]
+        let s = NSMutableAttributedString(string: "\u{202B}" + pre, attributes: soft)
+        hi = NSRange(location: s.length, length: (mid as NSString).length)
+        s.append(NSAttributedString(string: mid, attributes: [.font: font, .paragraphStyle: ps, .foregroundColor: ink]))
+        s.append(NSAttributedString(string: post + "\u{202C}", attributes: soft))
+        attributedText = s
+        band.fillColor = UIColor(red: 0.79, green: 0.64, blue: 0.36, alpha: 0.38).cgColor
+        band.strokeColor = UIColor(red: 0.54, green: 0.42, blue: 0.18, alpha: 0.35).cgColor
+        band.lineWidth = 1
+        layer.insertSublayer(band, at: 0)
+    }
+    required init?(coder: NSCoder) { fatalError() }
+    override func layoutSubviews() {
+        super.layoutSubviews()
+        layoutManager.ensureLayout(for: textContainer)
+        let g = layoutManager.glyphRange(forCharacterRange: hi, actualCharacterRange: nil)
+        let path = UIBezierPath()
+        layoutManager.enumerateEnclosingRects(forGlyphRange: g, withinSelectedGlyphRange: NSRange(location: NSNotFound, length: 0), in: textContainer) { r, _ in
+            guard r.width > 1 else { return }
+            let f = r.offsetBy(dx: self.textContainerInset.left, dy: self.textContainerInset.top).insetBy(dx: -6, dy: 0)
+            let h: CGFloat = 32, box = CGRect(x: f.minX, y: f.midY - h / 2 + 1, width: f.width, height: h)
+            path.append(UIBezierPath(roundedRect: box, cornerRadius: 9))
+        }
+        band.frame = bounds; band.path = path.cgPath
     }
 }
