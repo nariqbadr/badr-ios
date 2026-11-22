@@ -299,7 +299,7 @@ struct WalkSheet: View {
                     if done {
                         SiteIcon(name: "mosque", size: 44, color: c.gold)
                         Text(tr("وصلت — كُتب لك بكل خطوة أجر بإذن الله")).font(F.plex(16, .bold)).foregroundStyle(c.gold).multilineTextAlignment(.center)
-                        Text(tr("{0} خطوة إلى بيت الله", shown.ar)).font(F.plex(14)).foregroundStyle(c.text)
+                        if shown > 0 { Text(tr("{0} خطوة إلى بيت الله", shown.ar)).font(F.plex(14)).foregroundStyle(c.text) }
                         GoldButton(title: tr("تم"), icon: "check") { dismiss() }.frame(maxWidth: .infinity)
                     } else {
                         HStack {
