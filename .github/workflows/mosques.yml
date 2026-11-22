@@ -1,0 +1,23 @@
+name: mosque-tiles
+on:
+  push:
+    branches: [mosque-data]
+  schedule:
+    - cron: "17 3 1 * *"
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 350
+    steps:
+      - uses: actions/checkout@v4
+      - name: Extract mosques from OpenStreetMap
+        run: python3 tools/extract.py /tmp/out
+      - name: Publish (branch mosque-tiles)
+        run: |
+          cd /tmp/out && printf 'Mosques from OpenStreetMap, cut into 1-degree cells for the Badr apps.\nData © OpenStreetMap contributors, available under the Open Database License (ODbL) 1.0: https://www.openstreetmap.org/copyright\n' > README.md
+          git init -q && git checkout -q -b mosque-tiles && git add -A
+          git -c user.name=ci -c user.email=ci@users.noreply.github.com commit -qm "mosque tiles ${GITHUB_RUN_NUMBER}"
+          git push -q -f "https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}.git" mosque-tiles
