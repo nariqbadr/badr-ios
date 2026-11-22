@@ -2,8 +2,6 @@ name: mosque-tiles
 # every mosque in OpenStreetMap, from Geofabrik's extracts (the public Overpass servers turn a whole-world sweep away),
 # cut into 1-degree cells and published on the branch mosque-tiles (served by jsDelivr). Monthly.
 on:
-  push:
-    branches: [mosque-data]
   schedule:
     - cron: "17 3 2 * *"
   workflow_dispatch:
