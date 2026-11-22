@@ -36,7 +36,7 @@ jobs:
         run: |
           D=/mnt/osm; [ $(df --output=avail -B1G /mnt | tail -1) -gt $(df --output=avail -B1G / | tail -1) ] || D=$HOME/osm; mkdir -p $D
           echo "D=$D" >> $GITHUB_ENV
-          curl -fsSL --retry 5 -A "BadrTilawat-mosque-tiles/1.0 (+https://bawazirquran.com)" -o $D/x.osm.pbf https://download.geofabrik.de/${{ matrix.r }}-latest.osm.pbf
+          curl -fsSL --retry 8 --retry-all-errors --retry-delay 30 -A "BadrTilawat-mosque-tiles/1.0 (+https://bawazirquran.com)" -o $D/x.osm.pbf https://download.geofabrik.de/${{ matrix.r }}-latest.osm.pbf
           ls -la $D
       - name: Places of worship only
         run: |
