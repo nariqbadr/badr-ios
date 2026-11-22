@@ -65,7 +65,7 @@ jobs:
           : > shots/runs.txt
           # a first launch that downloads the site's data (the shots that follow open at once, from the saved copy)
           SIMCTL_CHILD_BZ_LANG=ar SIMCTL_CHILD_BZ_ROUTE=home xcrun simctl launch --terminate-running-process "$UDID" com.bawazirquran.app >/dev/null 2>&1; sleep 30
-          for r in ${BZ_SHOTS:-home recitations quran surah read mushaf drawer prayer player watch live liveMd imams imamAlerts lang}; do
+          for r in ${BZ_SHOTS:-home recitations quran surah read mushaf drawer prayer player watch live adhkar community library listen fiqh about timeline maker search wird ambient imams lang mosques}; do
             SIMCTL_CHILD_BZ_LANG=ar SIMCTL_CHILD_BZ_ROUTE=$r xcrun simctl launch --terminate-running-process "$UDID" com.bawazirquran.app >/dev/null 2>&1
             sleep 14
             if xcrun simctl spawn "$UDID" launchctl list | grep -q UIKitApplication:com.bawazirquran.app; then echo "$r ok" >> shots/runs.txt; else echo "$r CRASHED" >> shots/runs.txt; fi
