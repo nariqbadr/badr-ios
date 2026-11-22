@@ -209,6 +209,82 @@ final class Prayers: NSObject, ObservableObject, CLLocationManagerDelegate {
         catch { return false }
         return true
     }
+    // MARK: reminders: «صلِّ على محمد ﷺ», «سورة الكهف», «سنن يوم الجمعة» — they come with the prayer alerts off too
+    /// how often «صلِّ على محمد ﷺ» comes, in minutes (0 off, 30, 60, 120, 1440 once a day after maghrib); day and night
+    var salawatEvery: Int { let m = Int(Store.shared.str("salawatEvery", "0")) ?? 0; return [0, 30, 60, 120, 1440].contains(m) ? m : 0 }
+    func setSalawat(_ m: Int) { Store.shared.set("salawatEvery", "\(m)"); rev += 1; schedule() }
+    var kahfOn: Bool { Store.shared.str("kahfOn", "1") == "1" }
+    func setKahf(_ on: Bool) { Store.shared.set("kahfOn", on ? "1" : "0"); rev += 1; schedule() }
+    var fridayOn: Bool { Store.shared.str("fridayOn", "1") == "1" }
+    func setFriday(_ on: Bool) { Store.shared.set("fridayOn", on ? "1" : "0"); rev += 1; schedule() }
+    /// a reminder's voice: «badr» (Sheikh Badr al-Turki) or «default» (the notification sound)
+    func voice(_ k: String) -> String { let v = Store.shared.str("voice_" + k, "badr"); return v == "default" ? "default" : "badr" }
+    func setVoice(_ k: String, _ v: String) { Store.shared.set("voice_" + k, v); rev += 1; schedule() }
+    private func sound(_ k: String) -> UNNotificationSound { voice(k) == "badr" ? UNNotificationSound(named: UNNotificationSoundName("\(k).caf")) : .default }
+    static let salawatBody = "قال رسول الله ﷺ: «من صلّى عليَّ واحدةً صلّى الله عليه عشرًا» رواه مسلم"
+    private func salawatContent() -> UNMutableNotificationContent {
+        let n = UNMutableNotificationContent(); n.title = tr("صلِّ على محمد ﷺ"); n.body = tr(Prayers.salawatBody)
+        n.sound = sound("salawat"); n.userInfo = ["open": "friday"]; return n
+    }
+    private func qiyamContent() -> UNMutableNotificationContent {
+        let n = UNMutableNotificationContent(); n.title = tr("الثلث الأخير من الليل"); n.body = tr("ينزل ربنا إلى السماء الدنيا فيقول: من يدعوني فأستجيب له")
+        n.sound = sound("qiyam"); if #available(iOS 15.0, *) { n.interruptionLevel = .timeSensitive }; return n
+    }
+    /// «تجربة الإشعار» of a reminder: the notification itself, at once
+    func testReminder(_ k: String) async -> Bool {
+        let c = UNUserNotificationCenter.current()
+        let st = await c.notificationSettings()
+        if st.authorizationStatus != .authorized && st.authorizationStatus != .provisional {
+            guard (try? await c.requestAuthorization(options: [.alert, .sound, .badge])) == true else { return false }
+        }
+        let id = "\(k)-test"
+        c.removePendingNotificationRequests(withIdentifiers: [id]); c.removeDeliveredNotifications(withIdentifiers: [id])
+        do { try await c.add(UNNotificationRequest(identifier: id, content: k == "qiyam" ? qiyamContent() : salawatContent(), trigger: UNTimeIntervalNotificationTrigger(timeInterval: 1, repeats: false))) }
+        catch { return false }
+        return true
+    }
+    /// the reminders' requests: the salawat repeat by the clock (iOS keeps 64 pending), Kahf and the sunnahs for the next two Fridays
+    private func reminders(_ now: Date) -> [UNNotificationRequest] {
+        var r: [UNNotificationRequest] = []
+        let every = salawatEvery
+        if every == 1440 {
+            for d in 0..<7 {
+                guard let day = Calendar.current.date(byAdding: .day, value: d, to: now), let m = forDay(day).first(where: { $0.key == "maghrib" }) else { continue }
+                let at = m.time.addingTimeInterval(15 * 60); guard at > now else { continue }
+                r.append(UNNotificationRequest(identifier: "slw-\(Int(at.timeIntervalSince1970))", content: salawatContent(), trigger: trigger(at)))
+            }
+        } else if every > 0 {
+            // every half hour: at :00 and :30 · every hour: at :00 · every two hours: the even hours — each repeating
+            let comps: [DateComponents] = every == 30 ? [DateComponents(minute: 0), DateComponents(minute: 30)] : every == 60 ? [DateComponents(minute: 0)]
+                : stride(from: 0, to: 24, by: 2).map { DateComponents(hour: $0, minute: 0) }
+            for (i, dc) in comps.enumerated() {
+                r.append(UNNotificationRequest(identifier: "slw-r\(i)", content: salawatContent(), trigger: UNCalendarNotificationTrigger(dateMatching: dc, repeats: true)))
+            }
+        }
+        for d in 0..<14 {
+            guard let day = Calendar.current.date(byAdding: .day, value: d, to: now) else { continue }
+            let wd = Calendar.current.component(.weekday, from: day)
+            if kahfOn {
+                var at: [Date] = []
+                if wd == 5, let m = forDay(day).first(where: { $0.key == "maghrib" }) { at.append(m.time.addingTimeInterval(20 * 60)) }
+                if wd == 6, let t = Calendar.current.date(bySettingHour: Friday.kahfHour, minute: 0, second: 0, of: day) { at.append(t) }
+                for t in at where t > now {
+                    let n = UNMutableNotificationContent(); n.title = tr("اقرأ سورة الكهف")
+                    n.body = tr("«من قرأ سورة الكهف في يوم الجمعة أضاء له من النور ما بين الجمعتين»"); n.sound = .default; n.userInfo = ["open": "kahf"]
+                    r.append(UNNotificationRequest(identifier: "kahf-\(Int(t.timeIntervalSince1970))", content: n, trigger: trigger(t)))
+                }
+            }
+            if fridayOn, wd == 6, let dh = forDay(day).first(where: { $0.key == "dhuhr" }) {
+                let t = dh.time.addingTimeInterval(-Friday.sunnahHours * 3600)
+                if t > now {
+                    let n = UNMutableNotificationContent(); n.title = tr("سنن يوم الجمعة")
+                    n.body = tr("الاغتسال، والطيب، والتبكير إلى المسجد، والإنصات للخطبة، والإكثار من الصلاة على النبي ﷺ"); n.sound = .default; n.userInfo = ["open": "friday"]
+                    r.append(UNNotificationRequest(identifier: "fsn-\(Int(t.timeIntervalSince1970))", content: n, trigger: trigger(t)))
+                }
+            }
+        }
+        return r
+    }
     var preMinutes: Int { Int(Store.shared.str("preMin", "0")) ?? 0 }
     func setPre(_ m: Int) { Store.shared.set("preMin", "\(m)"); schedule() }
 
@@ -219,11 +295,11 @@ final class Prayers: NSObject, ObservableObject, CLLocationManagerDelegate {
     func schedule() {
         let c = UNUserNotificationCenter.current()
         WidgetBridge.prayers()
-        let wird = Wird.requests()
+        let wird = Wird.requests() + reminders(Date())
         /// replaces this app's prayer and wird alerts, and leaves the imams' alerts (Haram.schedule) alone
         func replace(_ reqs: [UNNotificationRequest]) {
             c.getPendingNotificationRequests { old in
-                c.removePendingNotificationRequests(withIdentifiers: old.map(\.identifier).filter { !$0.hasPrefix("imam-") && $0 != "adhan-test" && $0 != "iqama-test" })
+                c.removePendingNotificationRequests(withIdentifiers: old.map(\.identifier).filter { !$0.hasPrefix("imam-") && !$0.hasSuffix("-test") })
                 for r in reqs { c.add(r) }
             }
         }
@@ -272,10 +348,8 @@ final class Prayers: NSObject, ObservableObject, CLLocationManagerDelegate {
         for d in 0..<10 {
             guard let day = Calendar.current.date(byAdding: .day, value: d, to: now) else { continue }
             for p in extras(day) where mode(p.key) != "off" && p.time > now {
-                let n = UNMutableNotificationContent()
-                n.title = p.key == "duha" ? tr("دخل وقت صلاة الضحى") : tr("الثلث الأخير من الليل")
-                n.body = p.key == "duha" ? tr("صلاة الأوّابين حين ترمض الفصال") : tr("ينزل ربنا إلى السماء الدنيا فيقول: من يدعوني فأستجيب له")
-                n.sound = .default
+                let n = p.key == "qiyam" ? qiyamContent() : UNMutableNotificationContent()
+                if p.key == "duha" { n.title = tr("دخل وقت صلاة الضحى"); n.body = tr("صلاة الأوّابين حين ترمض الفصال"); n.sound = .default }
                 reqs.append(UNNotificationRequest(identifier: "x-\(p.key)-\(Int(p.time.timeIntervalSince1970))", content: n, trigger: trigger(p.time)))
             }
         }
@@ -295,7 +369,7 @@ final class Prayers: NSObject, ObservableObject, CLLocationManagerDelegate {
         // iOS keeps 64: the imams' alerts keep up to 16 of them
         // the soonest first (the prayer, its iqama and the next one's reminder are kept in time order)
         reqs.sort { ($0.trigger as? UNCalendarNotificationTrigger)?.nextTriggerDate() ?? .distantFuture < ($1.trigger as? UNCalendarNotificationTrigger)?.nextTriggerDate() ?? .distantFuture }
-        replace(Array(reqs.prefix(48 - wird.count)) + wird)
+        replace(Array(reqs.prefix(max(8, 48 - wird.count))) + wird)
     }
     private func trigger(_ d: Date) -> UNCalendarNotificationTrigger {
         UNCalendarNotificationTrigger(dateMatching: Calendar.current.dateComponents([.year, .month, .day, .hour, .minute], from: d), repeats: false)

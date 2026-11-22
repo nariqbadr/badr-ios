@@ -23,7 +23,7 @@ struct RootView: View {
     @EnvironmentObject var store: Store
     @Environment(\.pal) private var c
     /// screenshot runs in the simulator (CI): open this screen straight away, no intro or onboarding
-    private static let shot = ProcessInfo.processInfo.environment["BZ_ROUTE"]
+    static let shot = ProcessInfo.processInfo.environment["BZ_ROUTE"]
     @State private var intro = RootView.shot == nil || RootView.shot == "intro"
     @State private var onboard = RootView.shot == nil && !UserDefaults.standard.bool(forKey: "onboarded")
     @State private var wnExisting = UserDefaults.standard.bool(forKey: "onboarded")
@@ -154,9 +154,12 @@ struct RootView: View {
         case "imamsMd": ui.path = [.imams("md")]
         case "imamAlerts": ui.path = [.imamAlerts]
         case "mosques": if mosquesOn { ui.path = [.mosques] }
+        case "friday": ui.adhkarTab = "friday"; ui.go(.adhkar)
+        case "fadail": ui.path = [.fadail]
         case "liveMd": ui.path = [.liveAt("md")]
         case "lang": ui.sheet = .lang
         case "prayerSettings": ui.sheet = .prayer
+        case "prayerRemind": Prayers.shared.setMode("qiyam", "notify"); ui.sheet = .prayer
         case "adhan": ui.adhan = AdhanKey(key: "fajr")
         default: if let t = Route.tab(r) { ui.go(t) }
         }
@@ -185,6 +188,7 @@ struct RootView: View {
         case .mosques: return tr("بيوت الله")
         case .imams: return tr("جدول أئمة الحرمين")
         case .imamAlerts: return tr("تنبيهات الأئمة")
+        case .fadail: return tr("فضائل يوم الجمعة")
         case .liveAt: return tr("البث المباشر")
         case .cm(let a): return a == "notifications" ? tr("الإشعارات") : a.hasPrefix("search") ? tr("استكشف") : tr("المجتمع")
         default: return ["recitations": tr("التلاوات"), "quran": tr("القرآن الكريم"), "adhkar": tr("الأذكار"), "library": tr("مكتبتي"), "prayer": tr("مواقيت الصلاة"), "live": tr("البث المباشر"), "fiqh": tr("دروس الفقه"), "about": tr("عن الشيخ"), "timeline": tr("الخط الزمني"), "community": tr("المجتمع"), "home": tr("الرئيسية")][r.tabKey ?? ""] ?? ""
@@ -255,6 +259,7 @@ struct RootView: View {
         case .mosques: MosquesView()
         case .imams(let m): ImamsView(start: m)
         case .imamAlerts: ImamAlertsView()
+        case .fadail: FadailView()
         case .liveAt(let m): HaramLiveView(start: m)
         case .readIndex: ReadIndexView()
         case .read(let a, let b): ReadView(a: a, b: b).id(a + "/" + b)

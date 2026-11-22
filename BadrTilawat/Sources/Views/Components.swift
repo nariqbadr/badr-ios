@@ -495,16 +495,21 @@ struct TrackCard: View {
 
 /// The site's segmented tabs (.seg).
 struct Seg: View {
-    let items: [String]; let selected: Int; let pick: (Int) -> Void
+    let items: [String]; let selected: Int; var fit = false; let pick: (Int) -> Void
     @Environment(\.pal) private var c
+    init(items: [String], selected: Int, fit: Bool = false, pick: @escaping (Int) -> Void) { self.items = items; self.selected = selected; self.fit = fit; self.pick = pick }
+    private func item(_ i: Int) -> some View {
+        Button { pick(i) } label: {
+            Text(items[i]).font(F.plex(fit ? 13 : 14, .semibold)).foregroundStyle(i == selected ? c.onGold : c.text).lineLimit(1).minimumScaleFactor(0.8)
+                .padding(.horizontal, fit ? 8 : 0).frame(maxWidth: .infinity).padding(.vertical, 9)
+                .background(Capsule().fill(i == selected ? c.gold : .clear))
+        }.buttonStyle(.plain)
+    }
     var body: some View {
-        HStack(spacing: 0) {
-            ForEach(items.indices, id: \.self) { i in
-                Button { pick(i) } label: {
-                    Text(items[i]).font(F.plex(14, .semibold)).foregroundStyle(i == selected ? c.onGold : c.text).lineLimit(1).frame(maxWidth: .infinity).padding(.vertical, 9)
-                        .background(Capsule().fill(i == selected ? c.gold : .clear))
-                }.buttonStyle(.plain)
-            }
+        Group {
+            // fit: each tab as wide as its label, the spare width shared out evenly (a long label is not cut)
+            if fit { FitRow { ForEach(items.indices, id: \.self) { item($0) } } }
+            else { HStack(spacing: 0) { ForEach(items.indices, id: \.self) { item($0) } } }
         }.padding(4).background(Capsule().fill(c.surface.opacity(0.7))).overlay(Capsule().stroke(c.line)).animation(.easeOut(duration: 0.25), value: selected)
     }
 }
@@ -577,5 +582,23 @@ extension View {
     func bzList(_ c: Palette) -> some View {
         self.scrollContentBackground(.hidden).background(c.bg2.ignoresSafeArea())
             .toolbarBackground(c.bg2, for: .navigationBar).toolbarBackground(.visible, for: .navigationBar)
+    }
+}
+
+/// A row whose children take their natural widths plus an even share of what is left (shrunk in proportion when they do not fit).
+struct FitRow: Layout {
+    func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) -> CGSize {
+        let ws = subviews.map { $0.sizeThatFits(.unspecified) }
+        return CGSize(width: proposal.width ?? ws.reduce(0) { $0 + $1.width }, height: ws.map(\.height).max() ?? 0)
+    }
+    func placeSubviews(in b: CGRect, proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) {
+        let nat = subviews.map { $0.sizeThatFits(.unspecified).width }, sum = nat.reduce(0, +)
+        guard !subviews.isEmpty, sum > 0 else { return }
+        let extra = (b.width - sum) / CGFloat(subviews.count)
+        var x = b.minX
+        for (i, v) in subviews.enumerated() {
+            let w = extra >= 0 ? nat[i] + extra : nat[i] * b.width / sum
+            v.place(at: CGPoint(x: x, y: b.minY), proposal: ProposedViewSize(width: w, height: b.height)); x += w
+        }
     }
 }

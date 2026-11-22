@@ -1,4 +1,6 @@
 import SwiftUI
+import AVFoundation
+import AudioToolbox
 
 /// Each prayer has its own quiet colour (the sky at its time), the same in every theme — as on Android.
 enum PrayerSky {
@@ -264,7 +266,8 @@ struct PrayerAlertRow: View {
     let p: PrayerTime; var new = false; var sub: String? = nil
     var body: some View {
         let quiet = Prayers.quiet.contains(p.key)
-        let items = (quiet ? [] : [("adhan", tr("أذان"), "volume")]) + [("notify", tr("إشعار"), "bell"), ("off", tr("بدون"), "mute")]
+        let items = p.key == "qiyam" ? [("notify", tr("بالصوت"), "volume"), ("off", tr("بدون"), "mute")]
+            : (quiet ? [] : [("adhan", tr("أذان"), "volume")]) + [("notify", tr("إشعار"), "bell"), ("off", tr("بدون"), "mute")]
         HStack(spacing: 14) {
             RoundedRectangle(cornerRadius: 8).fill(PrayerSky.swatch(p.key)).frame(width: 24, height: 24).overlay(RoundedRectangle(cornerRadius: 8).strokeBorder(Color.white.opacity(0.12)))
             VStack(alignment: .leading, spacing: 0) {
@@ -274,5 +277,73 @@ struct PrayerAlertRow: View {
             Spacer(minLength: 4)
             MiniSeg(items: items, selected: prayers.mode(p.key), enabled: prayers.alertsOn) { prayers.setMode(p.key, $0) }
         }.frame(minHeight: 60)
+    }
+}
+
+/// a full-width segmented bar (the salawat's frequency, a reminder's voice)
+struct SegBar<T: Hashable>: View {
+    let items: [(T, String)]; let selected: T; let pick: (T) -> Void
+    @Environment(\.pal) private var c
+    var body: some View {
+        HStack(spacing: 2) {
+            ForEach(items, id: \.0) { k, label in
+                let on = k == selected
+                Button { pick(k) } label: {
+                    Text(label).font(F.plex(12.5, on ? .bold : .medium)).foregroundStyle(on ? c.text : c.muted).lineLimit(1).minimumScaleFactor(0.8)
+                        .frame(maxWidth: .infinity).frame(height: 36)
+                        .background(RoundedRectangle(cornerRadius: 10).fill(on ? c.surface3.mix(c.gold, 0.08) : .clear))
+                        .overlay(RoundedRectangle(cornerRadius: 10).strokeBorder(on ? c.gold.opacity(0.28) : .clear))
+                        .contentShape(Rectangle())
+                }.buttonStyle(.plain)
+            }
+        }.padding(3).background(RoundedRectangle(cornerRadius: 13).fill(Color.black.opacity(0.28)))
+    }
+}
+
+/// hears a reminder's voice in the settings: Sheikh Badr al-Turki's recording, or the notification sound
+@MainActor
+final class ReminderVoice: NSObject, ObservableObject, AVAudioPlayerDelegate {
+    static let shared = ReminderVoice()
+    @Published private(set) var playing: String?
+    private var player: AVAudioPlayer?
+    func toggle(_ k: String, badr: Bool) {
+        if playing == k { stop(); return }
+        stop()
+        guard badr else { AudioServicesPlaySystemSound(1007); return }
+        guard let u = Bundle.main.url(forResource: k, withExtension: "caf"), let p = try? AVAudioPlayer(contentsOf: u) else { return }
+        try? AVAudioSession.sharedInstance().setCategory(.playback)
+        try? AVAudioSession.sharedInstance().setActive(true)
+        p.delegate = self; p.play(); player = p; playing = k
+    }
+    func stop() { player?.stop(); player = nil; playing = nil }
+    nonisolated func audioPlayerDidFinishPlaying(_ player: AVAudioPlayer, successfully flag: Bool) { Task { @MainActor in self.stop() } }
+}
+
+/// the reminder's voice: the notification sound or Sheikh Badr al-Turki — heard here, and its notification tried at once
+struct VoiceBox: View {
+    @EnvironmentObject var prayers: Prayers
+    @ObservedObject private var rv = ReminderVoice.shared
+    @Environment(\.pal) private var c
+    let k: String
+    var body: some View {
+        let _ = prayers.rev
+        let badr = prayers.voice(k) == "badr", playing = rv.playing == k
+        VStack(alignment: .leading, spacing: 8) {
+            Text(tr("الصوت")).font(F.plex(12.5)).foregroundStyle(c.faint.mix(c.muted, 0.5)).padding(.top, 4)
+            SegBar(items: [("default", tr("صوت الإشعار")), ("badr", tr("الشيخ بدر التركي"))], selected: prayers.voice(k)) { rv.stop(); prayers.setVoice(k, $0) }
+            HStack(spacing: 8) {
+                btn(playing ? tr("إيقاف") : tr("استماع"), playing ? "pause" : "play") { rv.toggle(k, badr: badr) }
+                btn(tr("تجربة الإشعار"), "bell") {
+                    Task { let ok = await prayers.testReminder(k); UIState.shared?.say(ok ? tr("أُرسل الإشعار الآن") : tr("اسمح بالإشعارات من الإعدادات أولًا")) }
+                }
+            }
+        }
+    }
+    private func btn(_ t: String, _ ic: String, _ act: @escaping () -> Void) -> some View {
+        Button(action: act) {
+            HStack(spacing: 6) { SiteIcon(name: ic, size: 15, color: c.gold); Text(t).font(F.plex(13, .semibold)).foregroundStyle(c.text).lineLimit(1) }
+                .frame(maxWidth: .infinity).frame(height: 40)
+                .overlay(RoundedRectangle(cornerRadius: 12).strokeBorder(c.text.opacity(0.08))).contentShape(Rectangle())
+        }.buttonStyle(Press(scale: 0.97))
     }
 }

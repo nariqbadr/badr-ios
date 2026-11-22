@@ -69,6 +69,8 @@ struct WhatsNewView: View {
                     head
                     recitations(s)
                     reciters(s)
+                    if WhatsNew.card(s, "friday") { friday }
+                    if WhatsNew.card(s, "salawat") { salawat }
                     if WhatsNew.card(s, "mushaf") { mushaf }
                     if WhatsNew.card(s, "silent") && prayers.ringSilentAvailable { silent }
                     pair(s)
@@ -143,6 +145,39 @@ struct WhatsNewView: View {
             }
         }
     }
+    private var friday: some View {
+        card {
+            eyebrow(tr("يوم الجمعة")); Text(tr("سنن الجمعة في مكان واحد")).font(F.amiri(26)).foregroundStyle(c.text)
+            body(tr("السنن الست بالترتيب مع أحاديثها في قسم الأذكار، وتعلّم كل سنّة تؤديها. ويصلك تذكير بقراءة سورة الكهف ليلة الجمعة وصباحها يفتح لك المصحف عليها، وتذكير بالسنن قبل الصلاة."))
+            Button { leave { UIState.shared?.adhkarTab = "friday"; UIState.shared?.go(.adhkar) } } label: {
+                VStack(spacing: 0) {
+                    ForEach(Array([(tr("الاستعداد"), true), (tr("التبكير إلى المسجد"), true), (tr("قراءة سورة الكهف"), false)].enumerated()), id: \.offset) { i, x in
+                        if i > 0 { Hairline(inset: 32) }
+                        HStack(spacing: 10) {
+                            ZStack {
+                                Circle().fill(x.1 ? c.gold : .clear); Circle().strokeBorder(x.1 ? .clear : c.gold.opacity(0.45), lineWidth: 1.5)
+                                if x.1 { SiteIcon(name: "check", size: 13, color: c.onGold) }
+                            }.frame(width: 22, height: 22)
+                            Text(x.0).font(F.plex(14)).foregroundStyle(x.1 ? c.muted : c.text).frame(maxWidth: .infinity, alignment: .leading)
+                            if !x.1 { Text(tr("اقرأ الآن")).font(F.plex(12)).foregroundStyle(c.gold2) }
+                        }.frame(height: 44)
+                    }
+                }.padding(.horizontal, 14).padding(.vertical, 4).background(RoundedRectangle(cornerRadius: 16).fill(Color.black.opacity(0.2))).contentShape(Rectangle())
+            }.buttonStyle(.plain).padding(.top, 10)
+        }
+    }
+    private var salawat: some View {
+        card {
+            eyebrow(tr("تذكير")); Text(tr("صلِّ على محمد ﷺ")).font(F.amiri(26)).foregroundStyle(c.text)
+            body(tr("تذكير بالصلاة على النبي ﷺ كل نصف ساعة أو كل ساعة أو كل ساعتين أو مرة في اليوم، على حسب اختيارك."))
+            VStack(alignment: .leading, spacing: 6) {
+                Text(tr("عن أبي هريرة رضي الله عنه أن رسول الله ﷺ قال:")).font(F.plex(12)).foregroundStyle(c.muted)
+                Text(tr("«من صلّى عليَّ واحدةً صلّى الله عليه عشرًا»")).font(F.amiri(17, bold: false)).foregroundStyle(c.text).lineSpacing(10)
+                Text(tr("رواه مسلم")).font(F.plex(12)).foregroundStyle(c.gold)
+            }.padding(.horizontal, 16).padding(.vertical, 14).frame(maxWidth: .infinity, alignment: .leading)
+                .background(RoundedRectangle(cornerRadius: 16).fill(Color.black.opacity(0.2))).padding(.top, 10)
+        }
+    }
     private var mushaf: some View {
         card {
             eyebrow(tr("المصحف")); Text(tr("المصحف يتابعك")).font(F.amiri(26)).foregroundStyle(c.text)
@@ -165,7 +200,7 @@ struct WhatsNewView: View {
     }
     @ViewBuilder private func pair(_ s: Site?) -> some View {
         let two: [(String, String, String)] = [WhatsNew.card(s, "power") ? ("power", tr("زر الباور يوقفه"), tr("ضغطة على زر الباور توقف الأذان، وقفل الشاشة أو فتحها لا يقطعه.")) : nil,
-                                                WhatsNew.card(s, "night") ? ("moon", tr("قيام الليل والضحى"), tr("تذكير بالثلث الأخير من الليل، وآخر بوقت صلاة الضحى.")) : nil].compactMap { $0 }
+                                                WhatsNew.card(s, "night") ? ("moon", tr("قيام الليل والضحى"), tr("تذكير بصوتٍ بالثلث الأخير من الليل، وآخر بوقت صلاة الضحى.")) : nil].compactMap { $0 }
         if !two.isEmpty {
             HStack(alignment: .top, spacing: 12) {
                 ForEach(two, id: \.0) { ic, t, d in

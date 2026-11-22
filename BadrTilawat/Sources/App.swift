@@ -89,6 +89,15 @@ final class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCent
             else if info["open"] as? String == "wird" { UIState.shared?.sheet = .wird }
             else if info["open"] as? String == "mosques", mosquesOn { UIState.shared?.path = [.mosques] }
             else if let o = info["open"] as? String, o.hasPrefix("live/") { UIState.shared?.path = [.liveAt(String(o.dropFirst(5)))] }
+            // the Friday reminders: Kahf opens the mushaf on Surat al-Kahf; the sunnahs and the salawat open «سنن يوم الجمعة»
+            else if let o = info["open"] as? String, o == "kahf" || o == "friday" {
+                Task { @MainActor in
+                    for _ in 0..<30 where UIState.shared == nil { try? await Task.sleep(nanoseconds: 100_000_000) }
+                    guard let ui = UIState.shared else { return }
+                    if o == "kahf" { UserDefaults.standard.set(293, forKey: "mushafPage"); ui.go(.mushaf) }
+                    else { ui.adhkarTab = "friday"; ui.go(.adhkar) }
+                }
+            }
         }
     }
 }
@@ -111,6 +120,8 @@ final class UIState: ObservableObject {
     @Published var adhan: AdhanKey?
     /// a video in full screen: the app bar is hidden
     @Published var videoFull = false
+    /// open the adhkar on this tab («friday» from the Friday reminders)
+    @Published var adhkarTab: String?
     private var toastTask: Task<Void, Never>?
     /// for code outside the views (the video engine, downloads)
     static var shared: UIState?
@@ -132,7 +143,7 @@ enum Route: Hashable {
     case home, recitations, quran, adhkar, community, library, fiqh, live, about, timeline, prayer, search, qibla
     case reciter(String), collection(String), surah(Int), mushaf, compose(String), user(String), people(String, String), thread(Int)
     case watch(String), clip(String), listen, maker(Int, Int), blocked, readIndex, read(String, String), cm(String), widgets
-    case imams(String), imamAlerts, liveAt(String), mosques
+    case imams(String), imamAlerts, liveAt(String), mosques, fadail
     var tabKey: String? {
         switch self { case .home: return "home"; case .recitations: return "recitations"; case .quran: return "quran"; case .adhkar: return "adhkar"; case .community: return "community"
         case .library: return "library"; case .fiqh: return "fiqh"; case .live: return "live"; case .about: return "about"; case .timeline: return "timeline"; case .prayer: return "prayer"; default: return nil }

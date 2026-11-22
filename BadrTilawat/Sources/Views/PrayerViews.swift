@@ -16,19 +16,21 @@ struct AdhkarView: View {
     }()
     private static func text(_ t: String) -> String {
         let r = try! NSRegularExpression(pattern: "\\s*\\((\\d+)\\)"); var s = t.trimmingCharacters(in: .whitespaces)
-        for m in r.matches(in: s, range: NSRange(s.startIndex..., in: s)).reversed() { if let g = Range(m.range, in: s), let n = Range(m.range(at: 1), in: s) { s.replaceSubrange(g, with: " \(orn(Int(s[n])?.ar ?? ""))") } }
-        return s
+        for m in r.matches(in: s, range: NSRange(s.startIndex..., in: s)).reversed() { if let g = Range(m.range, in: s), let n = Range(m.range(at: 1), in: s) { s.replaceSubrange(g, with: " \(ReadText.mark(Int(s[n])?.ar ?? ""))") } }
+        // each line right-to-left: a line that ends with the ayah mark kept its brackets facing the right way
+        return L.rtl ? s.components(separatedBy: "\n").map { $0.isEmpty ? $0 : rtlText($0) }.joined(separator: "\n") : s
     }
     private func key(_ i: Int) -> String { "dk-\(Wird.today)-\(tab)-\(i)" }
     var body: some View {
-        let cats = [("morning", tr("الصباح")), ("evening", tr("المساء")), ("sleep", tr("النوم"))].filter { !(AdhkarView.data[$0.0] ?? []).isEmpty }
+        let cats = [("morning", tr("الصباح")), ("evening", tr("المساء")), ("sleep", tr("النوم"))].filter { !(AdhkarView.data[$0.0] ?? []).isEmpty } + [("friday", tr("سنن يوم الجمعة"))]
         let list = AdhkarView.data[tab] ?? []
         let done = list.indices.filter { (counts[safe: $0] ?? 0) >= list[$0].count }.count
         VStack(spacing: 0) {
             HStack(spacing: 8) {
-                Seg(items: cats.map { tr("أذكار {0}", $0.1) }, selected: cats.firstIndex { $0.0 == tab } ?? 0) { tab = cats[$0].0 }
-                Chip(text: nil, icon: listMode ? "rectangle.portrait" : "list.bullet", on: listMode) { listMode.toggle() }
+                Seg(items: cats.map { $0.1 }, selected: cats.firstIndex { $0.0 == tab } ?? 0, fit: true) { tab = cats[$0].0 }
+                if tab != "friday" { Chip(text: nil, icon: listMode ? "rectangle.portrait" : "list.bullet", on: listMode) { listMode.toggle() } }
             }.padding(.horizontal, 16).padding(.vertical, 8)
+            if tab == "friday" { FridayView() } else {
             HStack(spacing: 10) {
                 ProgressView(value: list.isEmpty ? 0 : Double(done) / Double(list.count)).tint(c.gold).animation(.easeOut(duration: 0.5), value: done)
                 Text(listMode ? tr("أنجزت {0} من {1}", done.ar, list.count.ar) : tr("{0} من {1} — أنجزت {2}", (page + 1).ar, list.count.ar, done.ar)).font(F.plex(12.5, .medium)).foregroundStyle(c.muted)
@@ -54,9 +56,14 @@ struct AdhkarView: View {
                     ForEach(Array(list.enumerated()), id: \.offset) { i, dk in
                         let n = counts[safe: i] ?? 0, left = max(0, dk.count - n), fin = left == 0
                         VStack(spacing: 0) {
-                            Panel(pad: 22) {
-                                ScrollView { Text(AdhkarView.text(dk.text)).font(F.amiri(22, bold: false)).foregroundStyle(c.text).lineSpacing(16).multilineTextAlignment(.center).frame(maxWidth: .infinity) }
-                            }.frame(maxHeight: .infinity)
+                            // the card is as tall as the dhikr; a long one takes the space there is and is read by dragging inside it
+                            let t = Text(AdhkarView.text(dk.text)).font(F.amiri(22, bold: false)).foregroundStyle(c.text).lineSpacing(16).multilineTextAlignment(.center).frame(maxWidth: .infinity)
+                            Panel(pad: 18) {
+                                ViewThatFits(in: .vertical) {
+                                    t.fixedSize(horizontal: false, vertical: true).padding(.vertical, 4)
+                                    ScrollView(showsIndicators: true) { t.padding(.vertical, 4) }
+                                }
+                            }.layoutPriority(1)
                             Button { count(i, list) } label: {
                                 ZStack {
                                     Circle().fill(c.surface2)
@@ -75,12 +82,15 @@ struct AdhkarView: View {
                                 Chip(text: nil, icon: "arrow.counterclockwise") { UserDefaults.standard.set(0, forKey: key(i)); if counts.indices.contains(i) { counts[i] = 0 } }
                                 Button { withAnimation { page = min(list.count - 1, i + 1) } } label: { SiteIcon(name: "chev-l", size: 24, color: c.text).frame(width: 44, height: 44) }.accessibilityLabel(tr("التالي"))
                             }.padding(.vertical, 14)
+                            Spacer(minLength: 0)
                         }.padding(.horizontal, 18).padding(.vertical, 10).tag(i)
                     }
                 }.tabViewStyle(.page(indexDisplayMode: .never))
             }
+            }
         }
-        .onAppear { load(list) }
+        .onAppear { if let t = ui.adhkarTab { tab = t; ui.adhkarTab = nil }; load(AdhkarView.data[tab] ?? []) }
+        .onReceive(ui.$adhkarTab) { t in if let t { tab = t; DispatchQueue.main.async { ui.adhkarTab = nil } } }
         .onChange(of: tab) { _ in let l = AdhkarView.data[tab] ?? []; load(l) }
     }
     private func load(_ list: [(text: String, count: Int)]) {
@@ -199,20 +209,25 @@ struct PrayerSettings: View {
     @State private var ringSilent = false
     private var sub: Color { c.faint.mix(c.muted, 0.5) }
     var body: some View {
+        ScrollViewReader { px in
         ScrollView {
             VStack(alignment: .leading, spacing: 0) {
                 head
                 alertsSection
                 generalSection
+                remindSection
                 preSection
                 iqamaSection
                 adhanSection
                 placeSection
             }.padding(.horizontal, 18).padding(.top, 20).padding(.bottom, 28)
         }
+        // (screenshots) the other times and the reminders
+        .onAppear { if RootView.shot == "prayerRemind" { DispatchQueue.main.asyncAfter(deadline: .now() + 0.8) { px.scrollTo("others", anchor: .top) } } }
+        }
         .font(F.plex(15)).background(c.bg2.ignoresSafeArea()).environment(\.layoutDirection, L.dir)
         .fullScreenCover(isPresented: $testAdhan) { AdhanScreen(key: "test") }
-        .onDisappear { if adhanP.playing { adhanP.stop() } }
+        .onDisappear { if adhanP.playing { adhanP.stop() }; ReminderVoice.shared.stop() }
         .onAppear {
             pre = prayers.preMinutes; on = prayers.alertsOn; iqOn = prayers.iqOn; ringSilent = prayers.ringSilent; voice = Adhan.voiceId; iqVoice = Adhan.iqVoiceId; Task { await Adhan.prepare(); prayers.schedule() }
             UNUserNotificationCenter.current().getNotificationSettings { s in DispatchQueue.main.async { notifDenied = s.authorizationStatus == .denied } }
@@ -256,13 +271,33 @@ extension PrayerSettings {
                 PrayerAlertRow(p: p)
             }
         }
-        GroupHead(title: tr("أوقات أخرى"))
+        GroupHead(title: tr("أوقات أخرى")).id("others")
         SettingsGroup {
             if let sr = day.first(where: { $0.key == "sunrise" }) { PrayerAlertRow(p: sr) }
             ForEach(ex) { p in
                 Hairline(inset: 38)
                 PrayerAlertRow(p: p, new: true, sub: p.key == "qiyam" ? tr("{0}، الثلث الأخير", Fmt.time(p.time)) : nil)
+                // the night prayer's voice, right under its row
+                if p.key == "qiyam" && prayers.mode("qiyam") != "off" { VoiceBox(k: "qiyam").padding(.leading, 38).padding(.bottom, 14) }
             }
+        }
+    }
+    @ViewBuilder var remindSection: some View {
+        let h = Friday.sunnahHours
+        GroupHead(title: tr("التذكيرات"))
+        SettingsGroup {
+            toggleRow(prayers.kahfOn, tr("سورة الكهف"), tr("ليلة الجمعة بعد المغرب، وصباح الجمعة"), new: true) { v in prayers.setKahf(v); if v { Task { _ = await prayers.requestNotifications() } } }
+            Hairline()
+            toggleRow(prayers.fridayOn, tr("سنن يوم الجمعة"), tr("قبل صلاة الجمعة بـ {0} ساعة", h.truncatingRemainder(dividingBy: 1) == 0 ? Int(h).ar : L.digits("\(h)")), new: true) { v in prayers.setFriday(v); if v { Task { _ = await prayers.requestNotifications() } } }
+            Hairline()
+            VStack(alignment: .leading, spacing: 8) {
+                HStack(spacing: 6) { Text(tr("صلِّ على محمد ﷺ")).font(F.plex(15, .semibold)).foregroundStyle(c.text); NewBadge() }
+                Text(tr("كم مرة يصلك التذكير")).font(F.plex(12.5)).foregroundStyle(sub)
+                SegBar(items: [(0, tr("بدون")), (30, tr("نص ساعة")), (60, tr("ساعة")), (120, tr("ساعتين")), (1440, tr("يوميًا"))], selected: prayers.salawatEvery) { m in
+                    prayers.setSalawat(m); if m > 0 { Task { notifDenied = !(await prayers.requestNotifications()) } }
+                }
+                VoiceBox(k: "salawat")
+            }.padding(.vertical, 12)
         }
     }
     @ViewBuilder var generalSection: some View {
