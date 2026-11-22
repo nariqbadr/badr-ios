@@ -11,7 +11,9 @@ for p in sorted(glob.glob(src + "/**/part-*.json", recursive=True)):
         for r in rows:
             if r[0] in seen: continue
             seen.add(r[0]); cells.setdefault(k, []).append(r)
-if bands != 14: sys.exit(f"only {bands} bands of 14")
+need = int(sys.argv[3]) if len(sys.argv) > 3 else 14
+if bands != need: sys.exit(f"only {bands} parts of {need}")
+if len(seen) < 100000: sys.exit(f"too few mosques: {len(seen)}")
 if gaps: sys.exit(f"gaps: {gaps}")
 for k, rows in cells.items():
     rows.sort(key=lambda r: (r[1], r[2]))

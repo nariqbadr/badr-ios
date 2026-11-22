@@ -1,9 +1,11 @@
 name: mosque-tiles
+# every mosque in OpenStreetMap, from Geofabrik's extracts (the public Overpass servers turn a whole-world sweep away),
+# cut into 1-degree cells and published on the branch mosque-tiles (served by jsDelivr). Monthly.
 on:
   push:
     branches: [mosque-data]
   schedule:
-    - cron: "17 3 1 * *"
+    - cron: "17 3 2 * *"
   workflow_dispatch:
 permissions:
   contents: write
@@ -11,34 +13,53 @@ concurrency:
   group: mosque-tiles
   cancel-in-progress: true
 jobs:
-  band:
+  region:
     strategy:
       fail-fast: false
-      max-parallel: 7
       matrix:
-        s: [-60, -50, -40, -30, -20, -10, 0, 10, 20, 30, 40, 50, 60, 70]
+        r: [africa, antarctica, asia, australia-oceania, central-america, europe, north-america, russia, south-america]
     runs-on: ubuntu-latest
-    timeout-minutes: 300
+    timeout-minutes: 240
     steps:
       - uses: actions/checkout@v4
-      - name: Extract this band from OpenStreetMap
-        run: python3 tools/extract.py /tmp/part ${{ matrix.s }}
+      - name: Room for the extract
+        run: |
+          sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc /opt/hostedtoolcache /usr/local/share/boost /usr/share/swift /usr/local/.ghcup || true
+          sudo docker image prune -af > /dev/null 2>&1 || true
+          sudo mkdir -p /mnt/osm && sudo chown $USER /mnt/osm
+          df -h / /mnt
+      - name: Tools
+        run: |
+          sudo apt-get update -qq && sudo apt-get install -y -qq osmium-tool > /dev/null
+          pip install --quiet osmium || pip install --quiet --break-system-packages osmium
+      - name: Download ${{ matrix.r }}
+        run: |
+          D=/mnt/osm; [ $(df --output=avail -B1G /mnt | tail -1) -gt $(df --output=avail -B1G / | tail -1) ] || D=$HOME/osm; mkdir -p $D
+          echo "D=$D" >> $GITHUB_ENV
+          curl -fsSL --retry 5 -A "BadrTilawat-mosque-tiles/1.0 (+https://bawazirquran.com)" -o $D/x.osm.pbf https://download.geofabrik.de/${{ matrix.r }}-latest.osm.pbf
+          ls -la $D
+      - name: Places of worship only
+        run: |
+          osmium tags-filter $D/x.osm.pbf nwr/amenity=place_of_worship nwr/building=mosque -o $D/pow.osm.pbf --overwrite
+          rm -f $D/x.osm.pbf; ls -la $D
+      - name: Mosques into cells
+        run: mkdir -p /tmp/part && python3 tools/pbf.py $D/pow.osm.pbf /tmp/part ${{ matrix.r }}
       - uses: actions/upload-artifact@v4
         with:
-          name: band-${{ matrix.s }}
-          path: /tmp/part/part-${{ matrix.s }}.json
+          name: part-${{ matrix.r }}
+          path: /tmp/part/part-${{ matrix.r }}.json
           retention-days: 3
   publish:
-    needs: band
+    needs: region
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - uses: actions/download-artifact@v4
         with:
-          pattern: band-*
+          pattern: part-*
           path: /tmp/parts
-      - name: Join the bands
-        run: python3 tools/merge.py /tmp/parts /tmp/out
+      - name: Join the regions
+        run: python3 tools/merge.py /tmp/parts /tmp/out 9
       - name: Publish (branch mosque-tiles)
         run: |
           cd /tmp/out && printf 'Mosques from OpenStreetMap, cut into 1-degree cells for the Badr apps.\nData © OpenStreetMap contributors, available under the Open Database License (ODbL) 1.0: https://www.openstreetmap.org/copyright\n' > README.md
