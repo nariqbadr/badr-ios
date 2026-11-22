@@ -5,19 +5,21 @@ import json, math, os, sys, time, urllib.request, urllib.parse
 EPS = ["https://overpass-api.de/api/interpreter", "https://overpass.kumi.systems/api/interpreter", "https://overpass.private.coffee/api/interpreter"]
 UA = "BadrTilawat-mosque-tiles/1.0 (+https://bawazirquran.com)"
 OUT = sys.argv[1] if len(sys.argv) > 1 else "out"
+BAND = int(sys.argv[2]) if len(sys.argv) > 2 else None   # one 10-degree band of latitude (the parallel jobs), else the world
 os.makedirs(OUT + "/t", exist_ok=True)
+gaps = []
 cells = {}
 seen = set()
 ep_i = 0
 def q(s, w, n, e):
     global ep_i
     bb = f"({s},{w},{n},{e})"
-    data = f'[out:json][timeout:600][maxsize:1073741824];(nwr["amenity"="place_of_worship"]["religion"="muslim"]{bb};nwr["building"="mosque"]{bb};);out center tags;'
-    for attempt in range(6):
+    data = f'[out:json][timeout:300][maxsize:1073741824];(nwr["amenity"="place_of_worship"]["religion"="muslim"]{bb};nwr["building"="mosque"]{bb};);out center tags;'
+    for attempt in range(4):
         ep = EPS[ep_i % len(EPS)]
         try:
             req = urllib.request.Request(ep, data=urllib.parse.urlencode({"data": data}).encode(), headers={"User-Agent": UA})
-            with urllib.request.urlopen(req, timeout=700) as r:
+            with urllib.request.urlopen(req, timeout=360) as r:
                 j = json.load(r)
             if j.get("remark") and "runtime error" in j["remark"]:
                 raise RuntimeError(j["remark"][:200])
@@ -45,11 +47,19 @@ def box(s, w, n, e, depth=0):
         if depth < 4:
             ms, mw = (s + n) / 2, (w + e) / 2
             for b in ((s, w, ms, mw), (s, mw, ms, e), (ms, w, n, mw), (ms, mw, n, e)): box(*b, depth=depth + 1)
-        else: print(f"GAVE UP {s},{w},{n},{e}", flush=True)
+        else: print(f"GAVE UP {s},{w},{n},{e}", flush=True); gaps.append([s, w, n, e])
         return
     for el in els: put(el)
     print(f"{s},{w},{n},{e}: {len(els)} (total {len(seen)})", flush=True)
     time.sleep(2)
+if BAND is not None:
+    # this band in 5-degree boxes; its cells go to one part file, merged with the others by tools/merge.py
+    for w in range(-180, 180, 5):
+        for s0 in (BAND, BAND + 5):
+            box(s0, w, s0 + 5, w + 5)
+    with open(f"{OUT}/part-{BAND}.json", "w") as f: json.dump({"cells": cells, "gaps": gaps, "count": len(seen)}, f, ensure_ascii=False, separators=(",", ":"))
+    print("BAND DONE", BAND, len(seen), "gaps", gaps, flush=True)
+    sys.exit(0)
 step = 10
 for s in range(-60, 80, step):
     for w in range(-180, 180, step):

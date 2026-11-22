@@ -7,14 +7,38 @@ on:
   workflow_dispatch:
 permissions:
   contents: write
+concurrency:
+  group: mosque-tiles
+  cancel-in-progress: true
 jobs:
-  build:
+  band:
+    strategy:
+      fail-fast: false
+      max-parallel: 7
+      matrix:
+        s: [-60, -50, -40, -30, -20, -10, 0, 10, 20, 30, 40, 50, 60, 70]
     runs-on: ubuntu-latest
-    timeout-minutes: 350
+    timeout-minutes: 300
     steps:
       - uses: actions/checkout@v4
-      - name: Extract mosques from OpenStreetMap
-        run: python3 tools/extract.py /tmp/out
+      - name: Extract this band from OpenStreetMap
+        run: python3 tools/extract.py /tmp/part ${{ matrix.s }}
+      - uses: actions/upload-artifact@v4
+        with:
+          name: band-${{ matrix.s }}
+          path: /tmp/part/part-${{ matrix.s }}.json
+          retention-days: 3
+  publish:
+    needs: band
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: band-*
+          path: /tmp/parts
+      - name: Join the bands
+        run: python3 tools/merge.py /tmp/parts /tmp/out
       - name: Publish (branch mosque-tiles)
         run: |
           cd /tmp/out && printf 'Mosques from OpenStreetMap, cut into 1-degree cells for the Badr apps.\nData © OpenStreetMap contributors, available under the Open Database License (ODbL) 1.0: https://www.openstreetmap.org/copyright\n' > README.md
