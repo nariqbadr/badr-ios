@@ -227,6 +227,19 @@ final class Prayers: NSObject, ObservableObject, CLLocationManagerDelegate {
                 }
             }
         }
+        // «ذكّرني قبل الجمعة»: before Friday's prayer (at dhuhr), with my mosque's name
+        let jm = Mosques.shared.jumuahMin
+        if jm > 0 {
+            for d in 0..<10 {
+                guard let day = Calendar.current.date(byAdding: .day, value: d, to: now), Calendar.current.component(.weekday, from: day) == 6,
+                      let dh = forDay(day).first(where: { $0.key == "dhuhr" }) else { continue }
+                let at = dh.time.addingTimeInterval(Double(-jm * 60)); guard at > now else { continue }
+                let n = UNMutableNotificationContent()
+                n.title = Mosques.shared.mine.map { tr("اقتربت صلاة الجمعة في {0}", $0.title) } ?? tr("اقتربت صلاة الجمعة")
+                n.body = tr("الغسل والطيب والتبكير وقراءة سورة الكهف، والصلاة على النبي ﷺ"); n.sound = .default; n.userInfo = ["open": "mosques"]
+                reqs.append(UNNotificationRequest(identifier: "jum-\(Int(at.timeIntervalSince1970))", content: n, trigger: trigger(at)))
+            }
+        }
         // iOS keeps 64: the imams' alerts keep up to 16 of them
         // the soonest first (the prayer, its iqama and the next one's reminder are kept in time order)
         reqs.sort { ($0.trigger as? UNCalendarNotificationTrigger)?.nextTriggerDate() ?? .distantFuture < ($1.trigger as? UNCalendarNotificationTrigger)?.nextTriggerDate() ?? .distantFuture }

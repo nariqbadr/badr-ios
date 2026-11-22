@@ -61,6 +61,14 @@ struct Mosque: Identifiable, Hashable {
         }
         if let p = UserDefaults.standard.array(forKey: "mqPos") as? [Double], p.count == 2 { pos = CLLocationCoordinate2D(latitude: p[0], longitude: p[1]) }
         restoreNear()
+        if let d = UserDefaults.standard.dictionary(forKey: "mqMine"), let id = d["id"] as? String, let la = d["lat"] as? Double, let lo = d["lng"] as? Double {
+            mine = Mosque(id: id, name: d["name"] as? String ?? "", area: d["area"] as? String ?? "", lat: la, lng: lo, ar: d["ar"] as? String ?? "", en: d["en"] as? String ?? "", street: d["street"] as? String ?? "")
+        }
+        walks = (UserDefaults.standard.array(forKey: "mqWalks") as? [[String: Any]] ?? []).compactMap { d in
+            guard let t = d["t"] as? Double else { return nil }
+            return Walk(at: Date(timeIntervalSince1970: t), steps: d["s"] as? Int ?? 0, meters: d["m"] as? Int ?? 0, name: d["n"] as? String ?? "")
+        }
+        jumuahMin = Int(Store.shared.str("jumuahMin", "45")) ?? 45
     }
     var allowed: Bool { [.authorizedWhenInUse, .authorizedAlways].contains(lm.authorizationStatus) }
 
@@ -121,7 +129,9 @@ struct Mosque: Identifiable, Hashable {
         // every source is asked at once and ALL their answers are put together (the first answer alone was sometimes a
         // short one — two mosques — and the full lists that came a moment later were thrown away). Up to 7 s is waited
         // for the rest once one has answered; nothing yet by then: up to 20 s for the first.
-        let osm: [Mosque]? = await withTaskGroup(of: ([Mosque]?, String).self) { g in
+        let own = await tiles(p)
+        if let own { why.append("tiles:\(own.count)") }
+        let osm: [Mosque]? = if let own { own } else { await withTaskGroup(of: ([Mosque]?, String).self) { g in
             for ep in Self.overpassServers { g.addTask { await self.overpass(p, ep) } }
             g.addTask { await self.nominatim(p) }
             g.addTask {
@@ -142,7 +152,7 @@ struct Mosque: Identifiable, Hashable {
             }
             g.cancelAll()
             return answered ? all : nil
-        }
+        } }
         var r = osm.map(Self.dedupe)
         let a = await ap
         why.append("apple:\(a.count)")
@@ -201,6 +211,101 @@ struct Mosque: Identifiable, Hashable {
         nearAt = CLLocationCoordinate2D(latitude: la, longitude: lo)
         nearTime = Date(timeIntervalSince1970: d["at"] as? Double ?? 0)
     }
+    // MARK: our own tiles
+    /// every mosque in OpenStreetMap cut into 1-degree cells (built each month on GitHub, served by jsDelivr), kept on the
+    /// phone for a month — the mosques around come from here at once and the same every time, with no busy server
+    nonisolated static let tileHosts = ["https://cdn.jsdelivr.net/gh/nariqbadr/badr-ios@mosque-tiles/t/", "https://raw.githubusercontent.com/nariqbadr/badr-ios/mosque-tiles/t/"]
+    nonisolated private static var tileDir: URL { FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask)[0].appendingPathComponent("mq", isDirectory: true) }
+    nonisolated private static func fetch(_ u: String) async -> (Int, Data)? {
+        guard let url = URL(string: u) else { return nil }
+        var r = URLRequest(url: url); r.timeoutInterval = 12
+        r.setValue("BadrTilawat/iOS (+https://bawazirquran.com)", forHTTPHeaderField: "User-Agent")
+        guard let (d, resp) = try? await URLSession.shared.data(for: r) else { return nil }
+        return ((resp as? HTTPURLResponse)?.statusCode ?? 0, d)
+    }
+    /// the tiles are published (their meta.json answers) — until then a missing cell must not read as "no mosques here"
+    private var metaOk = false
+    private func meta() async -> Bool {
+        if metaOk { return true }
+        for h in Self.tileHosts {
+            if let (code, d) = await Self.fetch(String(h.dropLast(2)) + "meta.json"), code == 200, (try? JSONSerialization.jsonObject(with: d)) is [String: Any] { metaOk = true; break }
+        }
+        return metaOk
+    }
+    nonisolated private static func cell(_ key: String, published: Bool) async -> [Mosque]? {
+        let f = tileDir.appendingPathComponent(key + ".json")
+        let age = ((try? f.resourceValues(forKeys: [.contentModificationDateKey]))?.contentModificationDate).map { Date().timeIntervalSince($0) } ?? .infinity
+        var body: Data? = age < 30 * 86400 ? (try? Data(contentsOf: f)) : nil
+        if body == nil {
+            for h in tileHosts {
+                guard let (code, d) = await fetch(h + key + ".json") else { continue }
+                if code == 404 { if published { body = Data("[]".utf8); break } else { continue } }
+                if (200..<300).contains(code) { body = d; break }
+            }
+            if let b = body { try? FileManager.default.createDirectory(at: tileDir, withIntermediateDirectories: true); try? b.write(to: f) }
+            else if let old = try? Data(contentsOf: f) { body = old }
+        }
+        guard let b = body, let a = try? JSONSerialization.jsonObject(with: b) as? [[Any]] else { return nil }
+        return a.compactMap { r in
+            guard r.count >= 3, let la = (r[1] as? NSNumber)?.doubleValue, let lo = (r[2] as? NSNumber)?.doubleValue else { return nil }
+            let s = { (i: Int) in r.count > i ? ((r[i] as? String) ?? "").trimmingCharacters(in: .whitespaces) : "" }
+            return Mosque(id: s(0), name: s(3), area: s(6), lat: la, lng: lo, ar: s(4), en: s(5), street: s(7))
+        }
+    }
+    /// the cell the person is in and the ones next to it that the 3.5 km around may reach
+    private func tiles(_ p: CLLocationCoordinate2D) async -> [Mosque]? {
+        let kept = (try? FileManager.default.contentsOfDirectory(atPath: Self.tileDir.path))?.isEmpty == false
+        let published = await meta()
+        guard published || kept else { return nil }
+        let la = Int(floor(p.latitude)), lo = Int(floor(p.longitude))
+        var keys: [String] = []
+        for a in -1...1 { for b in -1...1 {
+            let cla = la + a, clo = ((lo + b + 180) % 360 + 360) % 360 - 180
+            let q = CLLocationCoordinate2D(latitude: min(max(p.latitude, Double(cla)), Double(cla) + 1), longitude: min(max(p.longitude, Double(clo)), Double(clo) + 1))
+            if (a == 0 && b == 0) || Self.d(p, q) < 26_000 { keys.append("\(cla)_\(clo)") }
+        } }
+        let got: [[Mosque]?] = await withTaskGroup(of: [Mosque]?.self) { g in
+            for k in keys { g.addTask { await Self.cell(k, published: published) } }
+            var out: [[Mosque]?] = []; for await r in g { out.append(r) }; return out
+        }
+        if got.allSatisfy({ $0 == nil }) { return nil }
+        return Self.dedupe(got.compactMap { $0 }.flatMap { $0 }.filter { Self.d(p, $0.coord) <= 3500 })
+    }
+
+    // MARK: «مسجدي»، «خطواتك إلى المسجد» and «الجمعة»
+    @Published var mine: Mosque?
+    func chooseMine(_ m: Mosque?) {
+        mine = m
+        if let m { UserDefaults.standard.set(["id": m.id, "name": m.name, "area": m.area, "lat": m.lat, "lng": m.lng, "ar": m.ar, "en": m.en, "street": m.street] as [String: Any], forKey: "mqMine") }
+        else { UserDefaults.standard.removeObject(forKey: "mqMine") }
+        Prayers.shared.schedule()
+    }
+    /// my mosque when it is near (within 6 km), else nil
+    var mineNear: Mosque? { guard let m = mine, pos != nil, dist(m) < 6000 else { return nil }; return m }
+    struct Walk { let at: Date; let steps: Int; let meters: Int; let name: String }
+    @Published var walks: [Walk] = []
+    func addWalk(_ w: Walk) {
+        walks = Array((walks + [w]).suffix(400))
+        UserDefaults.standard.set(walks.map { ["t": $0.at.timeIntervalSince1970, "s": $0.steps, "m": $0.meters, "n": $0.name] as [String: Any] }, forKey: "mqWalks")
+    }
+    func weekSteps() -> Int { walks.filter { $0.at > Date().addingTimeInterval(-7 * 86400) }.reduce(0) { $0 + $1.steps } }
+    /// «ذكّرني قبل الجمعة»: minutes before Friday's prayer (0 = off)
+    @Published var jumuahMin = 45
+    func setJumuah(_ m: Int) { jumuahMin = m; Store.shared.set("jumuahMin", "\(m)"); Prayers.shared.schedule() }
+    /// the next prayer with a congregation, its iqama (the minutes the person set; Friday: the sermon at the time), and whether it is the Jumu'ah
+    func nextJamaah() -> (PrayerTime, Date, Bool)? {
+        let now = Date(), pr = Prayers.shared
+        for d in 0...1 {
+            guard let day = Calendar.current.date(byAdding: .day, value: d, to: now) else { continue }
+            for p in pr.forDay(day) where p.key != "sunrise" {
+                let fri = p.key == "dhuhr" && Calendar.current.component(.weekday, from: p.time) == 6
+                let iq = p.time.addingTimeInterval(fri ? 0 : Double(pr.iqMin(p.key) * 60))
+                if iq.addingTimeInterval(360) > now { return (p, iq, fri) }
+            }
+        }
+        return nil
+    }
+
     /// one entry per mosque: its point and its building outline (or two servers' copies) become one, the named one kept
     nonisolated static func dedupe(_ l: [Mosque]) -> [Mosque] {
         var out: [Mosque] = []
@@ -323,6 +428,7 @@ struct MosquesView: View {
     @Environment(\.pal) private var c
     @State private var busy = false
     @State private var picked: String?
+    @State private var walking: Mosque?
     private var list: [Mosque] { (mq.near ?? []).sorted { mq.dist($0) < mq.dist($1) } }
     var body: some View {
         ScrollView {
@@ -336,6 +442,11 @@ struct MosquesView: View {
                         }
                     }.tint(c.gold).padding(14).background(RoundedRectangle(cornerRadius: 16).fill(c.surface.opacity(0.6))).overlay(RoundedRectangle(cornerRadius: 16).stroke(c.line)).padding(.top, 14)
                 }
+                if !list.isEmpty {
+                    Link(destination: URL(string: "https://www.openstreetmap.org/copyright")!) {
+                        Text(tr("بيانات المساجد © مساهمو OpenStreetMap (ODbL)")).font(F.plex(11)).foregroundStyle(c.faint).frame(maxWidth: .infinity)
+                    }.padding(.top, 6)
+                }
             }
             .padding(16).padding(.bottom, 20)
         }
@@ -343,6 +454,7 @@ struct MosquesView: View {
         .background(c.bg.ignoresSafeArea())
         .environment(\.layoutDirection, L.dir)
         .task { busy = true; await mq.locate(ask: true); await mq.loadNear(); busy = false }
+        .bzSheet(item: $walking) { m in WalkSheet(m: m) }
     }
     @ViewBuilder private var content: some View {
         if mq.pos == nil, !busy {
@@ -354,10 +466,19 @@ struct MosquesView: View {
         } else if list.isEmpty {
             empty(!mq.error.isEmpty ? mq.error : tr("لا توجد مساجد قريبة في نطاق ٣ كم"))
         } else {
-            // the chosen one (the nearest until another is tapped) large at the top, the others ranked under it
-            let top = list.first { $0.id == picked } ?? list[0]
-            NearestCard(m: top, chosen: top.id != list[0].id).id(top.id)
+            // «تلحق الجماعة؟» for my mosque (else the nearest), the dial, the chosen one large (my mosque, else the nearest,
+            // until another is tapped), the steps and Friday; the others ranked under them
+            let mine = mq.mineNear.map { m in list.first { $0.id == m.id } ?? m }
+            let target = mine ?? list[0]
+            let top = list.first { $0.id == picked } ?? target
+            let wd = Calendar.current.component(.weekday, from: Date()), fri = wd == 6 || (wd == 5 && Calendar.current.component(.hour, from: Date()) >= 17)
+            CatchCard(m: target, isMine: mine != nil) { walking = target }
+            if fri { JumuahCard() }
+            MosqueDial(list: list, selected: picked ?? target.id) { m in withAnimation(.easeInOut(duration: 0.3)) { picked = m.id } }
+            NearestCard(m: top, chosen: top.id != list[0].id, onGo: { walking = top }).id(top.id)
                 .transition(.opacity.combined(with: .scale(scale: 0.97)))
+            StepsCard()
+            if !fri { JumuahCard() }
             if list.count > 1 {
                 Text(tr("مساجد حولك")).font(F.amiri(19, bold: true)).foregroundStyle(c.text).padding(.top, 10)
                 let far = max(list.map { mq.dist($0) }.max() ?? 1, 1)
@@ -381,7 +502,7 @@ struct MosquesView: View {
 /// The nearest mosque, large: its name, where it is, and the three numbers that matter — how far, on foot, by car —
 /// with the coming adhan under them.
 private struct NearestCard: View {
-    let m: Mosque; var chosen = false
+    let m: Mosque; var chosen = false; var onGo: () -> Void = {}
     @Environment(\.openURL) private var openURL
     @ObservedObject private var mq = Mosques.shared
     @Environment(\.pal) private var c
@@ -393,7 +514,7 @@ private struct NearestCard: View {
                     .frame(width: 64, height: 72)
                     .background(UnevenRoundedRectangle(topLeadingRadius: 32, bottomLeadingRadius: 10, bottomTrailingRadius: 10, topTrailingRadius: 32).fill(c.gold))
                 VStack(alignment: .leading, spacing: 3) {
-                    Text(chosen ? tr("المسجد الذي اخترته") : tr("أقرب مسجد إليك")).font(F.plex(12, .semibold)).foregroundStyle(c.gold)
+                    Text(mq.mine?.id == m.id ? tr("مسجدي") : chosen ? tr("المسجد الذي اخترته") : tr("أقرب مسجد إليك")).font(F.plex(12, .semibold)).foregroundStyle(c.gold)
                     Text(m.title).font(F.amiri(23, bold: true)).foregroundStyle(c.text).lineLimit(2).minimumScaleFactor(0.8)
                     if !m.place.isEmpty { Text(m.place).font(F.plex(12.5)).foregroundStyle(c.muted).lineLimit(1) }
                 }
@@ -410,17 +531,29 @@ private struct NearestCard: View {
             if !adhan.isEmpty {
                 HStack(spacing: 6) { SiteIcon(name: "clock", size: 15, color: c.gold); Text(adhan).font(F.plex(12.5, .medium)).foregroundStyle(c.text) }
             }
-            // the way there: in the phone's maps app (Google Maps when it is installed)
-            Button {
-                if let u = URL(string: "https://www.google.com/maps/search/?api=1&query=\(m.lat),\(m.lng)") { openURL(u) }
-            } label: {
-                HStack(spacing: 6) { SiteIcon(name: "pin", size: 16, color: c.gold); Text(tr("افتح في الخرائط")).font(F.plex(13, .semibold)).foregroundStyle(c.gold) }
-                    .padding(.horizontal, 14).padding(.vertical, 8).overlay(Capsule().stroke(c.gold.opacity(0.55)))
-            }.buttonStyle(Press())
+            // «اجعله مسجدي», the walk there, and the way in the phone's maps app (Google Maps when it is installed)
+            let isMine = mq.mine?.id == m.id
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 8) {
+                    chip(isMine ? tr("مسجدي") : tr("اجعله مسجدي"), isMine ? "check" : "mosque", on: isMine) {
+                        mq.chooseMine(isMine ? nil : m); UIState.shared?.say(isMine ? tr("أُزيل «مسجدي»") : tr("صار «{0}» مسجدك", m.title))
+                    }
+                    chip(tr("انطلق"), "walk", on: false, onGo)
+                    chip(tr("الخرائط"), "pin", on: false) {
+                        if let u = URL(string: "https://www.google.com/maps/search/?api=1&query=\(m.lat),\(m.lng)") { openURL(u) }
+                    }
+                }
+            }
         }
         .padding(16)
         .background(RoundedRectangle(cornerRadius: 26).fill(LinearGradient(colors: [c.gold.opacity(0.16), c.surface], startPoint: .topLeading, endPoint: .bottomTrailing)))
         .overlay(RoundedRectangle(cornerRadius: 26).stroke(c.gold.opacity(0.45)))
+    }
+    private func chip(_ t: String, _ icon: String, on: Bool, _ f: @escaping () -> Void) -> some View {
+        Button(action: f) {
+            HStack(spacing: 6) { SiteIcon(name: icon, size: 16, color: on ? c.onGold : c.gold); Text(t).font(F.plex(13, .semibold)).foregroundStyle(on ? c.onGold : c.gold) }
+                .padding(.horizontal, 14).padding(.vertical, 8).background(Capsule().fill(on ? c.gold : .clear)).overlay(Capsule().stroke(c.gold.opacity(on ? 0 : 0.55)))
+        }.buttonStyle(Press())
     }
     private func stat(_ v: String, _ l: String, _ icon: String?) -> some View {
         VStack(spacing: 3) {
@@ -473,11 +606,11 @@ struct NearestMosquePill: View {
     private var ui: UIState { UIState.shared! }
     var body: some View {
         Group {
-            if show, let n = mq.near?.min(by: { mq.dist($0) < mq.dist($1) }), mq.pos != nil {
+            if show, let n = mq.mineNear ?? mq.near?.min(by: { mq.dist($0) < mq.dist($1) }), mq.pos != nil {
                 Button { ui.path.append(.mosques) } label: {
                     HStack(spacing: 7) {
                         SiteIcon(name: "mosque", size: 17, color: c.onGold).frame(width: 26, height: 26).background(Circle().fill(c.gold))
-                        Text(tr("أقرب مسجد")).font(F.plex(12.5)).foregroundStyle(c.text)
+                        Text(mq.mineNear != nil ? tr("مسجدي") : tr("أقرب مسجد")).font(F.plex(12.5)).foregroundStyle(c.text)
                         Text(n.title).font(F.plex(12.5, .bold)).foregroundStyle(c.text).lineLimit(1)
                         HStack(spacing: 2) { SiteIcon(name: "walk", size: 15, color: c.muted); Text(Mosques.mins(Mosques.walkS(mq.dist(n)))).font(F.plex(12.5)).foregroundStyle(c.muted) }
                         SiteIcon(name: "chev-l", size: 15, color: c.muted)

@@ -87,6 +87,7 @@ final class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCent
             }
             else if let k = info["iqama"] as? String { UIState.shared?.adhan = AdhanKey(key: k, iqama: true) }
             else if info["open"] as? String == "wird" { UIState.shared?.sheet = .wird }
+            else if info["open"] as? String == "mosques" { UIState.shared?.path = [.mosques] }
             else if let o = info["open"] as? String, o.hasPrefix("live/") { UIState.shared?.path = [.liveAt(String(o.dropFirst(5)))] }
         }
     }
