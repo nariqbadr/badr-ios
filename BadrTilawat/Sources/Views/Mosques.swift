@@ -430,7 +430,10 @@ struct MosquesView: View {
     @State private var picked: String?
     @State private var walking: Mosque?
     private var list: [Mosque] { (mq.near ?? []).sorted { mq.dist($0) < mq.dist($1) } }
+    /// the simulator's screenshots (BZ_MQ): a card scrolled to the top, or the walk open
+    private static let shotMQ = ProcessInfo.processInfo.environment["BZ_MQ"] ?? ""
     var body: some View {
+        ScrollViewReader { proxy in
         ScrollView {
             VStack(alignment: .leading, spacing: 10) {
                 content
@@ -453,8 +456,14 @@ struct MosquesView: View {
         .refreshable { await mq.locate(ask: true); await mq.loadNear(force: true) }
         .background(c.bg.ignoresSafeArea())
         .environment(\.layoutDirection, L.dir)
-        .task { busy = true; await mq.locate(ask: true); await mq.loadNear(); busy = false }
+        .task {
+            busy = true; await mq.locate(ask: true); await mq.loadNear(); busy = false
+            guard !Self.shotMQ.isEmpty, !list.isEmpty else { return }
+            try? await Task.sleep(nanoseconds: 1_500_000_000)
+            if Self.shotMQ == "walk" { walking = mq.mineNear ?? list[0] } else { proxy.scrollTo(Self.shotMQ, anchor: .top) }
+        }
         .bzSheet(item: $walking) { m in WalkSheet(m: m) }
+        }
     }
     @ViewBuilder private var content: some View {
         if mq.pos == nil, !busy {
@@ -474,11 +483,11 @@ struct MosquesView: View {
             let wd = Calendar.current.component(.weekday, from: Date()), fri = wd == 6 || (wd == 5 && Calendar.current.component(.hour, from: Date()) >= 17)
             CatchCard(m: target, isMine: mine != nil) { walking = target }
             if fri { JumuahCard() }
-            MosqueDial(list: list, selected: picked ?? target.id) { m in withAnimation(.easeInOut(duration: 0.3)) { picked = m.id } }
-            NearestCard(m: top, chosen: top.id != list[0].id, onGo: { walking = top }).id(top.id)
+            MosqueDial(list: list, selected: picked ?? target.id) { m in withAnimation(.easeInOut(duration: 0.3)) { picked = m.id } }.id("dial")
+            NearestCard(m: top, chosen: top.id != list[0].id, onGo: { walking = top }).id(top.id).background(Color.clear.id("near"))
                 .transition(.opacity.combined(with: .scale(scale: 0.97)))
-            StepsCard()
-            if !fri { JumuahCard() }
+            StepsCard().id("steps")
+            if !fri { JumuahCard().id("jum") }
             if list.count > 1 {
                 Text(tr("مساجد حولك")).font(F.amiri(19, bold: true)).foregroundStyle(c.text).padding(.top, 10)
                 let far = max(list.map { mq.dist($0) }.max() ?? 1, 1)

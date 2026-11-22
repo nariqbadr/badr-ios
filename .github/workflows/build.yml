@@ -120,7 +120,7 @@ jobs:
           xcrun simctl location "$UDID" set 30.0784,31.3016 || true
           : > shots/mq-runs.txt
           SIMCTL_CHILD_BZ_LANG=ar SIMCTL_CHILD_BZ_ROUTE=home xcrun simctl launch --terminate-running-process "$UDID" com.bawazirquran.app >/dev/null 2>&1; sleep 30
-          for x in ar:list ar:detail ar:nav ar:famous en:list en:detail; do
+          for x in ar:list ar:dial ar:near ar:steps ar:jum ar:walk en:list en:steps; do
             L=${x%%:*}; m=${x#*:}
             SIMCTL_CHILD_BZ_LANG=$L SIMCTL_CHILD_BZ_ROUTE=mosques SIMCTL_CHILD_BZ_MQ=$m xcrun simctl launch --terminate-running-process "$UDID" com.bawazirquran.app >/dev/null 2>&1
             sleep 35
