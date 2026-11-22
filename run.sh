@@ -52,7 +52,7 @@ shots() { # $1 prefix
   for k in $KEYS; do
     adb shell am force-stop $P
     if [ "$k" = home ]; then adb shell am start -W -n $P/.MainActivity > /dev/null
-    elif [ "$k" = thread ]; then if [ "$1" = old ]; then R="community/p:$TID"; else R="community/p/$TID"; fi; timeout 40 adb shell am start -W -n $P/.MainActivity --es open "$R" > /dev/null
+    elif [ "$k" = thread ]; then timeout 40 adb shell am start -W -a android.intent.action.VIEW -d "https://bawazirquran.com/community/p/$TID" -n $P/.MainActivity > /dev/null
     elif [ "$k" = clipnav ]; then timeout 40 adb shell am start -W -n $P/.MainActivity --es open "watch/$CLIP" > /dev/null; sleep 20; for t in 1 2 3 4; do tapText "اصنع مقطع" && [ -n "$B" ] && break; adb shell input swipe 540 1500 540 800 600; sleep 2; done
     elif [ "$k" = prayerdown ]; then timeout 40 adb shell am start -W -n $P/.MainActivity --es open "prayer" > /dev/null; sleep 18; adb shell input swipe 540 1500 540 600 700; sleep 1; adb shell input swipe 540 1500 540 600 700
     else timeout 40 adb shell am start -W -n $P/.MainActivity --es open "\\$k" > /dev/null; fi
