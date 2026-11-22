@@ -33,7 +33,30 @@ for line in open("pw.geojsonseq", encoding="utf-8"):
     if nm in ("مسجد", "جامع", "Mosque", "mosque") and not ar and not en: continue
     tid = p.get("@type", "n")[:1] + str(p.get("@id", ""))
     osm.append({"id": tid, "lat": lat, "lng": lng, "name": nm, "ar": ar, "en": en, "street": (p.get("addr:street") or "").strip()})
-print("osm named mosques", len(osm))
+print("osm named mosques (extract)", len(osm))
+
+# ---- the edits made since the extract (live from OpenStreetMap): a mosque added or renamed today replaces / joins
+try:
+    rec = json.load(open("recent.json", encoding="utf-8")).get("elements", [])
+except Exception as e:
+    rec = []; print("no recent edits:", e)
+byid = {m["id"]: i for i, m in enumerate(osm)}
+fresh = 0
+for e in rec:
+    t = e.get("tags", {}); c = e.get("center") or {}
+    lat = e.get("lat", c.get("lat")); lng = e.get("lon", c.get("lon"))
+    if lat is None or lng is None: continue
+    rel, bld, nm = t.get("religion", ""), t.get("building", ""), (t.get("name") or "").strip()
+    if not (rel == "muslim" or bld == "mosque"): continue
+    tid = e["type"][:1] + str(e["id"])
+    m = {"id": tid, "lat": lat, "lng": lng, "name": nm, "ar": (t.get("name:ar") or "").strip(), "en": (t.get("name:en") or "").strip(), "street": (t.get("addr:street") or "").strip()}
+    named = bool(m["name"] or m["ar"] or m["en"]) and not (nm in ("مسجد", "جامع") and not m["ar"] and not m["en"])
+    if tid in byid:
+        if named: osm[byid[tid]] = m
+        else: osm[byid[tid]] = None
+    elif named: osm.append(m); fresh += 1
+osm = [m for m in osm if m]
+print("recent edits", len(rec), "new mosques", fresh, "osm now", len(osm))
 
 # ---- Overture
 import duckdb
@@ -74,13 +97,27 @@ def near(m, r):
             for o in cell.get((k[0] + dx, k[1] + dy), []):
                 if dist((m["lat"], m["lng"]), (o["lat"], o["lng"])) < r: return o
     return None
+def norm(n):
+    n = re.sub(r"[\u064B-\u065F\u0670\u0640_\-.,،]", " ", n or "")
+    n = re.sub(r"[أإآٱ]", "ا", n).replace("ى", "ي").replace("ة", "ه")
+    n = re.sub(r"\b(مسجد|جامع|الشيخ|سيدنا|السيده|السيدة)\b", " ", n)
+    n = re.sub(r"\b(mosque|masjid|masjed|el|al)\b", " ", n.lower())
+    return re.sub(r"\s+", " ", n).strip()
+def same_name(m, r):
+    k = key(m["lat"], m["lng"]); a = norm(m["name"] or m["ar"] or m["en"])
+    if len(a) < 3: return False
+    for dx in range(-2, 3):
+        for dy in range(-2, 3):
+            for o in cell.get((k[0] + dx, k[1] + dy), []):
+                if dist((m["lat"], m["lng"]), (o["lat"], o["lng"])) < r and a in (norm(o["name"]), norm(o["ar"]), norm(o["en"])): return True
+    return False
 out = []
 for m in osm:
     if near(m, 12): continue  # its point and its building outline
     cell.setdefault(key(m["lat"], m["lng"]), []).append(m); out.append(m)
 added = 0
 for m in sorted(ov, key=lambda x: -len(x["name"])):
-    if near(m, 40): continue
+    if near(m, 40) or same_name(m, 400): continue
     cell.setdefault(key(m["lat"], m["lng"]), []).append(m); out.append(m); added += 1
 print("merged", len(out), "overture added", added)
 

@@ -1,7 +1,7 @@
 name: mosques data
-# «بيوت الله»: the mosques of Egypt (OpenStreetMap + Overture) rebuilt every day into the "mosques" branch, served by jsDelivr
+# «بيوت الله»: the mosques of Egypt (OpenStreetMap + Overture) rebuilt every hour into the "mosques" branch, served by jsDelivr
 on:
-  schedule: [{ cron: "17 3 * * *" }]
+  schedule: [{ cron: "17 * * * *" }]
   workflow_dispatch:
   push: { branches: [mosques-build] }
 permissions: { contents: write }
@@ -19,6 +19,21 @@ jobs:
           osmium tags-filter eg.osm.pbf nwr/amenity=place_of_worship nwr/building=mosque -o pw.osm.pbf --overwrite
           osmium export pw.osm.pbf -f geojsonseq --add-unique-id=type_id -a type,id -o pw.geojsonseq --overwrite
           ls -la pw.geojsonseq
+      - name: Today's edits (live OpenStreetMap, since the extract)
+        run: |
+          set +e
+          TS=$(osmium fileinfo -g header.option.osmosis_replication_timestamp eg.osm.pbf)
+          echo "extract $TS"
+          Q="[out:json][timeout:120];(nwr[\"amenity\"=\"place_of_worship\"](newer:\"$TS\")(21.6,24.6,31.8,37.0);nwr[\"building\"=\"mosque\"](newer:\"$TS\")(21.6,24.6,31.8,37.0););out center tags;"
+          for i in 1 2 3 4 5 6; do
+            for EP in https://overpass-api.de/api/interpreter https://overpass.private.coffee/api/interpreter https://overpass.kumi.systems/api/interpreter; do
+              code=$(curl -s -m 150 -o recent.json -w "%{http_code}" -A "BadrTilawat/mosques (+https://bawazirquran.com)" --data-urlencode "data=$Q" $EP)
+              echo "$EP -> $code $(wc -c < recent.json)"
+              if [ "$code" = 200 ] && head -c1 recent.json | grep -q '{'; then exit 0; fi
+            done
+            sleep 30
+          done
+          echo '{"elements":[]}' > recent.json
       - name: Build
         run: python3 tools/mosques/build.py out
       - name: Publish
