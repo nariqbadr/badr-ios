@@ -3,6 +3,7 @@ import SwiftUI
 /// «الجديد في بدر التلاوات»: shown once after an update (right after the intro), in the user's theme — as on Android. Set in
 /// the dashboard (التحكم في التطبيق ← ما الجديد): on/off, until when, «اعرضها تاني للكل», new installs too, the recitations,
 /// the reciters and which cards. «متابعة» fades it out; it never shows again for this version (and this dashboard round).
+@MainActor
 enum WhatsNew {
     private static func w(_ s: Site?) -> J? { guard let s else { return nil }; let j = s.j["app"]["whatsNew"]; return j.isNull ? nil : j }
     private static func key(_ s: Site?) -> String { Repo.version + "#" + String(w(s)?["rev"].int ?? 0) }
@@ -15,7 +16,7 @@ enum WhatsNew {
     }
     static func seen(_ s: Site?) { UserDefaults.standard.set(key(s), forKey: "wnSeen") }
     static func card(_ s: Site?, _ k: String) -> Bool { w(s)?["cards"][k].bool(true) ?? true }
-    @MainActor static func collections(_ s: Site?) -> [TrackCollection] {
+    static func collections(_ s: Site?) -> [TrackCollection] {
         guard let all = s?.collections else { return [] }
         let picked = ["col1", "col2"].compactMap { k -> TrackCollection? in let id = w(s)?[k].str ?? ""; return id.isEmpty ? nil : all.first { $0.id == id } }
         if !picked.isEmpty { return picked }
@@ -24,7 +25,7 @@ enum WhatsNew {
         if let b = all.last(where: { $0.name.contains("فجر") }), !out.contains(b) { out.append(b) }
         return out
     }
-    @MainActor static func reciters(_ s: Site?) -> [Reciter] {
+    static func reciters(_ s: Site?) -> [Reciter] {
         guard let all = Repo.shared.data?.reciters else { return [] }
         let picked = ["rec1", "rec2"].compactMap { k -> Reciter? in let id = w(s)?[k].str ?? ""; return id.isEmpty ? nil : all.first { $0.id == id } }
         if !picked.isEmpty { return picked }
