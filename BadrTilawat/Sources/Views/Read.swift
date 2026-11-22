@@ -454,6 +454,16 @@ struct ReadText: UIViewRepresentable {
         }
         if scrollTo == nil { co.scrolled = -1 }
     }
+    /// the number at an ayah's end in the running text: no direction marks inside (the text view placed a number wrapped in
+    /// them at the start of the ayah's last line instead of after its last word)
+    static func mark(_ n: String) -> String {
+        switch ProcessInfo.processInfo.environment["BZ_ORN"] ?? "1" {
+        case "0": return orn(n)
+        case "2": return "\u{FD3F}\(n)\u{FD3E}"
+        case "3": return "\u{06DD}\(n)"
+        default: return "\u{FD3E}\(n)\u{FD3F}"
+        }
+    }
     private func build() -> (NSAttributedString, [Int]) {
         let font = UIFont(name: "AmiriQuran-Regular", size: 25 * size) ?? .systemFont(ofSize: 25 * size)
         let ps = NSMutableParagraphStyle(); ps.alignment = .justified; ps.baseWritingDirection = .rightToLeft; ps.minimumLineHeight = 54 * size; ps.maximumLineHeight = 54 * size
@@ -475,7 +485,7 @@ struct ReadText: UIViewRepresentable {
                 out.append(NSAttributedString(string: w, attributes: at))
                 out.append(NSAttributedString(string: " ", attributes: [.font: font, .paragraphStyle: ps]))
             }
-            out.append(NSAttributedString(string: orn(it.n.ar), attributes: [.font: font, .foregroundColor: gold, .paragraphStyle: ps, ReadText.key: "\(i):-1"]))
+            out.append(NSAttributedString(string: ReadText.mark(it.n.ar), attributes: [.font: font, .foregroundColor: gold, .paragraphStyle: ps, ReadText.key: "\(i):-1"]))
             out.append(NSAttributedString(string: " ", attributes: [.font: font, .paragraphStyle: ps]))
         }
         return (out, offs)
