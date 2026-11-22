@@ -103,7 +103,13 @@ struct MushafView: View {
             else { content }
         }
         .modifier(FollowMark())
-        .task { if !ready { await Task.detached { MushafData.load() }.value; ready = true } }
+        .task {
+            if !ready { await Task.detached { MushafData.load() }.value; ready = true }
+            // the simulator's screenshots (BZ_HI="page:ayah index on that page:size"): an ayah lit as while reading along
+            if let v = ProcessInfo.processInfo.environment["BZ_HI"]?.split(separator: ":").compactMap({ Double($0) }), v.count == 3 {
+                size = v[2]; page = Int(v[0]); try? await Task.sleep(nanoseconds: 1_500_000_000); followG = MushafData.firstG(Int(v[0])) + Int(v[1])
+            }
+        }
         .onChange(of: page) { UserDefaults.standard.set($0, forKey: "mushafPage") }
         .onChange(of: ma.current) { g in if g > 0 { let p = MushafData.pageOf(g); if p != page { withAnimation { page = p } } } }
         .onDisappear { if ma.current != 0 { ma.stop() } }
@@ -267,7 +273,9 @@ struct MushafPage: View {
                                     case .basmala: Text(MushafData.basmala).font(.custom(MushafData.font, size: font)).foregroundStyle(c.text).frame(maxWidth: .infinity)
                                     case .words(let segs):
                                         FlowLayout(spacing: font * 0.3) {
-                                            ForEach(Array(tokens(segs).enumerated()), id: \.offset) { _, t in word(t, font).id(t.first ? "a\(t.g)" : "w\(t.g).\(t.k)") }
+                                            // one id per word: the ayah's first word on the page "a<g>", every other its own place (an ayah
+                                            // over two printed lines gave two views the same id, and the reading did not follow it)
+                                            ForEach(Array(tokens(segs).enumerated()), id: \.offset) { i, t in word(t, font).id(t.first ? "a\(t.g)" : "w\(pg).\(i)") }
                                         }
                                         .backgroundPreferenceValue(HiWords.self) { a in hiBand(a, font) }
                                     }
@@ -276,7 +284,10 @@ struct MushafPage: View {
                         }
                         // text ids: a ForEach's own ids are its offsets (0, 1, 2 …), so a bare ayah number such as 45 also matched
                         // the 45th word of the page and the page jumped back up while reading along
-                        .onChange(of: hi) { g in if g > 0 { withAnimation { sp.scrollTo("a\(g)", anchor: .center) } } }
+                        // the ayah being read is brought into sight by itself (a third from the top, its words below it in view) —
+                        // on the next frame, once the page is laid out (at once, it moved only after the page had been scrolled by hand)
+                        .onChange(of: hi) { g in follow(sp, g) }
+                        .onAppear { follow(sp, hi, delay: 0.35) }
                     }
                 } else {
                     VStack(spacing: open ? 10 : 0) {
@@ -310,12 +321,19 @@ struct MushafPage: View {
         .overlay(RoundedRectangle(cornerRadius: 20).stroke(c.lineSoft))
     }
     struct Tok { let g: Int; let k: Int; let w: String; let mark: Bool; let first: Bool }
+    /// [first]: the ayah's first word here (not the first word of each of its printed lines)
     private func tokens(_ segs: [MushafData.Seg]) -> [Tok] {
-        segs.flatMap { sg -> [Tok] in
+        var prev = -1
+        return segs.flatMap { sg -> [Tok] in
             var ws = sg.text.split(separator: " ").map(String.init).filter { !$0.isEmpty }
             if sg.end { ws.append(MushafData.endMark(sg.g)) }
-            return ws.enumerated().map { Tok(g: sg.g, k: $0.offset, w: $0.element, mark: sg.end && $0.offset == ws.count - 1, first: $0.offset == 0) }
+            let start = sg.g != prev; prev = sg.g
+            return ws.enumerated().map { Tok(g: sg.g, k: $0.offset, w: $0.element, mark: sg.end && $0.offset == ws.count - 1, first: start && $0.offset == 0) }
         }
+    }
+    private func follow(_ sp: ScrollViewProxy, _ g: Int, delay: Double = 0.05) {
+        guard g > 0 else { return }
+        DispatchQueue.main.asyncAfter(deadline: .now() + delay) { withAnimation(.easeInOut(duration: 0.45)) { sp.scrollTo("a\(g)", anchor: UnitPoint(x: 0.5, y: 0.3)) } }
     }
     private func word(_ t: Tok, _ font: CGFloat) -> some View {
         // the ayah being read: gold words on a gold band (as on the site), the band reaching over the gaps between words
@@ -333,7 +351,11 @@ struct MushafPage: View {
                 RoundedRectangle(cornerRadius: font * 0.32).fill(c.gold.opacity(0.22))
                     .frame(width: r.width + font * 0.44, height: r.height + font * 0.1).position(x: r.midX, y: r.midY)
             }
-        }.animation(.easeOut(duration: 0.3), value: a.count)
+        }
+        // the words' places are measured from the left; in a right-to-left page .position counts from the right, so the band
+        // was drawn mirrored (under other words of the line) — it is placed left-to-right
+        .environment(\.layoutDirection, .leftToRight)
+        .animation(.easeOut(duration: 0.3), value: a.count)
     }
     private func title(_ s: Int, _ font: CGFloat) -> some View {
         HStack(spacing: 12) {

@@ -78,6 +78,10 @@ jobs:
             xcrun simctl io "$UDID" screenshot "shots/community-in.png" >/dev/null 2>&1 || true
           fi
           # the same screens in other languages (English, Urdu)
+          for h in 305:0:1 305:3:1 8:2:1 305:0:1.6 305:3:1.6 8:2:1.6; do
+            SIMCTL_CHILD_BZ_LANG=ar SIMCTL_CHILD_BZ_ROUTE=mushaf SIMCTL_CHILD_BZ_HI=$h xcrun simctl launch --terminate-running-process "$UDID" com.bawazirquran.app >/dev/null 2>&1
+            sleep 14; xcrun simctl io "$UDID" screenshot "shots/hi-$(echo $h | tr ':.' '__').png" >/dev/null 2>&1 || true
+          done
           for x in en:home en:live en:liveMd en:imams en:imamAlerts en:surah en:drawer en:recitations en:prayer en:player ur:home ur:imams ur:surah; do
             L=${x%%:*}; r=${x#*:}
             SIMCTL_CHILD_BZ_LANG=$L SIMCTL_CHILD_BZ_ROUTE=$r xcrun simctl launch --terminate-running-process "$UDID" com.bawazirquran.app >/dev/null 2>&1
