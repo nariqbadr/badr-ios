@@ -189,17 +189,23 @@ struct MushafView: View {
     private func loadTimes() async {
         line = []; lineId = ""
         guard let id = player.current?.id, let t = repo.track(id) else { return }
-        var ay: [[Int]] = [], ws: [[[Int]]] = [], sn = t.surahNumber
+        var ay: [[Int]] = [], ws: [[[Int]]] = [], sn = t.surahNumber, extra: [[Int]] = []
         if id.hasPrefix("quran-") {
             let rid = id.replacingOccurrences(of: "^quran-(.+)-\\d+$", with: "$1", options: .regularExpression)
             if repo.data?.surahReciters.contains(where: { $0.id == rid }) == true, let tm = await repo.ayahTimes("sr:\(rid)", sn) { ay = tm.ayahs; ws = tm.words }
-        } else if let tm = await repo.trackTimes(id) { ay = tm.ayahs; ws = tm.words; if (1...114).contains(tm.surah) { sn = tm.surah } }
+        } else if let tm = await repo.trackTimes(id) {
+            ay = tm.ayahs; ws = tm.words; if (1...114).contains(tm.surah) { sn = tm.surah }
+            // a recording of several surahs (a juz, a night's prayer): the surahs it goes on to and al-Fatiha of each rak'ah
+            // are followed too (only the first surah was, and the mushaf stayed on another page)
+            extra = tm.parts.flatMap { p in p.ayahs.enumerated().map { i, x in [p.surah, x[0], x[1], x.count > 2 ? x[2] : 0, p.words[safe: i]?.first?[safe: 1] ?? 0] } }
+        }
         guard (1...114).contains(sn), !ay.isEmpty else {
             // no ayah timings: at least open its surah
             if (1...114).contains(t.surahNumber) && player.playing && ma.current == 0 && MushafData.sa(MushafData.firstG(page)).0 != t.surahNumber { page = Quran.surahPage[t.surahNumber - 1] }
             return
         }
-        line = ay.enumerated().map { i, x in [sn, x[0], x[1], x.count > 2 ? x[2] : 0, ws[safe: i]?.first?[safe: 1] ?? 0] }.sorted { $0[2] < $1[2] }
+        line = (ay.enumerated().map { i, x in [sn, x[0], x[1], x.count > 2 ? x[2] : 0, ws[safe: i]?.first?[safe: 1] ?? 0] } + extra)
+            .filter { (1...114).contains($0[0]) && $0[1] >= 1 }.sorted { $0[2] < $1[2] }
         lineId = id
     }
     private func follow(_ pos: Int) -> Int {
@@ -263,6 +269,7 @@ struct MushafPage: View {
                                         FlowLayout(spacing: font * 0.3) {
                                             ForEach(Array(tokens(segs).enumerated()), id: \.offset) { _, t in word(t, font).id(t.first ? "a\(t.g)" : "w\(t.g).\(t.k)") }
                                         }
+                                        .backgroundPreferenceValue(HiWords.self) { a in hiBand(a, font) }
                                     }
                                 }
                             }.padding(.vertical, 6)
@@ -288,6 +295,7 @@ struct MushafPage: View {
                                             if !(open || short) && k < toks.count - 1 { Spacer(minLength: 0) }
                                         }
                                     }.frame(maxWidth: .infinity)
+                                    .backgroundPreferenceValue(HiWords.self) { a in hiBand(a, font) }
                                 }
                             }.frame(maxWidth: .infinity, maxHeight: open ? nil : .infinity)
                         }
@@ -311,10 +319,21 @@ struct MushafPage: View {
     }
     private func word(_ t: Tok, _ font: CGFloat) -> some View {
         // the ayah being read: gold words on a gold band (as on the site), the band reaching over the gaps between words
+        // (the band itself is drawn once per line under the ayah's words — see hiBand — one piece, not a box per word)
         Text(t.w).font(.custom(MushafData.font, size: font)).foregroundStyle(t.g == hi ? c.gold2 : t.mark ? c.gold : c.text).lineLimit(1).fixedSize()
-            .background(RoundedRectangle(cornerRadius: font * 0.3).fill(c.gold.opacity(t.g == hi ? 0.22 : 0)).padding(.horizontal, -font * 0.22).padding(.vertical, -font * 0.05))
+            .anchorPreference(key: HiWords.self, value: .bounds) { t.g == hi && hi > 0 ? [$0] : [] }
             .animation(.easeOut(duration: 0.35), value: t.g == hi)
             .contentShape(Rectangle()).onTapGesture { onAyah(t.g) }
+    }
+    /// the ayah being read: one gold band under its words on each line, reaching over the gaps between them
+    private func hiBand(_ a: [Anchor<CGRect>], _ font: CGFloat) -> some View {
+        GeometryReader { p in
+            let rows = HiWords.rows(a.map { p[$0] }, font * 0.5)
+            ForEach(Array(rows.enumerated()), id: \.offset) { _, r in
+                RoundedRectangle(cornerRadius: font * 0.32).fill(c.gold.opacity(0.22))
+                    .frame(width: r.width + font * 0.44, height: r.height + font * 0.1).position(x: r.midX, y: r.midY)
+            }
+        }.animation(.easeOut(duration: 0.3), value: a.count)
     }
     private func title(_ s: Int, _ font: CGFloat) -> some View {
         HStack(spacing: 12) {
@@ -510,5 +529,19 @@ struct FollowMark: ViewModifier {
     private func set(_ v: Bool) { if v != on { on = v; AudioPlayer.shared.follow += v ? 1 : -1 } }
     func body(content: Content) -> some View {
         content.onAppear { set(active) }.onDisappear { set(false) }.onChange(of: active) { set($0) }
+    }
+}
+
+/// Where the words of the ayah being read are on a line (or on each wrapped line of an enlarged page).
+struct HiWords: PreferenceKey {
+    static var defaultValue: [Anchor<CGRect>] = []
+    static func reduce(value: inout [Anchor<CGRect>], nextValue: () -> [Anchor<CGRect>]) { value += nextValue() }
+    /// the words' boxes joined into one box per row
+    static func rows(_ rs: [CGRect], _ tol: CGFloat) -> [CGRect] {
+        var out: [CGRect] = []
+        for r in rs.sorted(by: { $0.midY < $1.midY }) {
+            if let i = out.firstIndex(where: { abs($0.midY - r.midY) < tol }) { out[i] = out[i].union(r) } else { out.append(r) }
+        }
+        return out
     }
 }
