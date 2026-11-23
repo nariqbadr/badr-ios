@@ -10,9 +10,10 @@ struct AdhkarView: View {
     @AppStorage("adhkarList") private var listMode = false
     @State private var counts: [Int] = []
     @State private var page = 0
-    private static let data: [String: [(text: String, count: Int, src: String)]] = {
+    @State private var fadlOpen: String? = nil
+    private static let data: [String: [(text: String, count: Int, src: String, fadl: String)]] = {
         guard let u = Bundle.main.url(forResource: "adhkar", withExtension: "json"), let d = try? Data(contentsOf: u) else { return [:] }
-        return J(data: d).dict.mapValues { $0.array.map { (text: $0["text"].str, count: max(1, $0["count"].int), src: $0["src"].str) } }
+        return J(data: d).dict.mapValues { $0.array.map { (text: $0["text"].str, count: max(1, $0["count"].int), src: $0["src"].str, fadl: $0["fadl"].str) } }
     }()
     /// «مرة واحدة», «٣ مرات», «١٠٠ مرة»
     static func times(_ n: Int) -> String { n == 1 ? tr("مرة واحدة") : n == 2 ? tr("مرتان") : (3...10).contains(n) ? tr("{0} مرات", n.ar) : tr("{0} مرة", n.ar) }
@@ -75,7 +76,23 @@ struct AdhkarView: View {
                                     ScrollView(showsIndicators: true) { t.padding(.vertical, 4) }
                                 }
                                 DashLine().padding(.top, 12).padding(.bottom, 8)
-                                Text(AdhkarView.note(dk.src, dk.count)).font(F.plex(12, .medium)).foregroundStyle(c.muted).multilineTextAlignment(.center).frame(maxWidth: .infinity)
+                                let open = fadlOpen == "\(tab)-\(i)"
+                                HStack(spacing: 8) {
+                                    Text(AdhkarView.note(dk.src, dk.count)).font(F.plex(12, .medium)).foregroundStyle(c.muted)
+                                    // «فضله»: the dhikr's virtue opens under it
+                                    if !dk.fadl.isEmpty {
+                                        Button { withAnimation(.easeOut(duration: 0.25)) { fadlOpen = open ? nil : "\(tab)-\(i)" } } label: {
+                                            HStack(spacing: 4) { Text(tr("فضله")).font(F.plex(11.5, .semibold)); SiteIcon(name: "chev-d", size: 14, color: c.gold2).rotationEffect(.degrees(open ? 180 : 0)) }
+                                                .foregroundStyle(c.gold2).padding(.horizontal, 9).padding(.vertical, 3)
+                                                .overlay(Capsule().stroke(c.gold.opacity(0.45), lineWidth: 1))
+                                        }.buttonStyle(.plain)
+                                    }
+                                }.frame(maxWidth: .infinity)
+                                if open && !dk.fadl.isEmpty {
+                                    Text(dk.fadl).font(F.plex(12.5, .medium)).foregroundStyle(c.gold2).lineSpacing(5).multilineTextAlignment(.center).frame(maxWidth: .infinity)
+                                        .padding(.horizontal, 12).padding(.vertical, 8).background(RoundedRectangle(cornerRadius: 10).fill(c.gold.opacity(0.08))).padding(.top, 10)
+                                        .transition(.opacity.combined(with: .move(edge: .top)))
+                                }
                             }.layoutPriority(1)
                             // the card itself counts too
                             .contentShape(Rectangle()).onTapGesture { count(i, list) }
@@ -108,11 +125,11 @@ struct AdhkarView: View {
         .onReceive(ui.$adhkarTab) { t in if let t { tab = t; DispatchQueue.main.async { ui.adhkarTab = nil } } }
         .onChange(of: tab) { _ in let l = AdhkarView.data[tab] ?? []; load(l) }
     }
-    private func load(_ list: [(text: String, count: Int, src: String)]) {
+    private func load(_ list: [(text: String, count: Int, src: String, fadl: String)]) {
         counts = list.indices.map { UserDefaults.standard.integer(forKey: key($0)) }
         page = list.indices.first { counts[$0] < list[$0].count } ?? 0
     }
-    private func count(_ i: Int, _ list: [(text: String, count: Int, src: String)]) {
+    private func count(_ i: Int, _ list: [(text: String, count: Int, src: String, fadl: String)]) {
         let n = counts[safe: i] ?? 0
         if n >= list[i].count { if i < list.count - 1 { withAnimation { page = i + 1 } }; return }
         let v = n + 1; counts[i] = v; UserDefaults.standard.set(v, forKey: key(i))
