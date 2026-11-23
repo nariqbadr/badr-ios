@@ -95,6 +95,8 @@ final class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCent
             else if let v = info["voice"] as? String {
                 Task { @MainActor in
                     for _ in 0..<30 where UIState.shared == nil { try? await Task.sleep(nanoseconds: 100_000_000) }
+                    // a sheet left open (the settings, say) would keep it from showing: closed first
+                    if UIState.shared?.sheet != nil { UIState.shared?.sheet = nil; try? await Task.sleep(nanoseconds: 600_000_000) }
                     UIState.shared?.voice = VoiceKey(k: v)
                 }
             }
