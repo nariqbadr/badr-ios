@@ -87,14 +87,7 @@ struct PrayerBand: View {
                     }
                 }.padding(4).background(RoundedRectangle(cornerRadius: 16).fill(Color.black.opacity(0.18)))
                 HStack(spacing: 8) {
-                    ForEach(ex) { p in
-                        HStack(spacing: 8) {
-                            RoundedRectangle(cornerRadius: 6).fill(PrayerSky.swatch(p.key)).frame(width: 20, height: 20)
-                            Text(p.name).font(F.plex(12.5)).foregroundStyle(PrayerSky.muted).lineLimit(1)
-                            Spacer(minLength: 4)
-                            Text(Fmt.time(p.time)).font(F.amiri(15)).foregroundStyle(PrayerSky.soft).lineLimit(1)
-                        }.padding(.horizontal, 10).padding(.vertical, 9).frame(maxWidth: .infinity).background(RoundedRectangle(cornerRadius: 14).fill(Color.black.opacity(0.18)))
-                    }
+                    ForEach(ex) { p in ExtraChip(p: p) }
                 }
             }
             .padding(16)
@@ -362,5 +355,53 @@ struct VoiceBox: View {
                 .frame(maxWidth: .infinity).frame(height: 40)
                 .overlay(RoundedRectangle(cornerRadius: 12).strokeBorder(c.text.opacity(0.08))).contentShape(Rectangle())
         }.buttonStyle(Press(scale: 0.97))
+    }
+}
+
+/// «الضحى» and «قيام الليل» on the home card: each in its own sky — a gold one with the sun, a night one with the moon and stars
+struct ExtraChip: View {
+    let p: PrayerTime
+    private static func c(_ h: UInt32) -> Color { Color(red: Double(h >> 16 & 255) / 255, green: Double(h >> 8 & 255) / 255, blue: Double(h & 255) / 255) }
+    var body: some View {
+        let duha = p.key == "duha"
+        let (top, bottom, line, label, time) = duha ? (ExtraChip.c(0x6B6040), ExtraChip.c(0x3A3523), ExtraChip.c(0xE3C584), ExtraChip.c(0xE8DDBF), ExtraChip.c(0xF3ECD8))
+                                                    : (ExtraChip.c(0x3E3760), ExtraChip.c(0x1B1828), ExtraChip.c(0xD1CCF2), ExtraChip.c(0xDAD5F2), ExtraChip.c(0xF1EEFB))
+        VStack(alignment: .leading, spacing: 0) {
+            Text(p.name).font(F.plex(11)).foregroundStyle(label).lineLimit(1)
+            Text(Fmt.time(p.time)).font(F.amiri(16)).foregroundStyle(time).lineLimit(1)
+        }
+        .padding(.horizontal, 11).padding(.top, 6).padding(.bottom, 7).frame(maxWidth: .infinity, alignment: .leading)
+        .background {
+            ZStack {
+                LinearGradient(colors: [top, bottom], startPoint: .topTrailing, endPoint: .bottomLeading)
+                // the sun / the moon and stars, at the left corner (drawn left-to-right whatever the language)
+                Canvas { ctx, _ in
+                    if duha {
+                        let k: CGFloat = 64 / 90, o = CGPoint(x: -16, y: -20)
+                        func P(_ x: CGFloat, _ y: CGFloat) -> CGPoint { CGPoint(x: o.x + x * k, y: o.y + y * k) }
+                        ctx.fill(Path(ellipseIn: CGRect(x: P(45, 45).x - 14 * k, y: P(45, 45).y - 14 * k, width: 28 * k, height: 28 * k)), with: .color(line.opacity(0.35)))
+                        var r = Path()
+                        for (a, b) in [((45, 15), (45, 23)), ((45, 67), (45, 75)), ((15, 45), (23, 45)), ((67, 45), (75, 45)), ((24, 24), (29.5, 29.5)), ((60.5, 60.5), (66, 66)), ((24, 66), (29.5, 60.5)), ((60.5, 29.5), (66, 24))] as [((CGFloat, CGFloat), (CGFloat, CGFloat))] {
+                            r.move(to: P(a.0, a.1)); r.addLine(to: P(b.0, b.1))
+                        }
+                        ctx.stroke(r, with: .color(line.opacity(0.35)), style: StrokeStyle(lineWidth: 2 * k, lineCap: .round))
+                    } else {
+                        let k: CGFloat = 66 / 90, o = CGPoint(x: -4, y: -4)
+                        func P(_ x: CGFloat, _ y: CGFloat) -> CGPoint { CGPoint(x: o.x + x * k, y: o.y + y * k) }
+                        func disc(_ x: CGFloat, _ y: CGFloat, _ r: CGFloat) -> Path { Path(ellipseIn: CGRect(x: P(x, y).x - r * k, y: P(x, y).y - r * k, width: 2 * r * k, height: 2 * r * k)) }
+                        ctx.drawLayer { l in
+                            l.fill(disc(24.5, 23.5, 15), with: .color(line.opacity(0.33)))
+                            l.blendMode = .destinationOut
+                            l.fill(disc(28.5, 19.5, 13.5), with: .color(.black))
+                        }
+                        for (x, y, r, a) in [(55, 14, 1.3, 0.6), (66, 30, 1.0, 0.6), (48, 44, 0.9, 0.6), (74, 12, 0.8, 0.6)] as [(CGFloat, CGFloat, CGFloat, Double)] {
+                            ctx.fill(disc(x, y, r), with: .color(line.opacity(a)))
+                        }
+                    }
+                }.environment(\.layoutDirection, .leftToRight)
+            }
+        }
+        .clipShape(RoundedRectangle(cornerRadius: 12))
+        .overlay(RoundedRectangle(cornerRadius: 12).strokeBorder(line.opacity(duha ? 0.22 : 0.2)))
     }
 }

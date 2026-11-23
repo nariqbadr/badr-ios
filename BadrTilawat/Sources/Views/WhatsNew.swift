@@ -11,10 +11,12 @@ enum WhatsNew {
     static let round = "2.10.95"
     private static func key(_ s: Site?) -> String { round + "#" + String(w(s)?["rev"].int ?? 0) }
     static func shouldShow(_ s: Site?, existing: Bool) -> Bool {
-        guard let j = w(s), j["enabled"].bool(true) else { return false }
-        let until = j["until"].str
+        // a site that has no «ما الجديد» settings yet (its theme not updated): the defaults — on, for those who had the app
+        let j = w(s)
+        if let j, !j["enabled"].bool(true) { return false }
+        let until = j?["until"].str ?? ""
         if !until.isEmpty { let f = DateFormatter(); f.locale = Locale(identifier: "en_US_POSIX"); f.dateFormat = "yyyy-MM-dd"; if f.string(from: Date()) > until { return false } }
-        if !existing && !j["newUsers"].bool() { return false }
+        if !existing && j?["newUsers"].bool() != true { return false }
         return UserDefaults.standard.string(forKey: "wnSeen") != key(s)
     }
     static func seen(_ s: Site?) { UserDefaults.standard.set(key(s), forKey: "wnSeen") }
