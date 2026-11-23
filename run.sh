@@ -5,7 +5,7 @@ adb root; sleep 3
 adb shell wm size 1080x2340; adb shell wm density 440; sleep 2
 ( for i in $(seq 1 400); do adb emu geo fix 31.3016 30.0784 >/dev/null 2>&1; sleep 3; done ) &
 GEO=$!
-KEYS="home recitations quran adhkar prayer community library surah mushaf drawer player"
+KEYS="home adhkar prayer"
 setpref() { # $1 key $2 value
   adb shell am force-stop $P
   F=/data/data/$P/shared_prefs/badr.xml
@@ -103,7 +103,7 @@ flow() { # $1 label: the first open after the update, as it happens (the intro, 
   adb shell am start -n $P/.MainActivity > /dev/null
   for i in $(seq -w 1 16); do timeout 10 adb exec-out screencap -p > "shots/flow_$1_$i.png"; done
   # «متابعة» at its end: it fades out to the home screen, and does not come again
-  for n in 1 2 3 4 5 6 7 8; do adb shell input swipe 540 1600 540 300 250; sleep 0.6; done; sleep 1
+  for n in 1 2 3 4 5 6 7 8 9 10; do adb shell input swipe 540 1500 540 500 600; sleep 0.8; done; sleep 1.5
   tapText "متابعة"; for i in 1 2 3 4; do timeout 10 adb exec-out screencap -p > "shots/flow_$1_out$i.png"; done
   sleep 3; adb shell am force-stop $P; adb shell am start -n $P/.MainActivity > /dev/null; sleep 12; timeout 10 adb exec-out screencap -p > "shots/flow_$1_again.png"
 }
@@ -126,7 +126,6 @@ adb shell am start -W -n $P/.MainActivity > /dev/null; sleep 25; adb exec-out sc
 setpref onboarded 1; setpref lang ar; setlong lat 4629159534621622691; setlong lng 4629503834813135166
 U=$(adb shell stat -c %u /data/data/$P | tr -d "\r"); adb shell "mkdir -p /data/data/$P/no_backup && touch /data/data/$P/no_backup/onboarded && chown -R $U:$U /data/data/$P/no_backup && restorecon -R /data/data/$P/no_backup"
 shots old
-perf old
 swipeaway old_rain "#ambient" "مطر"
 swipeaway old_player player ""
 adb shell am force-stop $P
@@ -136,7 +135,6 @@ adb shell ls -laR /data/data/$P > shots/old_files.txt
 adb install -r new.apk > shots/install_new.txt 2>&1; perms
 flow new
 shots new
-perf new
 swipeaway new_rain "#ambient" "مطر"
 swipeaway new_player player ""
 KEYS="settingsrem friday fadail"; shots new
