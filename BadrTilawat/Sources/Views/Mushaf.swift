@@ -84,6 +84,7 @@ struct MushafView: View {
     @State private var marks: [Int] = (UserDefaults.standard.string(forKey: "mushafMarks") ?? "").split(separator: ",").compactMap { Int($0) }.filter { (1...604).contains($0) }
     @State private var jump = false
     @State private var tafsir = false
+    @State private var search = false
     @State private var menu: Int?
     @AppStorage("mushafSize") private var size = 1.0
     @State private var line: [[Int]] = []      // [surah, ayah, start, end, first word] of the recitation playing
@@ -148,6 +149,7 @@ struct MushafView: View {
                     UserDefaults.standard.set(marks.sorted().map(String.init).joined(separator: ","), forKey: "mushafMarks")
                 }
                 Chip(text: nil, icon: "scroll") { tafsir = true }
+                Chip(text: nil, icon: "search") { search = true }
             }.padding(.horizontal, 12).padding(.vertical, 6)
             // the reciter, always in sight
             HStack {
@@ -192,6 +194,7 @@ struct MushafView: View {
         }
         .bzSheet(isPresented: $jump) { MushafJump(page: page) { p in jump = false; page = p }.presentationDetents([.large]) }
         .bzSheet(isPresented: $tafsir) { PageTafsirSheet(page: page).presentationDetents([.medium, .large]) }
+        .bzSheet(isPresented: $search) { MushafSearch { p, g in search = false; page = p; if g > 0 { followG = g } }.presentationDetents([.large]) }
     }
 
     /// the ayah timings of the recitation playing now (its own, or the whole-Quran reciter's)

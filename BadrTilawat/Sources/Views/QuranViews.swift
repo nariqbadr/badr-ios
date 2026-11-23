@@ -83,11 +83,13 @@ struct QuranView: View {
 /// An ayah found: its surah and number, its page and juz, the ayah as printed; a tap opens it lit in the mushaf.
 struct AyahHit: View {
     let g: Int
+    var open: (() -> Void)? = nil
     /* UI actions only */ private var ui: UIState { UIState.shared! }
     @Environment(\.pal) private var c
     var body: some View {
         let (s, a) = MushafData.sa(g), p = MushafData.pageOf(g)
         Button {
+            if let open { open(); return }
             UserDefaults.standard.set(p, forKey: "mushafPage"); UserDefaults.standard.set(g, forKey: "mushafHi"); ui.path.append(.mushaf)
         } label: {
             VStack(alignment: .leading, spacing: 0) {
@@ -305,3 +307,57 @@ struct SurahView: View {
     }
 }
 struct IntBox: Identifiable { let v: Int; var id: Int { v } }
+
+/// «ابحث في المصحف»: a surah by its name or number, or an ayah by its words (every ayah that has them, with its surah); a tap
+/// turns the mushaf to it, the ayah lit.
+struct MushafSearch: View {
+    let go: (_ page: Int, _ g: Int) -> Void
+    @Environment(\.pal) private var c
+    @State private var q = ""
+    @State private var found: [Int]?
+    var body: some View {
+        let tq = q.trimmingCharacters(in: .whitespaces), nq = QuranMeta.norm(tq)
+        let surahs = nq.isEmpty ? [] : Array(Quran.surahs.indices.filter { QuranMeta.norm(Quran.surahs[$0]).contains(nq) || "\($0 + 1)" == tq })
+        VStack(spacing: 0) {
+            SheetHead(title: tr("ابحث في المصحف"))
+            SearchField(text: $q, hint: tr("اسم السورة أو كلمات من الآية")).padding(.horizontal, 16)
+            ScrollView {
+                LazyVStack(alignment: .leading, spacing: 0) {
+                    if tq.isEmpty {
+                        Text(tr("اكتب اسم سورة أو رقمها، أو كلمتين من آية")).font(F.plex(13)).foregroundStyle(c.muted).frame(maxWidth: .infinity).padding(24)
+                    }
+                    if !surahs.isEmpty { Text(tr("السور")).font(F.plex(13, .bold)).foregroundStyle(c.gold).padding(.horizontal, 20).padding(.top, 10) }
+                    ForEach(surahs, id: \.self) { i in
+                        Button { go(Quran.surahPage[i], 0) } label: {
+                            HStack(spacing: 12) {
+                                SurahMedal(n: i + 1, size: 38)
+                                VStack(alignment: .leading, spacing: 0) {
+                                    Text(tr("سورة {0}", Quran.surahs[i])).font(F.amiri(19)).foregroundStyle(c.text)
+                                    Text(tr("{0} آية · صفحة {1}", Quran.ayahs[i].ar, Quran.surahPage[i].ar)).font(F.plex(12)).foregroundStyle(c.muted)
+                                }
+                                Spacer()
+                            }.padding(.horizontal, 20).padding(.vertical, 8).contentShape(Rectangle())
+                        }.buttonStyle(.plain)
+                    }
+                    if let f = found {
+                        HStack {
+                            Text(tr("في الآيات")).font(F.plex(13, .bold)).foregroundStyle(c.gold)
+                            Spacer()
+                            Text(f.isEmpty ? tr("لا توجد آية بهذه الكلمات") : f.count >= AyahSearch.limit ? tr("أكثر من {0} آية", AyahSearch.limit.ar) : tr("{0} آية", f.count.ar)).font(F.plex(12)).foregroundStyle(c.muted)
+                        }.padding(.horizontal, 20).padding(.top, 14).padding(.bottom, 4)
+                        ForEach(f, id: \.self) { g in AyahHit(g: g) { go(MushafData.pageOf(g), g) } }
+                    }
+                }.padding(.top, 6).padding(.bottom, 24)
+            }
+        }
+        .task(id: q) {
+            found = nil
+            guard AyahSearch.key(q).replacingOccurrences(of: " ", with: "").count >= 2 else { return }
+            try? await Task.sleep(nanoseconds: 250_000_000)
+            if Task.isCancelled { return }
+            let query = q
+            let r = await Task.detached(priority: .userInitiated) { AyahSearch.find(query) }.value
+            if !Task.isCancelled { found = r }
+        }
+    }
+}
