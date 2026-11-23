@@ -5,7 +5,7 @@ adb root; sleep 3
 adb shell wm size 1080x2340; adb shell wm density 440; sleep 2
 ( for i in $(seq 1 400); do adb emu geo fix 31.3016 30.0784 >/dev/null 2>&1; sleep 3; done ) &
 GEO=$!
-KEYS="home"
+KEYS="quran"
 setpref() { # $1 key $2 value
   adb shell am force-stop $P
   F=/data/data/$P/shared_prefs/badr.xml
@@ -67,6 +67,10 @@ shots() { # $1 prefix
       adb shell input swipe 540 1400 540 600 700; sleep 3; timeout 30 adb exec-out screencap -p > "shots/$1_fridayk2.png"; adb shell input swipe 540 1400 540 600 700; sleep 3; timeout 30 adb exec-out screencap -p > "shots/$1_fridayk3.png"
       tapText "اللهم صلِّ"; sleep 1; tapText "اللهم صلِّ"; sleep 2; timeout 30 adb exec-out screencap -p > "shots/$1_fridayk4.png"
     elif [ "$k" = hometab ]; then timeout 40 adb shell am start -W -n $P/.MainActivity --ez shot true --es open "home" > /dev/null; sleep 6; adb shell input swipe 540 1300 540 700 600
+    elif [ "$k" = qsearch ]; then timeout 40 adb shell am start -W -n $P/.MainActivity --ez shot true --es open "quranSearch" > /dev/null; sleep 14; timeout 30 adb exec-out screencap -p > "shots/$1_qs1.png"
+      adb shell input swipe 540 1400 540 500 600; sleep 2; timeout 30 adb exec-out screencap -p > "shots/$1_qs2.png"
+      adb shell input tap 540 1000; sleep 6; timeout 30 adb exec-out screencap -p > "shots/$1_qs3.png"
+      timeout 40 adb shell am start -W -n $P/.MainActivity --ez shot true --es open "quran" > /dev/null; sleep 10; adb shell input swipe 540 1500 540 400 600; sleep 2; adb shell input tap 540 1300; sleep 6
     elif [ "$k" = kahf ]; then timeout 40 adb shell am start -W -n $P/.MainActivity --es open "quran/18" > /dev/null
     elif [ "$k" = prayerdown ]; then timeout 40 adb shell am start -W -n $P/.MainActivity --es open "prayer" > /dev/null; sleep 18; adb shell input swipe 540 1500 540 600 700; sleep 1; adb shell input swipe 540 1500 540 600 700
     else timeout 40 adb shell am start -W -n $P/.MainActivity --es open "\\$k" > /dev/null; fi
@@ -135,7 +139,7 @@ adb shell ls -laR /data/data/$P > shots/old_files.txt
 adb install -r new.apk > shots/install_new.txt 2>&1; perms
 flow new
 shots new
-KEYS="settingsrem friday fadail"; shots new
+KEYS="qsearch"; shots new
 # the update's first open: «الجديد في بدر التلاوات» (and scrolled), then the same screens in the silver theme
 KEYS="whatsnew"; shots new
 adb shell input swipe 540 1700 540 500 700; sleep 3; timeout 30 adb exec-out screencap -p > shots/new_whatsnew2.png
