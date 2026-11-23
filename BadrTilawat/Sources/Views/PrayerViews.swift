@@ -6,7 +6,7 @@ import UserNotifications
 struct AdhkarView: View {
     /* UI actions only: reading it does not redraw this view on every tab or sheet change */ private var ui: UIState { UIState.shared! }
     @Environment(\.pal) private var c
-    @State private var tab = { let h = Calendar.current.component(.hour, from: Date()); return (3...12).contains(h) ? "morning" : (13...20).contains(h) ? "evening" : "sleep" }()
+    @State private var tab = { if RootView.shot == "adhkarEve" { return "evening" }; let h = Calendar.current.component(.hour, from: Date()); return (3...12).contains(h) ? "morning" : (13...20).contains(h) ? "evening" : "sleep" }()
     @AppStorage("adhkarList") private var listMode = false
     @State private var counts: [Int] = []
     @State private var page = 0

@@ -110,7 +110,7 @@ struct RootView: View {
             ui.drawer = false; ui.sheet = nil
             switch p[0] {
             case "prayer": ui.go(.prayer)
-            case "adhkar": ui.go(.adhkar)
+            case "adhkar", "adhkarEve": ui.go(.adhkar)
             case "wird": ui.sheet = .wird
             case "mushaf": ui.tab = "quran"; ui.path = []
             case "player": if player.current != nil { ui.playerOpen = true } else { ui.go(.recitations) }

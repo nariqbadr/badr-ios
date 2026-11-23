@@ -58,7 +58,7 @@ struct QuranView: View {
                         Spacer()
                         Text(f.isEmpty ? tr("لا توجد آية بهذه الكلمات") : f.count >= AyahSearch.limit ? tr("أكثر من {0} آية", AyahSearch.limit.ar) : tr("{0} آية", f.count.ar)).font(F.plex(12)).foregroundStyle(c.muted)
                     }.padding(.horizontal, 20).padding(.top, 18).padding(.bottom, 6)
-                    ForEach(f, id: \.self) { g in AyahHit(g: g) }
+                    ForEach(f, id: \.self) { g in AyahHit(g: g, q: q) }
                     if f.count >= AyahSearch.limit {
                         Text(tr("اكتب كلمات أكثر لتضييق البحث")).font(F.plex(12)).foregroundStyle(c.muted).frame(maxWidth: .infinity).padding(.top, 6)
                     }
@@ -66,7 +66,7 @@ struct QuranView: View {
             }.padding(.bottom, 24)
         }
         // (screenshots) the search with words found in several ayahs
-        .onAppear { if RootView.shot == "quranSearch" && q.isEmpty { q = "الحي القيوم" } }
+        .onAppear { if RootView.shot == "quranSearch" && q.isEmpty { q = "فلما قضى زيد" } }
         // the ayahs with these words (a moment after the typing stops)
         .task(id: q) {
             found = nil
@@ -83,6 +83,7 @@ struct QuranView: View {
 /// An ayah found: its surah and number, its page and juz, the ayah as printed; a tap opens it lit in the mushaf.
 struct AyahHit: View {
     let g: Int
+    var q = ""
     var open: (() -> Void)? = nil
     /* UI actions only */ private var ui: UIState { UIState.shared! }
     @Environment(\.pal) private var c
@@ -103,7 +104,7 @@ struct AyahHit: View {
                     SiteIcon(name: "book", size: 18, color: c.gold)
                 }
                 Rectangle().fill(c.text.opacity(0.07)).frame(height: 1).padding(.vertical, 10)
-                Text(rtlText(MushafData.text(g) + " " + MushafData.endMark(g))).font(.custom(MushafData.font, size: 21)).foregroundStyle(c.text)
+                Text(AyahSearch.marked(g, q, gold: c.gold2, glow: c.gold.opacity(0.14))).font(.custom(MushafData.font, size: 21)).foregroundStyle(c.text)
                     .lineSpacing(12).lineLimit(5).multilineTextAlignment(.leading).frame(maxWidth: .infinity, alignment: .leading)
             }
             .padding(.horizontal, 16).padding(.vertical, 14)
@@ -118,7 +119,7 @@ enum AyahSearch {
     static let limit = 60
     nonisolated(unsafe) private static var idx: [String]?
     private static let lock = NSLock()
-    private static let marks = try! NSRegularExpression(pattern: "[\\u0610-\\u061A\\u064B-\\u065F\\u0670\\u06D6-\\u06ED\\u0640\\u0660-\\u0669\\u06F0-\\u06F9\\u06DD\\u06DE\\u06E9]")
+    private static let marks = try! NSRegularExpression(pattern: "[\\u0610-\\u061A\\u064B-\\u065F\\u0670\\u06D6-\\u06ED\\u0640\\u0660-\\u0669\\u06F0-\\u06F9\\u06DD\\u06DE\\u06E9\\u08D3-\\u08FF]")
     /// letters only: no marks or numbers, one form of each letter, and no alef at all (the mushaf writes many words without it)
     static func key(_ t: String) -> String {
         var s = marks.stringByReplacingMatches(in: t, range: NSRange(t.startIndex..., in: t), withTemplate: "")
@@ -132,11 +133,34 @@ enum AyahSearch {
         for pg in MushafData.pages { for l in pg { if case .words(let segs) = l { for x in segs where (1...6236).contains(x.g) { b[x.g] += " " + x.text } } } }
         return b.map { " " + key($0) + " " }
     }
+    /// the words of the search (two letters or more): an ayah's word that has one of them is marked
+    static func words(_ q: String) -> [String] { key(q).split(separator: " ").map(String.init).filter { $0.count >= 2 } }
+    /// the ayahs with these words: first those with them in this order, then those with all of them anywhere
     static func find(_ q: String) -> [Int] {
         lock.lock(); let i = idx ?? build(); idx = i; lock.unlock()
         let k = key(q); guard k.replacingOccurrences(of: " ", with: "").count >= 2 else { return [] }
-        var out: [Int] = []
-        for g in 1...6236 where i[g].contains(k) { out.append(g); if out.count >= limit { break } }
+        var out: [Int] = [], seen = Set<Int>()
+        for g in 1...6236 where i[g].contains(k) { out.append(g); seen.insert(g); if out.count >= limit { break } }
+        let ws = words(q)
+        if out.count < limit && ws.count > 1 {
+            for g in 1...6236 where !seen.contains(g) && ws.allSatisfy({ i[g].contains($0) }) { out.append(g); if out.count >= limit { break } }
+        }
+        return out
+    }
+    /// the ayah as printed, the words that answer the search in gold
+    static func marked(_ g: Int, _ q: String, gold: Color, glow: Color) -> AttributedString {
+        let ws = words(q)
+        var out = AttributedString("\u{202B}")
+        for (n, w) in MushafData.text(g).split(separator: " ").map(String.init).enumerated() {
+            if n > 0 { out += AttributedString(" ") }
+            let kw = key(w)
+            var part = AttributedString(w)
+            if !ws.isEmpty && kw.count >= 2 && ws.contains(where: { kw.contains($0) || ($0.count >= 3 && $0.contains(kw)) }) {
+                part.foregroundColor = gold; part.backgroundColor = glow
+            }
+            out += part
+        }
+        out += AttributedString(" " + MushafData.endMark(g) + "\u{202C}")
         return out
     }
 }
@@ -345,7 +369,7 @@ struct MushafSearch: View {
                             Spacer()
                             Text(f.isEmpty ? tr("لا توجد آية بهذه الكلمات") : f.count >= AyahSearch.limit ? tr("أكثر من {0} آية", AyahSearch.limit.ar) : tr("{0} آية", f.count.ar)).font(F.plex(12)).foregroundStyle(c.muted)
                         }.padding(.horizontal, 20).padding(.top, 14).padding(.bottom, 4)
-                        ForEach(f, id: \.self) { g in AyahHit(g: g) { go(MushafData.pageOf(g), g) } }
+                        ForEach(f, id: \.self) { g in AyahHit(g: g, q: q) { go(MushafData.pageOf(g), g) } }
                     }
                 }.padding(.top, 6).padding(.bottom, 24)
             }
