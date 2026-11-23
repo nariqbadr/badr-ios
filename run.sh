@@ -102,6 +102,10 @@ flow() { # $1 label: the first open after the update, as it happens (the intro, 
   adb shell am force-stop $P; sleep 2
   adb shell am start -n $P/.MainActivity > /dev/null
   for i in $(seq -w 1 16); do timeout 10 adb exec-out screencap -p > "shots/flow_$1_$i.png"; done
+  # «متابعة» at its end: it fades out to the home screen, and does not come again
+  for n in 1 2 3 4 5 6 7 8; do adb shell input swipe 540 1600 540 300 250; sleep 0.6; done; sleep 1
+  tapText "متابعة"; for i in 1 2 3 4; do timeout 10 adb exec-out screencap -p > "shots/flow_$1_out$i.png"; done
+  sleep 3; adb shell am force-stop $P; adb shell am start -n $P/.MainActivity > /dev/null; sleep 12; timeout 10 adb exec-out screencap -p > "shots/flow_$1_again.png"
 }
 perf() { # $1 prefix: frame stats while scrolling each screen, and the cold start time
   for k in home recitations quran adhkar prayer community library; do
