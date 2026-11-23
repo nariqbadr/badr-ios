@@ -42,75 +42,27 @@ down() { adb shell input swipe 540 700 540 1500 600; sleep ${1:-1.5}; }
 snap() { timeout 30 adb exec-out screencap -p > "shots/t_$1.png"; }
 playing() { local pid=$(adb shell pidof $P | tr -d "\r"); [ -z "$pid" ] && { echo "0 (app closed)"; return; }; echo "$(adb shell dumpsys audio | grep -E "u/pid:[0-9]+/$pid " | grep -c "state:started")"; }
 
-# ---- 2.10.89 as people have it, then the update over it
-adb install -r old.apk > shots/install_old.txt 2>&1; perms
-adb shell am start -W -n $P/.MainActivity > /dev/null; sleep 25
+
+up() { adb shell input swipe 540 1500 540 700 600; sleep ${1:-1.5}; }
+snap() { timeout 30 adb exec-out screencap -p > "shots/b_$1.png"; }
+
+adb install -r new.apk > shots/install_new.txt 2>&1; perms
+adb shell am start -W -n $P/.MainActivity > /dev/null; sleep 20
 setpref onboarded 1; setpref lang ar; setlong lat 4629159534621622691; setlong lng 4629503834813135166
 U=$(adb shell stat -c %u /data/data/$P | tr -d "\r"); adb shell "mkdir -p /data/data/$P/no_backup && touch /data/data/$P/no_backup/onboarded && chown -R $U:$U /data/data/$P/no_backup && restorecon -R /data/data/$P/no_backup"
-adb shell am force-stop $P
-adb install -r new.apk > shots/install_new.txt 2>&1; perms
-adb logcat -c
-
-# ---- 1: the first open after the update: intro → What's New → its posters → «متابعة» → home (duha / qiyam)
-rec tour1 170
-adb shell am start -n $P/.MainActivity > /dev/null; sleep 12; snap wn
-adb shell input swipe 540 1500 540 1000 900; sleep 2
-adb shell input swipe 150 950 950 950 500; sleep 2; adb shell input swipe 150 950 950 950 500; sleep 2; snap wnrow
-for n in 1 2 3 4 5 6 7 8 9 10; do up 1.2; done
-tapText "متابعة"; sleep 4; snap home
-up 2; up 2; snap home2; down 1; down 1
-endrec tour1
-
-# ---- 2: the mushaf and its search (a surah by number), the surah index opening the mushaf, the ayah search
-rec tour2 170
-tapText "المصحف"; sleep 6; snap quran
-up 1.5; tapText "سورة النساء"; sleep 7; snap kahfmushaf
-tapText "ابحث عن سورة أو آية وانتقل"; sleep 3; adb shell input text 36; sleep 3; snap msearch
-tapText "سورة يس"; sleep 6; snap yasin
-tapText "المصحف"; sleep 3
-timeout 40 adb shell am start -W -n $P/.MainActivity --es open "quranSearch" > /dev/null; sleep 8; snap ayahsearch
-up 2; snap ayahsearch2
-tapText "سورة طه"; sleep 7; snap taha
-adb shell input keyevent 4; sleep 2
-endrec tour2
-
-# ---- 3: the adhkar (the card, counting), «سنن يوم الجمعة», «فضائل يوم الجمعة»
-rec tour3 170
-tapText "الأذكار"; sleep 5; snap adhkar
-for n in 1 2 3; do tapText "اضغط للعد"; sleep 0.6; done; sleep 1
-adb shell input swipe 900 1000 150 1000 400; sleep 2; adb shell input swipe 900 1000 150 1000 400; sleep 2; snap adhkar2
-tapText "سنن يوم الجمعة"; sleep 4; snap friday
-tapText "قراءة سورة الكهف"; sleep 2; up 2; snap friday2; up 2; up 2
-tapText "فضائل يوم الجمعة"; sleep 4; snap fadail; up 2; up 2; snap fadail2
-adb shell input keyevent 4; sleep 2
-endrec tour3
-
-# ---- 4: the prayer page, its settings (reminders, the voices, «تجربة الإشعار»), the notification opening the whole recording
-rec tour4 170
-tapText "الرئيسية"; sleep 3
-timeout 40 adb shell am start -W -n $P/.MainActivity --es open "prayer" > /dev/null; sleep 6; snap prayer
-up 2; up 2; snap prayer2
-timeout 40 adb shell am start -W -n $P/.MainActivity --es open "prayerSettings" > /dev/null; sleep 5
-for n in 1 2 3 4; do up 1.5; done; snap settings
-tapText "استماع"; sleep 4; snap listen; tapText "إيقاف"; sleep 1
-tapText "تجربة الإشعار"; sleep 3; snap tested
-adb shell cmd statusbar expand-notifications; sleep 3; snap shade
-tapText "صلِّ على محمد"; sleep 6; snap voice
-sleep 8; adb shell input keyevent 4; sleep 2
-endrec tour4
-
-# ---- 5: the rain sound, then the app swiped away: nothing keeps sounding
-rec tour5 120
-timeout 40 adb shell am start -W -n $P/.MainActivity --es open "#ambient" > /dev/null; sleep 5; tapText "مطر"; sleep 5; snap rain
-echo "rain playing: $(playing)" > shots/swipe.txt
-adb shell input keyevent KEYCODE_BACK; sleep 1
-adb shell input keyevent KEYCODE_APP_SWITCH; sleep 3; snap recents
-adb shell input swipe 540 1000 540 100 200; sleep 5
-echo "after swipe: $(playing)" >> shots/swipe.txt
-adb shell input keyevent KEYCODE_HOME; sleep 3
-endrec tour5
-
+go() { adb shell am force-stop $P; timeout 40 adb shell am start -W -n $P/.MainActivity --ez shot true --es open "$1" > /dev/null; sleep ${2:-14}; }
+# home: the ayah of the day (scrolled to it)
+go home; for n in 1 2 3; do up 1.2; snap home$n; done
+tapText "التفسير"; sleep 5; snap tafsir
+# the surah page (al-Ikhlas, al-Kahf), the read-along page
+go "quran/112"; snap surah112; go "quran/18"; snap surah18; up 1.5; snap surah18b
+go readtrack 20; snap read; up 1.5; snap readb
+# the mushaf: an ayah tapped (its menu), the page's tafsir
+go mushaf; adb shell input tap 540 1000; sleep 4; snap mushafmenu; adb shell input keyevent 4; sleep 2
+tapText "scroll"; [ -z "$B" ] && adb shell input tap 70 300; sleep 5; snap mushaftafsir
+# the adhkar of sleep (al-Ikhlas with its numbers), and Ayat al-Kursi
+go adhkar; tapText "النوم"; sleep 3; snap adhkarsleep; tapText "الصباح"; sleep 3; snap adhkarmorning
+# the community's ayah card
+go community 20; snap community; up 1.5; snap community2
 timeout 60 adb logcat -d -b crash > shots/crash.txt 2>&1 || true
-timeout 60 adb logcat -d | grep -iE "ANR in|FATAL|Choreographer.*Skipped [0-9]{3,}" > shots/anr.txt 2>&1 || true
 kill $GEO 2>/dev/null || true
-ls -la shots
