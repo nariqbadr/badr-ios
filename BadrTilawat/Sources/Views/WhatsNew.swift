@@ -135,11 +135,13 @@ struct WhatsNewView: View {
                     eyebrow(tr("تلاوات جديدة")); Text(tr("أُضيفت إلى التلاوات")).font(F.amiri(26)).foregroundStyle(c.text)
                 }.padding(.horizontal, 20).padding(.top, 20)
                 ScrollView(.horizontal, showsIndicators: false) {
-                    HStack(alignment: .top, spacing: 10) { ForEach(tiles) { t in poster(t) } }
-                        .padding(.horizontal, 20)
-                        .background(GeometryReader { g in Color.clear.preference(key: RowX.self, value: g.frame(in: .named("wnRow")).minX) })
+                    // where the first poster is on the screen (screen points: the row's own space does not move in Arabic)
+                    HStack(alignment: .top, spacing: 10) {
+                        ForEach(Array(tiles.enumerated()), id: \.element.id) { i, t in
+                            poster(t).background { if i == 0 { GeometryReader { g in Color.clear.preference(key: RowX.self, value: g.frame(in: .global).minX) } } }
+                        }
+                    }.padding(.horizontal, 20)
                 }
-                .coordinateSpace(name: "wnRow")
                 .background(GeometryReader { g in Color.clear.onAppear { rowW = g.size.width }.onChange(of: g.size.width) { rowW = $0 } })
                 .onPreferenceChange(RowX.self) { x in
                     if rowX0 == nil { rowX0 = x }
