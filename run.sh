@@ -52,12 +52,9 @@ setpref onboarded 1; setpref lang ar; setlong lat 4629159534621622691; setlong l
 U=$(adb shell stat -c %u /data/data/$P | tr -d "\r"); adb shell "mkdir -p /data/data/$P/no_backup && touch /data/data/$P/no_backup/onboarded && chown -R $U:$U /data/data/$P/no_backup && restorecon -R /data/data/$P/no_backup"
 go() { adb shell am force-stop $P; timeout 40 adb shell am start -W -n $P/.MainActivity --ez shot true --es open "$1" > /dev/null; sleep ${2:-14}; }
 adb logcat -c
-go adhkar 20; tapText "المساء"; sleep 3; tapText "فضله"; sleep 2; snap fadl
-rec maker 60; go makerimage 40; snap makerimage; endrec maker
-rec makervid 120; go makervideo 90; snap makervideo; endrec makervid
-rec clip 120; go clipsave 90; snap clipsave; endrec clip
-go clip 30; snap clip
-adb shell ls -la /sdcard/Pictures /sdcard/Movies /sdcard/DCIM 2>/dev/null > shots/media.txt; adb shell find /sdcard -newer /sdcard/ui.xml -type f 2>/dev/null | grep -v ui.xml >> shots/media.txt
+adb logcat -c; (adb logcat -v time > shots/live.txt 2>&1 &)
+rec clip 170; go clipsave 160; snap clipsave; endrec clip
+adb shell dumpsys meminfo com.bawazirquran.app | head -12 > shots/mem.txt
 timeout 60 adb logcat -d > shots/logcat_all.txt 2>&1 || true
 timeout 60 adb logcat -d -b crash > shots/crash.txt 2>&1 || true
 kill $GEO 2>/dev/null || true
