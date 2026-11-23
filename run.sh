@@ -139,12 +139,13 @@ adb shell ls -laR /data/data/$P > shots/old_files.txt
 adb install -r new.apk > shots/install_new.txt 2>&1; perms
 flow new
 shots new
-KEYS="qsearch"; shots new
+KEYS=""; shots new
 # the update's first open: «الجديد في بدر التلاوات» (and scrolled), then the same screens in the silver theme
 KEYS="whatsnew"; shots new
+adb shell input swipe 150 1400 950 1400 500; sleep 2; timeout 30 adb exec-out screencap -p > shots/new_whatsnew_row2.png
+adb shell input swipe 150 1400 950 1400 500; sleep 2; timeout 30 adb exec-out screencap -p > shots/new_whatsnew_row3.png
+adb shell input swipe 950 1400 150 1400 500; sleep 1; adb shell input swipe 950 1400 150 1400 500; sleep 2
 adb shell input swipe 540 1700 540 500 700; sleep 3; timeout 30 adb exec-out screencap -p > shots/new_whatsnew2.png
-adb shell input swipe 800 1000 200 1000 400; sleep 2; timeout 30 adb exec-out screencap -p > shots/new_whatsnew2b.png
-adb shell input swipe 200 1000 800 1000 400; sleep 2
 adb shell input swipe 540 1700 540 500 700; sleep 3; timeout 30 adb exec-out screencap -p > shots/new_whatsnew3.png
 adb shell input swipe 540 1700 540 500 700; sleep 3; timeout 30 adb exec-out screencap -p > shots/new_whatsnew4.png
 adb shell input swipe 540 1700 540 500 700; sleep 3; timeout 30 adb exec-out screencap -p > shots/new_whatsnew5.png
