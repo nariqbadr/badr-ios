@@ -52,6 +52,8 @@ final class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCent
     func application(_ application: UIApplication, supportedInterfaceOrientationsFor window: UIWindow?) -> UIInterfaceOrientationMask { AppDelegate.orientation }
     func application(_ application: UIApplication, didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]? = nil) -> Bool {
         UNUserNotificationCenter.current().delegate = self
+        // (the simulator's check of the first open after an update) someone who already had the app
+        if ProcessInfo.processInfo.environment["BZ_EXISTING"] == "1" { UserDefaults.standard.set(true, forKey: "onboarded"); UserDefaults.standard.removeObject(forKey: "wnSeen") }
         Repo.shared.event("view")
         Task { @MainActor in
             while true {

@@ -92,6 +92,9 @@ jobs:
             sleep 9
             xcrun simctl io "$UDID" screenshot "shots/intro-$t.png" >/dev/null 2>&1 || true
           done
+          # the first open after an update for someone who had the app: the intro, then What's New (no home screen between)
+          SIMCTL_CHILD_BZ_LANG=ar SIMCTL_CHILD_BZ_EXISTING=1 xcrun simctl launch --terminate-running-process "$UDID" com.bawazirquran.app >/dev/null 2>&1
+          for i in 01 02 03 04 05 06 07 08 09 10 11 12 13 14; do xcrun simctl io "$UDID" screenshot "shots/flow-$i.png" >/dev/null 2>&1 || true; sleep 0.3; done
           xcrun simctl terminate "$UDID" com.bawazirquran.app || true
           find ~/Library/Logs/DiagnosticReports -name "BadrTilawat*" -exec cp {} shots/ \; 2>/dev/null || true
           cat shots/runs.txt
