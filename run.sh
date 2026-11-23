@@ -71,6 +71,7 @@ shots() { # $1 prefix
       adb shell input swipe 540 1400 540 500 600; sleep 2; timeout 30 adb exec-out screencap -p > "shots/$1_qs2.png"
       adb shell input tap 540 1000; sleep 6; timeout 30 adb exec-out screencap -p > "shots/$1_qs3.png"
       timeout 40 adb shell am start -W -n $P/.MainActivity --ez shot true --es open "quran" > /dev/null; sleep 10; adb shell input swipe 540 1500 540 400 600; sleep 2; adb shell input tap 540 1300; sleep 6
+    elif [ "$k" = voiceq ]; then timeout 40 adb shell am start -W -n $P/.MainActivity --ez shot true --es open "voice/qiyam" > /dev/null; sleep 6; timeout 30 adb exec-out screencap -p > "shots/$1_voiceq_a.png"
     elif [ "$k" = kahf ]; then timeout 40 adb shell am start -W -n $P/.MainActivity --es open "quran/18" > /dev/null
     elif [ "$k" = prayerdown ]; then timeout 40 adb shell am start -W -n $P/.MainActivity --es open "prayer" > /dev/null; sleep 18; adb shell input swipe 540 1500 540 600 700; sleep 1; adb shell input swipe 540 1500 540 600 700
     else timeout 40 adb shell am start -W -n $P/.MainActivity --es open "\\$k" > /dev/null; fi
@@ -139,7 +140,7 @@ adb shell ls -laR /data/data/$P > shots/old_files.txt
 adb install -r new.apk > shots/install_new.txt 2>&1; perms
 flow new
 shots new
-KEYS=""; shots new
+KEYS="voiceq"; shots new
 # the update's first open: «الجديد في بدر التلاوات» (and scrolled), then the same screens in the silver theme
 KEYS="whatsnew"; shots new
 adb shell input swipe 540 1500 540 1000 900; sleep 2; timeout 30 adb exec-out screencap -p > shots/new_whatsnew_row1.png
