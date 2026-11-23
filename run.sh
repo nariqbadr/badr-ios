@@ -91,7 +91,7 @@ adb shell ls -laR /data/data/$P > shots/old_files.txt
 # ---- the new version installed over the old one (an update: the data stays)
 adb install -r new.apk > shots/install_new.txt 2>&1; perms
 shots new
-KEYS="settingsrem"; shots new
+KEYS=""; shots new
 # the update's first open: «الجديد في بدر التلاوات» (and scrolled), then the same screens in the silver theme
 KEYS="whatsnew"; shots new
 adb shell input swipe 540 1700 540 500 700; sleep 3; timeout 30 adb exec-out screencap -p > shots/new_whatsnew2.png
@@ -99,7 +99,7 @@ adb shell input swipe 540 1700 540 500 700; sleep 3; timeout 30 adb exec-out scr
 adb shell input swipe 540 1700 540 500 700; sleep 3; timeout 30 adb exec-out screencap -p > shots/new_whatsnew4.png
 adb shell input swipe 540 1700 540 500 700; sleep 3; timeout 30 adb exec-out screencap -p > shots/new_whatsnew5.png
 adb shell input swipe 540 1700 540 500 700; sleep 3; timeout 30 adb exec-out screencap -p > shots/new_whatsnew6.png
-setpref theme silver; KEYS="settingsrem"; shots silver; KEYS="whatsnew"; shots silver; adb shell input swipe 540 1700 540 500 700; sleep 3; timeout 30 adb exec-out screencap -p > shots/silver_whatsnew2.png
+setpref theme silver; KEYS=""; shots silver; KEYS="whatsnew"; shots silver; adb shell input swipe 540 1700 540 500 700; sleep 3; timeout 30 adb exec-out screencap -p > shots/silver_whatsnew2.png
 adb shell am force-stop $P
 adb shell cat /data/data/$P/shared_prefs/badr.xml > shots/new_prefs.xml
 timeout 60 adb logcat -d -b crash > shots/crash.txt 2>&1 || true
