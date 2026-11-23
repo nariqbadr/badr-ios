@@ -67,6 +67,10 @@ struct WhatsNewView: View {
     @State private var shown = 1.0
     @State private var leaving = false
     @State private var ringSilent = false
+    /// the new recitations' row: where it started, how far it has been dragged (0…1), its width
+    @State private var rowX0: CGFloat?
+    @State private var rowProg: CGFloat = 0
+    @State private var rowW: CGFloat = 0
 
     private func leave(_ go: (() -> Void)? = nil) {
         guard !leaving else { return }; leaving = true; WhatsNew.seen(repo.data?.site)
@@ -120,42 +124,51 @@ struct WhatsNewView: View {
             body(tr("جمعنا لك أهم ما تغيّر في هذا التحديث."), 15)
         }.frame(maxWidth: .infinity).padding(.bottom, 16)
     }
-    // new recitations: the collections (Dosari 1425…), then «الفجريات» (Shuraim) and «تلاوات مختارة» (Bandar Baleela)
+    // new recitations: equal posters in a row, dragged sideways, the title and the reciter under each; dots show where the
+    // row is. For show only: they tell what was added, they open nothing.
     @ViewBuilder private func recitations(_ s: Site?) -> some View {
         let tiles = WhatsNew.tiles(s)
         if !tiles.isEmpty {
-            // one: the whole width · two: side by side · three: the first across, the two others under it
-            let first = tiles.count % 2 == 1 ? Array(tiles.prefix(1)) : [], rest = Array(tiles.dropFirst(first.count))
-            card {
-                eyebrow(tr("تلاوات جديدة")); Text(tr("أُضيفت إلى التلاوات")).font(F.amiri(26)).foregroundStyle(c.text)
-                VStack(spacing: 10) {
-                    ForEach(first) { t in tile(t, height: 236, big: true) }
-                    ForEach(Array(stride(from: 0, to: rest.count, by: 2)), id: \.self) { i in
-                        HStack(spacing: 10) { ForEach(rest[i..<min(i + 2, rest.count)]) { t in tile(t, height: first.isEmpty ? 236 : 210, big: first.isEmpty) } }
-                    }
-                }.padding(.top, 10)
+            let n = tiles.count, contentW = CGFloat(n) * 150 + CGFloat(n - 1) * 10 + 40
+            VStack(alignment: .leading, spacing: 6) {
+                VStack(alignment: .leading, spacing: 6) {
+                    eyebrow(tr("تلاوات جديدة")); Text(tr("أُضيفت إلى التلاوات")).font(F.amiri(26)).foregroundStyle(c.text)
+                }.padding(.horizontal, 20).padding(.top, 20)
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(alignment: .top, spacing: 10) { ForEach(tiles) { t in poster(t) } }
+                        .padding(.horizontal, 20)
+                        .background(GeometryReader { g in Color.clear.preference(key: RowX.self, value: g.frame(in: .named("wnRow")).minX) })
+                }
+                .coordinateSpace(name: "wnRow")
+                .background(GeometryReader { g in Color.clear.onAppear { rowW = g.size.width }.onChange(of: g.size.width) { rowW = $0 } })
+                .onPreferenceChange(RowX.self) { x in
+                    if rowX0 == nil { rowX0 = x }
+                    let max = contentW - rowW
+                    rowProg = max > 1 ? min(1, abs(x - (rowX0 ?? x)) / max) : -1
+                }
+                .padding(.top, 10)
+                // the dots: which part of the row is in sight (none when it all fits)
+                if rowW > 0 && contentW - rowW > 1 {
+                    let on = Int((rowProg * CGFloat(n - 1)).rounded())
+                    HStack(spacing: 5) {
+                        ForEach(0..<n, id: \.self) { i in Capsule().fill(i == on ? c.gold : c.text.opacity(0.25)).frame(width: i == on ? 16 : 5, height: 5) }
+                    }.frame(maxWidth: .infinity).padding(.top, 6).animation(.easeOut(duration: 0.2), value: on)
+                }
             }
+            .padding(.bottom, 18).frame(maxWidth: .infinity, alignment: .leading)
+            .background(RoundedRectangle(cornerRadius: 24).fill(c.surface)).overlay(RoundedRectangle(cornerRadius: 24).strokeBorder(c.gold.opacity(0.18)))
         }
     }
-    /// for show only: it tells what was added, it opens nothing
-    private func tile(_ t: WhatsNew.Tile, height: CGFloat, big: Bool) -> some View {
-            ZStack(alignment: .bottom) {
-                // the picture fills the tile without widening it (a filled image laid out by itself is as wide as its own pixels)
-                Color.clear.frame(maxWidth: .infinity).frame(height: height)
-                    .overlay { if let a = t.asset { Image(a).resizable().scaledToFill() } else { RemoteImage(raw: t.image) } }
-                    .clipped()
-                LinearGradient(stops: [.init(color: .clear, location: 0.35), .init(color: .black.opacity(0.88), location: 1)], startPoint: .top, endPoint: .bottom)
-                HStack(alignment: .bottom, spacing: 8) {
-                    VStack(alignment: .leading, spacing: 0) {
-                        Text(t.title).font(F.amiri(big ? 20 : 17)).foregroundStyle(.white).lineLimit(big ? 1 : 2)
-                        Text(t.sub).font(F.plex(11.5)).foregroundStyle(.white.opacity(0.78)).lineLimit(1)
-                    }
-                    Spacer(minLength: 0)
-                }.padding(12)
-            }
-            .frame(height: height)
-            .overlay(alignment: .topLeading) { Text(tr("جديد")).font(F.plex(11, .bold)).foregroundStyle(.white).padding(.horizontal, 9).padding(.vertical, 3).background(Capsule().fill(.black.opacity(0.45))).padding(10) }
-            .clipShape(RoundedRectangle(cornerRadius: 18)).overlay(RoundedRectangle(cornerRadius: 18).strokeBorder(.white.opacity(0.08)))
+    private func poster(_ t: WhatsNew.Tile) -> some View {
+        VStack(alignment: .leading, spacing: 0) {
+            // the picture fills its frame without widening it
+            Color.clear.frame(width: 150, height: 200)
+                .overlay { if let a = t.asset { Image(a).resizable().scaledToFill() } else { RemoteImage(raw: t.image) } }
+                .clipShape(RoundedRectangle(cornerRadius: 18)).overlay(RoundedRectangle(cornerRadius: 18).strokeBorder(.white.opacity(0.08)))
+                .overlay(alignment: .topLeading) { Text(tr("جديد")).font(F.plex(10.5, .bold)).foregroundStyle(.white).padding(.horizontal, 8).padding(.vertical, 2).background(Capsule().fill(.black.opacity(0.45))).padding(8) }
+            Text(t.title).font(F.amiri(17)).foregroundStyle(c.text).lineLimit(2).fixedSize(horizontal: false, vertical: true).padding(.top, 8).padding(.horizontal, 2)
+            Text(t.sub).font(F.plex(11.5)).foregroundStyle(c.muted).lineLimit(1).padding(.horizontal, 2)
+        }.frame(width: 150, alignment: .leading)
     }
     @ViewBuilder private func reciters(_ s: Site?) -> some View {
         let recs = WhatsNew.reciters(s)
@@ -326,4 +339,9 @@ final class BandTextView: UITextView {
         }
         band.frame = bounds; band.path = path.cgPath
     }
+}
+
+private struct RowX: PreferenceKey {
+    static var defaultValue: CGFloat = 0
+    static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) { value = nextValue() }
 }
