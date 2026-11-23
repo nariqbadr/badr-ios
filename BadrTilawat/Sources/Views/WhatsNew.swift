@@ -71,7 +71,8 @@ struct WhatsNewView: View {
     @State private var rowScroll: CGFloat = 0
     @State private var rowDrag: CGFloat = 0
     @State private var rowW: CGFloat = 0
-    @State private var rowH: CGFloat = 270
+    /// the posters' height: the picture, two lines of title, the reciter (not measured: measuring it here hung the screen)
+    private let rowH: CGFloat = 290
 
     private func leave(_ go: (() -> Void)? = nil) {
         guard !leaving else { return }; leaving = true; WhatsNew.seen(repo.data?.site)
@@ -145,7 +146,6 @@ struct WhatsNewView: View {
                     .overlay(alignment: .topLeading) {
                         HStack(alignment: .top, spacing: 10) { ForEach(order) { t in poster(t).environment(\.layoutDirection, L.dir) } }
                             .padding(.horizontal, 20).fixedSize()
-                            .background(GeometryReader { g in Color.clear.onAppear { rowH = g.size.height }.onChange(of: g.size.height) { rowH = $0 } })
                             .offset(x: L.rtl ? (rowW - contentW) + shown : -shown)
                     }
                     .clipped()
