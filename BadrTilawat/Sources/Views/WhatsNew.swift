@@ -30,6 +30,23 @@ enum WhatsNew {
         if let b = all.last(where: { $0.name.contains("فجر") }), !out.contains(b) { out.append(b) }
         return out
     }
+    /// a tile of «تلاوات جديدة»: its picture (from the site, or bundled with the app), its title, the reciter, and where it opens
+    struct Tile: Identifiable { let id: String; let title, sub: String; let image: String?; let asset: String?; let go: () -> Void }
+    static func tiles(_ s: Site?) -> [Tile] {
+        var out = collections(s).map { col -> Tile in
+            let r = Repo.shared.reciter(col.reciterId)
+            return Tile(id: "c" + col.id, title: col.name, sub: bare(r?.shown ?? ""), image: col.cover.isEmpty ? r?.image : col.cover, asset: nil) { UIState.shared?.go(.collection(col.id)) }
+        }
+        let all = Repo.shared.data?.reciters ?? []
+        // «الفجريات» for Shuraim (unless a collection of them is already shown) and «تلاوات مختارة» for Bandar Baleela: their pages
+        if !out.contains(where: { $0.title.contains("فجر") }) {
+            let r = all.first { $0.name.contains("الشريم") }
+            out.append(Tile(id: "shuraim", title: tr("الفجريات"), sub: bare(r?.shown ?? tr("سعود بن إبراهيم الشريم")), image: nil, asset: "WNShuraim") { UIState.shared?.go(r.map { .reciter($0.id) } ?? .recitations) })
+        }
+        let b = all.first { $0.name.contains("بليلة") }
+        out.append(Tile(id: "baleela", title: tr("تلاوات مختارة"), sub: bare(b?.shown ?? tr("بندر بن عبدالعزيز بليلة")), image: nil, asset: "WNBaleela") { UIState.shared?.go(b.map { .reciter($0.id) } ?? .recitations) })
+        return out
+    }
     static func reciters(_ s: Site?) -> [Reciter] {
         guard let all = Repo.shared.data?.reciters else { return [] }
         let picked = ["rec1", "rec2"].compactMap { k -> Reciter? in let id = w(s)?[k].str ?? ""; return id.isEmpty ? nil : all.first { $0.id == id } }
@@ -103,30 +120,40 @@ struct WhatsNewView: View {
             body(tr("جمعنا لك أهم ما تغيّر في هذا التحديث."), 15)
         }.frame(maxWidth: .infinity).padding(.bottom, 16)
     }
+    // new recitations: the collections (Dosari 1425…), then «الفجريات» (Shuraim) and «تلاوات مختارة» (Bandar Baleela)
     @ViewBuilder private func recitations(_ s: Site?) -> some View {
-        let cols = WhatsNew.collections(s)
-        if !cols.isEmpty {
+        let tiles = WhatsNew.tiles(s)
+        if !tiles.isEmpty {
+            // one: the whole width · two: side by side · three: the first across, the two others under it
+            let first = tiles.count % 2 == 1 ? Array(tiles.prefix(1)) : [], rest = Array(tiles.dropFirst(first.count))
             card {
                 eyebrow(tr("تلاوات جديدة")); Text(tr("أُضيفت إلى التلاوات")).font(F.amiri(26)).foregroundStyle(c.text)
-                HStack(spacing: 10) { ForEach(cols) { col in tile(col) } }.padding(.top, 10)
+                VStack(spacing: 10) {
+                    ForEach(first) { t in tile(t, height: 236, big: true) }
+                    ForEach(Array(stride(from: 0, to: rest.count, by: 2)), id: \.self) { i in
+                        HStack(spacing: 10) { ForEach(rest[i..<min(i + 2, rest.count)]) { t in tile(t, height: first.isEmpty ? 236 : 210, big: first.isEmpty) } }
+                    }
+                }.padding(.top, 10)
             }
         }
     }
-    private func tile(_ col: TrackCollection) -> some View {
-        let r = repo.reciter(col.reciterId)
-        return Button { leave { UIState.shared?.go(.collection(col.id)) } } label: {
+    private func tile(_ t: WhatsNew.Tile, height: CGFloat, big: Bool) -> some View {
+        Button { leave { t.go() } } label: {
             ZStack(alignment: .bottom) {
-                RemoteImage(raw: col.cover.isEmpty ? r?.image : col.cover).frame(maxWidth: .infinity).frame(height: 236).clipped()
+                Group {
+                    if let a = t.asset { Image(a).resizable().scaledToFill() } else { RemoteImage(raw: t.image) }
+                }.frame(maxWidth: .infinity).frame(height: height).clipped()
                 LinearGradient(stops: [.init(color: .clear, location: 0.35), .init(color: .black.opacity(0.88), location: 1)], startPoint: .top, endPoint: .bottom)
                 HStack(alignment: .bottom, spacing: 8) {
                     VStack(alignment: .leading, spacing: 0) {
-                        Text(col.name).font(F.amiri(20)).foregroundStyle(.white).lineLimit(1)
-                        Text(WhatsNew.bare(r?.shown ?? "")).font(F.plex(11.5)).foregroundStyle(.white.opacity(0.78)).lineLimit(1)
+                        Text(t.title).font(F.amiri(big ? 20 : 18)).foregroundStyle(.white).lineLimit(1)
+                        Text(t.sub).font(F.plex(11.5)).foregroundStyle(.white.opacity(0.78)).lineLimit(1)
                     }
                     Spacer(minLength: 0)
-                    SiteIcon(name: "play", size: 14, color: c.onGold).frame(width: 34, height: 34).background(Circle().fill(c.gold))
+                    SiteIcon(name: "play", size: 14, color: c.onGold).frame(width: big ? 34 : 30, height: big ? 34 : 30).background(Circle().fill(c.gold))
                 }.padding(12)
             }
+            .frame(height: height)
             .overlay(alignment: .topLeading) { Text(tr("جديد")).font(F.plex(11, .bold)).foregroundStyle(.white).padding(.horizontal, 9).padding(.vertical, 3).background(Capsule().fill(.black.opacity(0.45))).padding(10) }
             .clipShape(RoundedRectangle(cornerRadius: 18)).overlay(RoundedRectangle(cornerRadius: 18).strokeBorder(.white.opacity(0.08)))
         }.buttonStyle(.plain)
