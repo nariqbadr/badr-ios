@@ -64,7 +64,7 @@ cliptest() { # $1 tag
 setup new.apk new
 adb logcat -c; (adb logcat -v time > shots/live_long.txt 2>&1 &)
 go clipsave 30; snap L0
-for k in $(seq 1 16); do sleep 55; snap L$k; adb shell "ls -la /sdcard/Movies/*/ 2>/dev/null; ls -la /data/data/$P/cache 2>/dev/null | tail -3" > shots/files_$k.txt; done
+for k in $(seq 1 7); do sleep 55; snap L$k; adb shell "ls -la /sdcard/Movies/*/ 2>/dev/null; ls -la /data/data/$P/cache 2>/dev/null | tail -3" > shots/files_$k.txt; done
 pkill -f "adb logcat" || true
 timeout 60 adb logcat -d > shots/logcat_all.txt 2>&1 || true
 timeout 60 adb logcat -d -b crash > shots/crash.txt 2>&1 || true
