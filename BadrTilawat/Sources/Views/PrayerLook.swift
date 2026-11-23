@@ -314,6 +314,17 @@ final class ReminderVoice: NSObject, ObservableObject, AVAudioPlayerDelegate {
         try? AVAudioSession.sharedInstance().setActive(true)
         p.delegate = self; p.play(); player = p; playing = k
     }
+    /// Sheikh Badr al-Turki's whole recording (opened from the reminder's notification), whatever voice the notification has
+    func full(_ k: String) {
+        stop()
+        let u = k == "qiyam" ? Bundle.main.url(forResource: "qiyam_full", withExtension: "m4a") : Bundle.main.url(forResource: k, withExtension: "caf")
+        guard let u, let p = try? AVAudioPlayer(contentsOf: u) else { return }
+        try? AVAudioSession.sharedInstance().setCategory(.playback)
+        try? AVAudioSession.sharedInstance().setActive(true)
+        p.delegate = self; p.play(); player = p; playing = k
+    }
+    /// where the recording is (0…1)
+    var progress: Double { guard let p = player, p.duration > 0 else { return 0 }; return p.currentTime / p.duration }
     func stop() { player?.stop(); player = nil; playing = nil }
     nonisolated func audioPlayerDidFinishPlaying(_ player: AVAudioPlayer, successfully flag: Bool) { Task { @MainActor in self.stop() } }
 }

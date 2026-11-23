@@ -236,11 +236,11 @@ final class Prayers: NSObject, ObservableObject, CLLocationManagerDelegate {
     static let salawatBody = "قال رسول الله ﷺ: «من صلّى عليَّ واحدةً صلّى الله عليه عشرًا» رواه مسلم"
     private func salawatContent() -> UNMutableNotificationContent {
         let n = UNMutableNotificationContent(); n.title = tr("صلِّ على محمد ﷺ"); n.body = tr(Prayers.salawatBody)
-        n.sound = sound("salawat"); n.userInfo = ["open": "friday"]; return n
+        n.sound = sound("salawat"); n.userInfo = ["voice": "salawat"]; return n
     }
     private func qiyamContent() -> UNMutableNotificationContent {
         let n = UNMutableNotificationContent(); n.title = tr("الثلث الأخير من الليل"); n.body = tr("قال رسول الله ﷺ: «ينزل ربُّنا تبارك وتعالى كلَّ ليلةٍ إلى السماء الدنيا حين يبقى ثلثُ الليل الآخر، يقول: من يدعوني فأستجيب له، من يسألني فأعطيه، من يستغفرني فأغفر له» متفق عليه")
-        n.sound = sound("qiyam"); if #available(iOS 15.0, *) { n.interruptionLevel = .timeSensitive }; return n
+        n.sound = sound("qiyam"); n.userInfo = ["voice": "qiyam"]; if #available(iOS 15.0, *) { n.interruptionLevel = .timeSensitive }; return n
     }
     /// «تجربة الإشعار» of a reminder: the notification itself, at once
     func testReminder(_ k: String) async -> Bool {

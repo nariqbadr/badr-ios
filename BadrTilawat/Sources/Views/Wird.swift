@@ -475,6 +475,57 @@ final class AdhanPlayer: ObservableObject {
 }
 
 struct AdhanKey: Identifiable { let key: String; var iqama = false; var id: String { key + (iqama ? "-iq" : "") } }
+struct VoiceKey: Identifiable { let k: String; var id: String { k } }
+
+/// «صلِّ على محمد ﷺ» / «قيام الليل» opened from its notification: Sheikh Badr al-Turki's whole recording plays at once (the
+/// notification sounds only its first 30 s), with its progress, the hadith, play / pause and close — as on Android.
+struct ReminderScreen: View {
+    let k: String
+    @EnvironmentObject var prayers: Prayers
+    @ObservedObject private var rv = ReminderVoice.shared
+    @Environment(\.pal) private var c
+    @Environment(\.dismiss) private var dismiss
+    @State private var pulse = false
+    private var qiyam: Bool { k == "qiyam" }
+    private func close() { rv.stop(); UIState.shared?.voice = nil; dismiss() }
+    var body: some View {
+        let playing = rv.playing == k
+        ZStack(alignment: .topLeading) {
+            RadialGradient(colors: [c.gold.opacity(0.14), c.bg], center: .center, startRadius: 10, endRadius: 600).ignoresSafeArea()
+            ScrollView {
+                VStack(spacing: 6) {
+                    Ico(name: qiyam ? "moon" : "heart", size: 30).foregroundStyle(c.gold).frame(width: 64, height: 64).background(Circle().fill(c.gold.opacity(0.16)))
+                    Text(qiyam ? tr("الثلث الأخير من الليل") : tr("تذكير")).font(F.plex(17)).foregroundStyle(c.muted).padding(.top, 14)
+                    Text(qiyam ? tr("قيام الليل") : tr("صلِّ على محمد ﷺ")).font(F.amiri(44)).foregroundStyle(c.gold).multilineTextAlignment(.center)
+                    if qiyam, let t = prayers.extras().first(where: { $0.key == "qiyam" }) { Text(Fmt.time(t.time)).font(F.plex(15)).foregroundStyle(c.muted) }
+                    // play / pause, with the recording's progress around it
+                    TimelineView(.periodic(from: .now, by: 0.2)) { _ in
+                        let prog = playing ? rv.progress : 0
+                        ZStack {
+                            Circle().stroke(c.text.opacity(0.1), lineWidth: 5)
+                            Circle().trim(from: 0, to: prog).stroke(c.gold, style: StrokeStyle(lineWidth: 5, lineCap: .round)).rotationEffect(.degrees(-90))
+                            Button { if playing { rv.stop() } else { rv.full(k) } } label: {
+                                Ico(name: playing ? "pause.fill" : "play.fill", size: 46).foregroundStyle(c.onGold).frame(width: 108, height: 108).background(Circle().fill(c.goldGradient))
+                                    .scaleEffect(playing && pulse ? 1.06 : 1)
+                            }.buttonStyle(.plain).accessibilityLabel(playing ? tr("إيقاف") : tr("استماع"))
+                        }.frame(width: 140, height: 140)
+                    }.padding(.top, 30)
+                    Text(playing ? tr("إيقاف") : tr("استماع مرة أخرى")).font(F.plex(17, .semibold)).foregroundStyle(c.text).padding(.top, 16)
+                    Text(tr("إمام الحرم المكي")).font(F.plex(12.5, .semibold)).foregroundStyle(c.gold2).padding(.top, 6)
+                    Text(tr("الشيخ د. بدر بن محمد التركي")).font(F.plex(14)).foregroundStyle(c.faint.mix(c.muted, 0.5))
+                    Hadith(words: qiyam ? tr("«ينزل ربُّنا تبارك وتعالى كلَّ ليلةٍ إلى السماء الدنيا حين يبقى ثلثُ الليل الآخر، يقول: من يدعوني فأستجيب له، من يسألني فأعطيه، من يستغفرني فأغفر له» متفق عليه")
+                                            : tr("«من صلّى عليَّ واحدةً صلّى الله عليه عشرًا» رواه مسلم")).padding(.top, 26)
+                    GhostButton(title: tr("إغلاق")) { close() }.frame(minWidth: 160).padding(.top, 22)
+                }.padding(24).frame(maxWidth: 440).frame(maxWidth: .infinity).padding(.top, 70)
+            }
+            Button { close() } label: { Ico(name: "xmark", size: 21.6).foregroundStyle(c.text).frame(width: 44, height: 44).contentShape(Rectangle()) }
+                .padding(12).accessibilityLabel(tr("إغلاق"))
+        }
+        .environment(\.layoutDirection, L.dir)
+        .onAppear { rv.full(k); withAnimation(.easeInOut(duration: 1.1).repeatForever()) { pulse = true } }
+        .onDisappear { rv.stop() }
+    }
+}
 
 /// «حان وقت إقامة صلاة …» with the hadith, full screen (opened from the iqama notification), as on Android.
 struct IqamaScreen: View {

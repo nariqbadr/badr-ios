@@ -102,6 +102,7 @@ struct RootView: View {
         }
         .fullScreenCover(isPresented: $ui.playerOpen) { PlayerView() }
         .fullScreenCover(item: $ui.adhan) { a in if a.iqama { IqamaScreen(key: a.key) } else { AdhanScreen(key: a.key) } }
+        .fullScreenCover(item: $ui.voice) { v in ReminderScreen(k: v.k) }
         .onOpenURL { u in
             // from the home-screen widgets: badr://prayer · badr://ayah/s/a · badr://player · badr://adhkar
             guard u.scheme == "badr" else { return }
@@ -172,6 +173,7 @@ struct RootView: View {
         case "lang": ui.sheet = .lang
         case "prayerSettings": ui.sheet = .prayer
         case "quranSearch": ui.go(.quran)
+        case "voiceQiyam": ui.voice = VoiceKey(k: "qiyam")
         case "prayerRemind": Prayers.shared.setMode("qiyam", "notify"); ui.sheet = .prayer
         case "adhan": ui.adhan = AdhanKey(key: "fajr")
         default: if let t = Route.tab(r) { ui.go(t) }

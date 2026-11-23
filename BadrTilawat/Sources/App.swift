@@ -91,6 +91,13 @@ final class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCent
             else if info["open"] as? String == "wird" { UIState.shared?.sheet = .wird }
             else if info["open"] as? String == "mosques", mosquesOn { UIState.shared?.path = [.mosques] }
             else if let o = info["open"] as? String, o.hasPrefix("live/") { UIState.shared?.path = [.liveAt(String(o.dropFirst(5)))] }
+            // «صلِّ على محمد ﷺ» / «قيام الليل»: the whole recording, full screen
+            else if let v = info["voice"] as? String {
+                Task { @MainActor in
+                    for _ in 0..<30 where UIState.shared == nil { try? await Task.sleep(nanoseconds: 100_000_000) }
+                    UIState.shared?.voice = VoiceKey(k: v)
+                }
+            }
             // the Friday reminders: Kahf opens the mushaf on Surat al-Kahf; the sunnahs and the salawat open «سنن يوم الجمعة»
             else if let o = info["open"] as? String, o == "kahf" || o == "friday" {
                 Task { @MainActor in
@@ -124,6 +131,8 @@ final class UIState: ObservableObject {
     @Published var videoFull = false
     /// open the adhkar on this tab («friday» from the Friday reminders)
     @Published var adhkarTab: String?
+    /// «صلِّ على محمد ﷺ» or «قيام الليل» opened from its notification: its whole recording, full screen
+    @Published var voice: VoiceKey?
     private var toastTask: Task<Void, Never>?
     /// for code outside the views (the video engine, downloads)
     static var shared: UIState?
