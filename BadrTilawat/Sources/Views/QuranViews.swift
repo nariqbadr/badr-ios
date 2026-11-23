@@ -70,7 +70,7 @@ struct QuranView: View {
         // the ayahs with these words (a moment after the typing stops)
         .task(id: q) {
             found = nil
-            guard AyahSearch.key(q).replacingOccurrences(of: " ", with: "").count >= 2 else { return }
+            guard AyahSearch.key(q).replacingOccurrences(of: " ", with: "").count >= 2, !q.trimmingCharacters(in: .whitespaces).allSatisfy(\.isNumber) else { return }
             try? await Task.sleep(nanoseconds: 250_000_000)
             if Task.isCancelled { return }
             let query = q
@@ -352,7 +352,7 @@ struct MushafSearch: View {
         }
         .task(id: q) {
             found = nil
-            guard AyahSearch.key(q).replacingOccurrences(of: " ", with: "").count >= 2 else { return }
+            guard AyahSearch.key(q).replacingOccurrences(of: " ", with: "").count >= 2, !q.trimmingCharacters(in: .whitespaces).allSatisfy(\.isNumber) else { return }
             try? await Task.sleep(nanoseconds: 250_000_000)
             if Task.isCancelled { return }
             let query = q
