@@ -62,6 +62,7 @@ shots() { # $1 prefix
     elif [ "$k" = surahtap ]; then timeout 40 adb shell am start -W -n $P/.MainActivity --es open "\\quran" > /dev/null; sleep 20; adb shell input swipe 540 1500 540 700 700; sleep 3; tapText "سورة البقرة"; sleep 12; [ -z "$B" ] && { tapText "البقرة"; sleep 4; }
     elif [ "$k" = settingsrem ]; then setpref pmode_qiyam notify; timeout 40 adb shell am start -W -n $P/.MainActivity --es open "prayerSettings" > /dev/null; sleep 20
       for n in 1 2 3 4; do adb shell input swipe 540 1700 540 800 700; sleep 3; timeout 30 adb exec-out screencap -p > "shots/$1_set$n.png"; done
+      tapText "تجربة الإشعار"; sleep 1; timeout 30 adb exec-out screencap -p > "shots/$1_settest.png"
     elif [ "$k" = fridayx ]; then timeout 40 adb shell am start -W -n $P/.MainActivity --es open "friday" > /dev/null; sleep 20; adb shell input swipe 540 1400 540 700 700; sleep 3; tapText "قراءة سورة الكهف"; sleep 3; timeout 30 adb exec-out screencap -p > "shots/$1_fridayk.png"
       adb shell input swipe 540 1400 540 600 700; sleep 3; timeout 30 adb exec-out screencap -p > "shots/$1_fridayk2.png"; adb shell input swipe 540 1400 540 600 700; sleep 3; timeout 30 adb exec-out screencap -p > "shots/$1_fridayk3.png"
       tapText "اللهم صلِّ"; sleep 1; tapText "اللهم صلِّ"; sleep 2; timeout 30 adb exec-out screencap -p > "shots/$1_fridayk4.png"
@@ -92,7 +93,7 @@ adb shell ls -laR /data/data/$P > shots/old_files.txt
 # ---- the new version installed over the old one (an update: the data stays)
 adb install -r new.apk > shots/install_new.txt 2>&1; perms
 shots new
-KEYS="hometab"; shots new
+KEYS="settingsrem"; shots new
 # the update's first open: «الجديد في بدر التلاوات» (and scrolled), then the same screens in the silver theme
 KEYS="whatsnew"; shots new
 adb shell input swipe 540 1700 540 500 700; sleep 3; timeout 30 adb exec-out screencap -p > shots/new_whatsnew2.png
