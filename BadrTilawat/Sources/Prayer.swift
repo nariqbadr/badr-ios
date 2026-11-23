@@ -35,7 +35,19 @@ final class Prayers: NSObject, ObservableObject, CLLocationManagerDelegate {
         p.madhab = .shafi
         return p
     }
-    func forDay(_ date: Date = Date()) -> [PrayerTime] {
+    /// the day's times worked out once (the home card asks every second): by the day, the place, the method's country and the language
+    private var dayCache: [String: (six: [PrayerTime], ex: [PrayerTime])] = [:]
+    private func cached(_ date: Date, _ make: () -> (six: [PrayerTime], ex: [PrayerTime])) -> (six: [PrayerTime], ex: [PrayerTime]) {
+        let (lat, lon) = coords
+        let c = Calendar(identifier: .gregorian).dateComponents([.year, .month, .day], from: date)
+        let k = "\(c.year ?? 0)-\(c.month ?? 0)-\(c.day ?? 0)|\(lat)|\(lon)|\(Store.shared.str("cc"))|\(TimeZone.current.identifier)|\(L.code)"
+        if let v = dayCache[k] { return v }
+        if dayCache.count > 40 { dayCache.removeAll() }
+        let v = make(); dayCache[k] = v; return v
+    }
+    func forDay(_ date: Date = Date()) -> [PrayerTime] { cached(date) { (computeDay(date), computeExtras(date)) }.six }
+    func extras(_ date: Date = Date()) -> [PrayerTime] { cached(date) { (computeDay(date), computeExtras(date)) }.ex }
+    private func computeDay(_ date: Date) -> [PrayerTime] {
         let (lat, lon) = coords
         let comps = Calendar(identifier: .gregorian).dateComponents([.year, .month, .day], from: date)
         guard let pt = PrayerTimes(coordinates: Coordinates(latitude: lat, longitude: lon), date: comps, calculationParameters: params()) else { return [] }
@@ -45,7 +57,7 @@ final class Prayers: NSObject, ObservableObject, CLLocationManagerDelegate {
     /// «الضحى» (a quarter of an hour after sunrise: the sun a spear's length high) and «قيام الليل» (the start of the night's
     /// last third, from this day's maghrib to the next fajr) — after forDay's six, as on Android.
     static let duhaMin = 15
-    func extras(_ date: Date = Date()) -> [PrayerTime] {
+    private func computeExtras(_ date: Date) -> [PrayerTime] {
         let (lat, lon) = coords
         let comps = Calendar(identifier: .gregorian).dateComponents([.year, .month, .day], from: date)
         guard let pt = PrayerTimes(coordinates: Coordinates(latitude: lat, longitude: lon), date: comps, calculationParameters: params()) else { return [] }

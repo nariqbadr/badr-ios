@@ -28,7 +28,13 @@ enum PrayerSky {
 }
 
 func prayerLabel(_ p: PrayerTime) -> String { p.key == "dhuhr" && Calendar.current.component(.weekday, from: p.time) == 6 ? tr("الجمعة") : p.name }
-func clock(_ d: Date) -> String { let f = DateFormatter(); f.locale = L.locale; f.dateFormat = "h:mm"; return f.string(from: d) }
+private var clockFmts: [String: DateFormatter] = [:]
+/// «4:58» (one formatter per language, not one per call: the home card asks every second)
+@MainActor func clock(_ d: Date) -> String {
+    let k = L.locale.identifier
+    let f = clockFmts[k] ?? { let f = DateFormatter(); f.locale = L.locale; f.dateFormat = "h:mm"; clockFmts[k] = f; return f }()
+    return f.string(from: d)
+}
 func hms(_ left: Int) -> String { String(format: "%02d:%02d:%02d", left / 3600, left % 3600 / 60, left % 60) }
 
 /// «تنبيه {name}»: one tap moves adhan → notification → nothing (a notification or nothing for the quiet ones)

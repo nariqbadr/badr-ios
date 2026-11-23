@@ -44,6 +44,8 @@ struct WhatsNewView: View {
     @EnvironmentObject var repo: Repo
     @EnvironmentObject var prayers: Prayers
     @Environment(\.pal) private var c
+    /// false while the intro is still over it: only its background is drawn (nothing heavy during the intro's animation)
+    var ready = true
     let done: (_ go: (() -> Void)?) -> Void
     @State private var shown = 1.0
     @State private var leaving = false
@@ -66,6 +68,7 @@ struct WhatsNewView: View {
         ZStack(alignment: .top) {
             c.bg.ignoresSafeArea()
             RadialGradient(colors: [c.gold.opacity(0.24), c.gold.opacity(0.05), .clear], center: .top, startRadius: 0, endRadius: 300).frame(height: 420).ignoresSafeArea()
+            if ready {
             ScrollViewReader { px in
             ScrollView {
                 VStack(spacing: 12) {
@@ -83,6 +86,7 @@ struct WhatsNewView: View {
             }
             // (screenshots) whatsnew2: the Friday and salawat cards · whatsnew3: the mushaf's verse
             .onAppear { if let k = ["whatsnew2": "friday", "whatsnew3": "mushaf"][RootView.shot ?? ""] { DispatchQueue.main.asyncAfter(deadline: .now() + 1) { px.scrollTo(k, anchor: .top) } } }
+            }.transition(.opacity)
             }
         }
         .opacity(shown).environment(\.layoutDirection, L.dir)
