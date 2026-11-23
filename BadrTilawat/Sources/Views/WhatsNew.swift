@@ -264,7 +264,7 @@ final class BandTextView: UITextView {
         textContainerInset = UIEdgeInsets(top: 4, left: 0, bottom: 4, right: 0); textContainer.lineFragmentPadding = 0
         let ink = UIColor(red: 0.16, green: 0.14, blue: 0.09, alpha: 1)
         let pre = "وَٱلَّيۡلِ إِذَا عَسۡعَسَ \(ReadText.mark("١٧")) وَٱلصُّبۡحِ إِذَا تَنَفَّسَ \(ReadText.mark("١٨")) \u{2002}"
-        let mid = "إِنَّهُۥ لَقَوۡلُ رَسُولࣲ كَرِيمࣲ \(ReadText.mark("١٩"))"
+        let mid = "إِنَّهُۥ لَقَوۡلُ رَسُولࣲ كَرِيمࣲ \(ReadText.mark("١٩"))".replacingOccurrences(of: " ", with: "\u{00A0}")  // one line: one band, as wide as the ayah
         let post = "\u{2002} ذِي قُوَّةٍ عِندَ ذِي ٱلۡعَرۡشِ مَكِينࣲ \(ReadText.mark("٢٠"))"
         let ps = NSMutableParagraphStyle(); ps.alignment = .center; ps.baseWritingDirection = .rightToLeft; ps.lineSpacing = 12
         let font = UIFont(name: "AmiriQuran-Regular", size: 18) ?? .systemFont(ofSize: 18)
@@ -289,7 +289,7 @@ final class BandTextView: UITextView {
             guard r.width > 1 else { return }
             // a little more room on the right, where the ayah starts (its first letter's marks reach out past it)
             let f = r.offsetBy(dx: self.textContainerInset.left, dy: self.textContainerInset.top)
-            let h: CGFloat = 32, box = CGRect(x: f.minX - 8, y: f.midY - h / 2 + 1, width: f.width + 19, height: h)
+            let h: CGFloat = 34, box = CGRect(x: f.minX - 8, y: f.midY - h / 2 + 2, width: f.width + 19, height: h)
             path.append(UIBezierPath(roundedRect: box, cornerRadius: 9))
         }
         band.frame = bounds; band.path = path.cgPath
