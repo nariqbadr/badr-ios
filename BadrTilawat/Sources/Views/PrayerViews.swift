@@ -10,10 +10,14 @@ struct AdhkarView: View {
     @AppStorage("adhkarList") private var listMode = false
     @State private var counts: [Int] = []
     @State private var page = 0
-    private static let data: [String: [(text: String, count: Int)]] = {
+    private static let data: [String: [(text: String, count: Int, src: String)]] = {
         guard let u = Bundle.main.url(forResource: "adhkar", withExtension: "json"), let d = try? Data(contentsOf: u) else { return [:] }
-        return J(data: d).dict.mapValues { $0.array.map { (text: $0["text"].str, count: max(1, $0["count"].int)) } }
+        return J(data: d).dict.mapValues { $0.array.map { (text: $0["text"].str, count: max(1, $0["count"].int), src: $0["src"].str) } }
     }()
+    /// «مرة واحدة», «٣ مرات», «١٠٠ مرة»
+    static func times(_ n: Int) -> String { n == 1 ? tr("مرة واحدة") : n == 2 ? tr("مرتان") : (3...10).contains(n) ? tr("{0} مرات", n.ar) : tr("{0} مرة", n.ar) }
+    /// the line under a dhikr: where it is narrated and how many times
+    private static func note(_ src: String, _ n: Int) -> String { [src, times(n)].filter { !$0.isEmpty }.joined(separator: " · ") }
     private static func text(_ t: String) -> String {
         let r = try! NSRegularExpression(pattern: "\\s*\\((\\d+)\\)"); var s = t.trimmingCharacters(in: .whitespaces)
         for m in r.matches(in: s, range: NSRange(s.startIndex..., in: s)).reversed() { if let g = Range(m.range, in: s), let n = Range(m.range(at: 1), in: s) { s.replaceSubrange(g, with: " \(ReadText.mark(Int(s[n])?.ar ?? ""))") } }
@@ -32,7 +36,13 @@ struct AdhkarView: View {
             }.padding(.horizontal, 16).padding(.vertical, 8)
             if tab == "friday" { FridayView() } else {
             HStack(spacing: 10) {
-                ProgressView(value: list.isEmpty ? 0 : Double(done) / Double(list.count)).tint(c.gold).animation(.easeOut(duration: 0.5), value: done)
+                // one segment for each dhikr: done in gold, the open one half gold
+                HStack(spacing: 2) {
+                    ForEach(list.indices, id: \.self) { k in
+                        let fin = (counts[safe: k] ?? 0) >= list[k].count
+                        RoundedRectangle(cornerRadius: 2).fill(fin ? c.gold : (!listMode && k == page) ? c.gold.opacity(0.45) : c.lineSoft).frame(height: 4)
+                    }
+                }.frame(maxWidth: .infinity).animation(.easeOut(duration: 0.3), value: done)
                 Text(listMode ? tr("أنجزت {0} من {1}", done.ar, list.count.ar) : tr("{0} من {1} — أنجزت {2}", (page + 1).ar, list.count.ar, done.ar)).font(F.plex(12.5, .medium)).foregroundStyle(c.muted)
             }.padding(.horizontal, 18).padding(.vertical, 2)
             if list.isEmpty { Empty(text: tr("لا توجد أذكار")); Spacer() }
@@ -43,6 +53,7 @@ struct AdhkarView: View {
                             let n = counts[safe: i] ?? 0, fin = n >= dk.count
                             Panel(pad: 18, lattice: false) {
                                 Text(AdhkarView.text(dk.text)).font(F.amiri(20, bold: false)).foregroundStyle(fin ? c.muted : c.text).lineSpacing(14)
+                                Text(AdhkarView.note(dk.src, dk.count)).font(F.plex(12, .medium)).foregroundStyle(c.muted).padding(.top, 6)
                                 HStack(spacing: 12) {
                                     ZStack { Circle().fill(fin ? AnyShapeStyle(c.goldBrush) : AnyShapeStyle(c.surface3)); if fin { SiteIcon(name: "check", size: 22, color: c.onGold) } else { Text((dk.count - n).ar).font(F.plex(16, .semibold)).foregroundStyle(c.gold) } }.frame(width: 44, height: 44)
                                     Text(fin ? tr("اكتمل") : tr("اضغط للعدّ")).font(F.plex(12.5)).foregroundStyle(c.muted)
@@ -63,7 +74,11 @@ struct AdhkarView: View {
                                     t.fixedSize(horizontal: false, vertical: true).padding(.vertical, 4)
                                     ScrollView(showsIndicators: true) { t.padding(.vertical, 4) }
                                 }
+                                DashLine().padding(.top, 12).padding(.bottom, 8)
+                                Text(AdhkarView.note(dk.src, dk.count)).font(F.plex(12, .medium)).foregroundStyle(c.muted).multilineTextAlignment(.center).frame(maxWidth: .infinity)
                             }.layoutPriority(1)
+                            // the card itself counts too
+                            .contentShape(Rectangle()).onTapGesture { count(i, list) }
                             Button { count(i, list) } label: {
                                 ZStack {
                                     Circle().fill(c.surface2)
@@ -93,11 +108,11 @@ struct AdhkarView: View {
         .onReceive(ui.$adhkarTab) { t in if let t { tab = t; DispatchQueue.main.async { ui.adhkarTab = nil } } }
         .onChange(of: tab) { _ in let l = AdhkarView.data[tab] ?? []; load(l) }
     }
-    private func load(_ list: [(text: String, count: Int)]) {
+    private func load(_ list: [(text: String, count: Int, src: String)]) {
         counts = list.indices.map { UserDefaults.standard.integer(forKey: key($0)) }
         page = list.indices.first { counts[$0] < list[$0].count } ?? 0
     }
-    private func count(_ i: Int, _ list: [(text: String, count: Int)]) {
+    private func count(_ i: Int, _ list: [(text: String, count: Int, src: String)]) {
         let n = counts[safe: i] ?? 0
         if n >= list[i].count { if i < list.count - 1 { withAnimation { page = i + 1 } }; return }
         let v = n + 1; counts[i] = v; UserDefaults.standard.set(v, forKey: key(i))
@@ -639,5 +654,13 @@ struct QiblaFinder: View {
         }
         .frame(width: side, height: side)
         .animation(.linear(duration: 0.08), value: hd)
+    }
+}
+
+/// a thin dashed rule (the line between a dhikr and its source)
+struct DashLine: View {
+    @Environment(\.pal) private var c
+    var body: some View {
+        GeometryReader { g in Path { p in p.move(to: .zero); p.addLine(to: CGPoint(x: g.size.width, y: 0)) }.stroke(c.gold.opacity(0.3), style: StrokeStyle(lineWidth: 1, dash: [6, 5])) }.frame(height: 1)
     }
 }
