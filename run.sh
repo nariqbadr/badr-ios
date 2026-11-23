@@ -61,14 +61,13 @@ cliptest() { # $1 tag
   endrec rec_$1
   pkill -f "adb logcat" || true
 }
-setup old.apk old
-adb shell cat /data/data/$P/shared_prefs/badr.xml > shots/prefs_old_before.txt; adb shell ls /data/data/$P/shared_prefs > shots/prefs_files.txt
-setpref theme maroon
-adb shell am start -W -n $P/.MainActivity > /dev/null; sleep 20; snap old_maroon
-adb install -r new.apk > shots/upgrade.txt 2>&1
-adb shell am start -W -n $P/.MainActivity > /dev/null; sleep 25; snap new_after_upgrade
-adb shell am force-stop $P; adb shell am start -W -n $P/.MainActivity > /dev/null; sleep 20; snap new_restart
-adb shell cat /data/data/$P/shared_prefs/badr.xml > shots/prefs_new_after.txt
+setup new.apk new
+go quranSearch 25; snap q1
+go prayerSettings 25
+for i in 1 2 3 4; do up 1.2; done; snap s1
+tapText "سورة الكهف"; sleep 2; snap s2
+up 1.2; snap s3
+go prayerSettings 25; for i in 1 2 3 4; do up 1.2; done; snap s4
 timeout 60 adb logcat -d > shots/logcat_all.txt 2>&1 || true
 timeout 60 adb logcat -d -b crash > shots/crash.txt 2>&1 || true
 kill $GEO 2>/dev/null || true
