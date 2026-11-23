@@ -556,7 +556,8 @@ struct SheetSkin: ViewModifier {
     @Environment(\.pal) private var c
     func body(content: Content) -> some View {
         // every sheet has a close button in its corner, opposite its title (swiping down still closes it too)
-        let x = content.overlay(alignment: .topTrailing) { SheetClose() }
+        // (a sheet does not take the app's direction: set here, so in Arabic the button sits on the left, not over the title)
+        let x = content.overlay(alignment: .topTrailing) { SheetClose() }.environment(\.layoutDirection, L.dir)
         if #available(iOS 16.4, *) { x.presentationBackground(c.bg2).environment(\.pal, c).preferredColorScheme(c.dark ? .dark : .light) }
         else { x.background(c.bg2.ignoresSafeArea()).environment(\.pal, c).preferredColorScheme(c.dark ? .dark : .light) }
     }
