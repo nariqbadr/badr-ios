@@ -317,6 +317,7 @@ struct VoiceBox: View {
     @EnvironmentObject var prayers: Prayers
     @ObservedObject private var rv = ReminderVoice.shared
     @Environment(\.pal) private var c
+    @State private var sent = false
     let k: String
     var body: some View {
         let _ = prayers.rev
@@ -342,19 +343,27 @@ struct VoiceBox: View {
                 }
             }.fixedSize(horizontal: false, vertical: true).padding(3).background(RoundedRectangle(cornerRadius: 13).fill(Color.black.opacity(0.28)))
             HStack(spacing: 8) {
-                btn(playing ? tr("إيقاف") : tr("استماع"), playing ? "pause" : "play") { rv.toggle(k, badr: badr) }
-                btn(tr("تجربة الإشعار"), "bell") {
-                    Task { let ok = await prayers.testReminder(k); UIState.shared?.say(ok ? tr("أُرسل الإشعار الآن") : tr("اسمح بالإشعارات من الإعدادات أولًا")) }
+                btn(playing ? tr("إيقاف") : tr("استماع"), playing ? "pause" : "play", on: playing) { UIImpactFeedbackGenerator(style: .light).impactOccurred(); rv.toggle(k, badr: badr) }
+                // «تجربة الإشعار» shows that it was pressed: a tap you feel, then «أُرسل الإشعار ✓» in gold for a moment
+                btn(sent ? tr("أُرسل الإشعار") : tr("تجربة الإشعار"), sent ? "check" : "bell", on: sent) {
+                    UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+                    Task {
+                        let ok = await prayers.testReminder(k)
+                        if ok { UINotificationFeedbackGenerator().notificationOccurred(.success); withAnimation(.easeOut(duration: 0.2)) { sent = true }
+                            try? await Task.sleep(nanoseconds: 2_500_000_000); withAnimation(.easeOut(duration: 0.3)) { sent = false } }
+                        else { UIState.shared?.say(tr("اسمح بالإشعارات من الإعدادات أولًا")) }
+                    }
                 }
             }
         }
     }
-    private func btn(_ t: String, _ ic: String, _ act: @escaping () -> Void) -> some View {
+    private func btn(_ t: String, _ ic: String, on: Bool, _ act: @escaping () -> Void) -> some View {
         Button(action: act) {
-            HStack(spacing: 6) { SiteIcon(name: ic, size: 15, color: c.gold); Text(t).font(F.plex(13, .semibold)).foregroundStyle(c.text).lineLimit(1) }
+            HStack(spacing: 6) { SiteIcon(name: ic, size: 15, color: on ? c.gold2 : c.gold); Text(t).font(F.plex(13, .semibold)).foregroundStyle(on ? c.gold2 : c.text).lineLimit(1) }
                 .frame(maxWidth: .infinity).frame(height: 40)
-                .overlay(RoundedRectangle(cornerRadius: 12).strokeBorder(c.text.opacity(0.08))).contentShape(Rectangle())
-        }.buttonStyle(Press(scale: 0.97))
+                .background(RoundedRectangle(cornerRadius: 12).fill(on ? c.gold.opacity(0.14) : .clear))
+                .overlay(RoundedRectangle(cornerRadius: 12).strokeBorder(on ? c.gold.opacity(0.5) : c.text.opacity(0.08))).contentShape(Rectangle())
+        }.buttonStyle(Press(scale: 0.95))
     }
 }
 

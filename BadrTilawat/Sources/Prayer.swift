@@ -227,7 +227,7 @@ final class Prayers: NSObject, ObservableObject, CLLocationManagerDelegate {
         n.sound = sound("salawat"); n.userInfo = ["open": "friday"]; return n
     }
     private func qiyamContent() -> UNMutableNotificationContent {
-        let n = UNMutableNotificationContent(); n.title = tr("الثلث الأخير من الليل"); n.body = tr("ينزل ربنا إلى السماء الدنيا فيقول: من يدعوني فأستجيب له")
+        let n = UNMutableNotificationContent(); n.title = tr("الثلث الأخير من الليل"); n.body = tr("قال رسول الله ﷺ: «ينزل ربُّنا تبارك وتعالى كلَّ ليلةٍ إلى السماء الدنيا حين يبقى ثلثُ الليل الآخر، يقول: من يدعوني فأستجيب له، من يسألني فأعطيه، من يستغفرني فأغفر له» متفق عليه")
         n.sound = sound("qiyam"); if #available(iOS 15.0, *) { n.interruptionLevel = .timeSensitive }; return n
     }
     /// «تجربة الإشعار» of a reminder: the notification itself, at once
