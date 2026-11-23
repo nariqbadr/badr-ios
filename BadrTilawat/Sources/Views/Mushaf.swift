@@ -149,8 +149,17 @@ struct MushafView: View {
                     UserDefaults.standard.set(marks.sorted().map(String.init).joined(separator: ","), forKey: "mushafMarks")
                 }
                 Chip(text: nil, icon: "scroll") { tafsir = true }
-                Chip(text: nil, icon: "search") { search = true }
             }.padding(.horizontal, 12).padding(.vertical, 6)
+            // the search, wide: a surah or an ayah, and the mushaf turns to it
+            Button { search = true } label: {
+                HStack(spacing: 10) {
+                    SiteIcon(name: "search", size: 20, color: c.gold)
+                    Text(tr("ابحث عن سورة أو آية وانتقل إليها")).font(F.plex(14.5)).foregroundStyle(c.muted).lineLimit(1)
+                    Spacer(minLength: 0)
+                }.padding(.horizontal, 14).frame(height: 48).frame(maxWidth: .infinity)
+                .background(RoundedRectangle(cornerRadius: 16).fill(c.surface.opacity(0.7))).overlay(RoundedRectangle(cornerRadius: 16).strokeBorder(c.gold.opacity(0.3)))
+                .contentShape(Rectangle())
+            }.buttonStyle(Press(scale: 0.98)).padding(.horizontal, 12).padding(.vertical, 4)
             // the reciter, always in sight
             HStack {
                 let (rs, ra) = ma.current > 0 ? MushafData.sa(ma.current) : (fs, 1)
