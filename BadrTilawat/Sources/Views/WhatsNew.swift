@@ -118,7 +118,7 @@ struct WhatsNewView: View {
             // the home-screen icon the user picked under «أيقونة التطبيق»
             Image("IconPreview-\(UIApplication.shared.alternateIconName.map { String($0.dropFirst("AppIcon-".count)) } ?? "emerald")").resizable().scaledToFill()
                 .frame(width: 80, height: 80).clipShape(RoundedRectangle(cornerRadius: 21, style: .continuous)).shadow(color: .black.opacity(0.4), radius: 10, y: 4)
-            Text(tr("الإصدار {0}", L.digits(WhatsNew.round))).font(F.plex(13, .semibold)).foregroundStyle(c.gold2)
+            Text(tr("الإصدار {0}", L.digits(Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? WhatsNew.round))).font(F.plex(13, .semibold)).foregroundStyle(c.gold2)
                 .padding(.horizontal, 14).padding(.vertical, 5).background(Capsule().fill(c.gold.opacity(0.08))).overlay(Capsule().strokeBorder(c.gold.opacity(0.35)))
             Text(tr("الجديد في بدر التلاوات")).font(F.amiri(32)).foregroundStyle(c.text).multilineTextAlignment(.center)
             body(tr("جمعنا لك أهم ما تغيّر في هذا التحديث."), 15)
