@@ -21,6 +21,8 @@ final class Repo: ObservableObject {
     /// changes with each new data (for caches of things worked out from it)
     private(set) var gen = 0
     @Published private(set) var offline = false
+    /// the first answer from the site this launch has come (or failed): what the dashboard says now is known
+    @Published private(set) var fresh = false
     /// the screen shown now («يتصفح» in the dashboard)
     var page = tr("الرئيسية")
 
@@ -38,6 +40,7 @@ final class Repo: ObservableObject {
     }
 
     func refresh() async {
+        defer { if !fresh { fresh = true } }
         var u = Repo.ajax + "?action=bz&do=data"
         if let r = data?.rev, !r.isEmpty { u += "&rev=" + Repo.enc(r) }
         guard let url = URL(string: u) else { return }
