@@ -141,7 +141,10 @@ adb shell ls -laR /data/data/$P > shots/old_files.txt
 adb install -r new.apk > shots/install_new.txt 2>&1; perms
 flow new
 shots new
-KEYS="voices"; shots new
+KEYS="voices voiceq"; shots new
+KEYS="whatsnew"; shots new
+adb shell input swipe 540 1500 540 1000 900; sleep 2; timeout 30 adb exec-out screencap -p > shots/new_whatsnew_row1.png
+adb shell input swipe 150 950 950 950 500; sleep 2; timeout 30 adb exec-out screencap -p > shots/new_whatsnew_row2.png
 # the update's first open: «الجديد في بدر التلاوات» (and scrolled), then the same screens in the silver theme
 adb shell input swipe 540 1500 540 1000 900; sleep 2; timeout 30 adb exec-out screencap -p > shots/new_whatsnew_row1.png
 adb shell input swipe 150 950 950 950 500; sleep 2; timeout 30 adb exec-out screencap -p > shots/new_whatsnew_row2.png
