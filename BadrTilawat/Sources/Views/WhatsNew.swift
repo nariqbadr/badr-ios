@@ -140,9 +140,10 @@ struct WhatsNewView: View {
     /// for show only: it tells what was added, it opens nothing
     private func tile(_ t: WhatsNew.Tile, height: CGFloat, big: Bool) -> some View {
             ZStack(alignment: .bottom) {
-                Group {
-                    if let a = t.asset { Image(a).resizable().scaledToFill() } else { RemoteImage(raw: t.image) }
-                }.frame(maxWidth: .infinity).frame(height: height).clipped()
+                // the picture fills the tile without widening it (a filled image laid out by itself is as wide as its own pixels)
+                Color.clear.frame(maxWidth: .infinity).frame(height: height)
+                    .overlay { if let a = t.asset { Image(a).resizable().scaledToFill() } else { RemoteImage(raw: t.image) } }
+                    .clipped()
                 LinearGradient(stops: [.init(color: .clear, location: 0.35), .init(color: .black.opacity(0.88), location: 1)], startPoint: .top, endPoint: .bottom)
                 HStack(alignment: .bottom, spacing: 8) {
                     VStack(alignment: .leading, spacing: 0) {
