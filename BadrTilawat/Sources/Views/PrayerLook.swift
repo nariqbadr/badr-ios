@@ -236,7 +236,7 @@ struct Hairline: View {
     var body: some View { Rectangle().fill(c.text.opacity(0.07)).frame(height: 1).padding(.leading, inset) }
 }
 /// «جديد» on a new setting: it goes once the setting is used, or after the days the dashboard sets (7 by default) from the first time it was shown
-final class NewMarks: ObservableObject {
+@MainActor final class NewMarks: ObservableObject {
     static let shared = NewMarks()
     @Published private(set) var usedKeys: Set<String> = []
     private let d = UserDefaults.standard
