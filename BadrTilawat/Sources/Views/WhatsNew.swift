@@ -137,8 +137,8 @@ struct WhatsNewView: View {
             }
         }
     }
+    /// for show only: it tells what was added, it opens nothing
     private func tile(_ t: WhatsNew.Tile, height: CGFloat, big: Bool) -> some View {
-        Button { leave { t.go() } } label: {
             ZStack(alignment: .bottom) {
                 Group {
                     if let a = t.asset { Image(a).resizable().scaledToFill() } else { RemoteImage(raw: t.image) }
@@ -150,13 +150,11 @@ struct WhatsNewView: View {
                         Text(t.sub).font(F.plex(11.5)).foregroundStyle(.white.opacity(0.78)).lineLimit(1)
                     }
                     Spacer(minLength: 0)
-                    SiteIcon(name: "play", size: 14, color: c.onGold).frame(width: big ? 34 : 30, height: big ? 34 : 30).background(Circle().fill(c.gold))
                 }.padding(12)
             }
             .frame(height: height)
             .overlay(alignment: .topLeading) { Text(tr("جديد")).font(F.plex(11, .bold)).foregroundStyle(.white).padding(.horizontal, 9).padding(.vertical, 3).background(Capsule().fill(.black.opacity(0.45))).padding(10) }
             .clipShape(RoundedRectangle(cornerRadius: 18)).overlay(RoundedRectangle(cornerRadius: 18).strokeBorder(.white.opacity(0.08)))
-        }.buttonStyle(.plain)
     }
     @ViewBuilder private func reciters(_ s: Site?) -> some View {
         let recs = WhatsNew.reciters(s)
