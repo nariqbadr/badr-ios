@@ -64,10 +64,10 @@ endrec tour1
 # ---- 2: the mushaf and its search (a surah by number), the surah index opening the mushaf, the ayah search
 rec tour2 170
 tapText "المصحف"; sleep 6; snap quran
-up 2; up 2; tapText "سورة الكهف"; [ -z "$B" ] && tapText "الكهف"; sleep 7; snap kahfmushaf
-tapText "ابحث عن سورة أو آية"; sleep 3; adb shell input text 36; sleep 3; snap msearch
-tapText "سورة يس"; [ -z "$B" ] && adb shell input tap 540 700; sleep 6; snap yasin
-adb shell input keyevent 4; sleep 2
+up 1.5; tapText "سورة النساء"; sleep 7; snap kahfmushaf
+tapText "ابحث عن سورة أو آية وانتقل"; sleep 3; adb shell input text 36; sleep 3; snap msearch
+tapText "سورة يس"; sleep 6; snap yasin
+tapText "المصحف"; sleep 3
 timeout 40 adb shell am start -W -n $P/.MainActivity --es open "quranSearch" > /dev/null; sleep 8; snap ayahsearch
 up 2; snap ayahsearch2
 tapText "سورة طه"; sleep 7; snap taha
@@ -77,7 +77,7 @@ endrec tour2
 # ---- 3: the adhkar (the card, counting), «سنن يوم الجمعة», «فضائل يوم الجمعة»
 rec tour3 170
 tapText "الأذكار"; sleep 5; snap adhkar
-for n in 1 2 3; do adb shell input tap 540 1650; sleep 0.6; done; sleep 1
+for n in 1 2 3; do tapText "اضغط للعد"; sleep 0.6; done; sleep 1
 adb shell input swipe 900 1000 150 1000 400; sleep 2; adb shell input swipe 900 1000 150 1000 400; sleep 2; snap adhkar2
 tapText "سنن يوم الجمعة"; sleep 4; snap friday
 tapText "قراءة سورة الكهف"; sleep 2; up 2; snap friday2; up 2; up 2
@@ -101,8 +101,7 @@ endrec tour4
 
 # ---- 5: the rain sound, then the app swiped away: nothing keeps sounding
 rec tour5 120
-adb shell input keyevent 4; sleep 1
-tapText "القائمة"; sleep 3; tapText "أصوات هادئة"; sleep 4; tapText "مطر"; sleep 5; snap rain
+timeout 40 adb shell am start -W -n $P/.MainActivity --es open "#ambient" > /dev/null; sleep 5; tapText "مطر"; sleep 5; snap rain
 echo "rain playing: $(playing)" > shots/swipe.txt
 adb shell input keyevent KEYCODE_BACK; sleep 1
 adb shell input keyevent KEYCODE_APP_SWITCH; sleep 3; snap recents
