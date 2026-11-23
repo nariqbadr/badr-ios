@@ -269,10 +269,11 @@ struct PrayerSettings: View {
 
 
 extension PrayerSettings {
-    private func toggleRow(_ on: Bool, _ t: String, _ subT: String?, new: Bool = false, set: @escaping (Bool) -> Void) -> some View {
-        Toggle(isOn: Binding(get: { on }, set: set)) {
+    /// newKey: a new setting, marked «جديد» until it is used (or for the days the dashboard sets)
+    private func toggleRow(_ on: Bool, _ t: String, _ subT: String?, newKey: String? = nil, set: @escaping (Bool) -> Void) -> some View {
+        Toggle(isOn: Binding(get: { on }, set: { v in if let newKey { NewMarks.shared.used(newKey) }; set(v) })) {
             VStack(alignment: .leading, spacing: 1) {
-                HStack(spacing: 6) { Text(t).font(F.plex(15, .semibold)).foregroundStyle(c.text); if new { NewBadge() } }
+                HStack(spacing: 6) { Text(t).font(F.plex(15, .semibold)).foregroundStyle(c.text); if let newKey { NewBadge(k: newKey) } }
                 if let subT { Text(subT).font(F.plex(12.5)).foregroundStyle(sub) }
             }
         }.tint(c.gold).padding(.vertical, 10)
@@ -318,15 +319,15 @@ extension PrayerSettings {
         let h = Friday.sunnahHours
         GroupHead(title: tr("التذكيرات"))
         SettingsGroup {
-            toggleRow(prayers.kahfOn, tr("سورة الكهف"), tr("ليلة الجمعة بعد المغرب، وصباح الجمعة"), new: true) { v in prayers.setKahf(v); if v { Task { _ = await prayers.requestNotifications() } } }
+            toggleRow(prayers.kahfOn, tr("سورة الكهف"), tr("ليلة الجمعة بعد المغرب، وصباح الجمعة"), newKey: "kahf") { v in prayers.setKahf(v); if v { Task { _ = await prayers.requestNotifications() } } }
             Hairline()
-            toggleRow(prayers.fridayOn, tr("سنن يوم الجمعة"), tr("قبل صلاة الجمعة بـ {0} ساعة", h.truncatingRemainder(dividingBy: 1) == 0 ? Int(h).ar : L.digits("\(h)")), new: true) { v in prayers.setFriday(v); if v { Task { _ = await prayers.requestNotifications() } } }
+            toggleRow(prayers.fridayOn, tr("سنن يوم الجمعة"), tr("قبل صلاة الجمعة بـ {0} ساعة", h.truncatingRemainder(dividingBy: 1) == 0 ? Int(h).ar : L.digits("\(h)")), newKey: "friday") { v in prayers.setFriday(v); if v { Task { _ = await prayers.requestNotifications() } } }
             Hairline()
             VStack(alignment: .leading, spacing: 8) {
-                HStack(spacing: 6) { Text(tr("صلِّ على محمد ﷺ")).font(F.plex(15, .semibold)).foregroundStyle(c.text); NewBadge() }
+                HStack(spacing: 6) { Text(tr("صلِّ على محمد ﷺ")).font(F.plex(15, .semibold)).foregroundStyle(c.text); NewBadge(k: "salawat") }
                 Text(tr("كم مرة يصلك التذكير")).font(F.plex(12.5)).foregroundStyle(sub)
                 SegBar(items: [(0, tr("بدون")), (30, tr("نص ساعة")), (60, tr("ساعة")), (120, tr("ساعتين")), (1440, tr("يوميًا"))], selected: prayers.salawatEvery) { m in
-                    prayers.setSalawat(m); if m > 0 { Task { notifDenied = !(await prayers.requestNotifications()) } }
+                    NewMarks.shared.used("salawat"); prayers.setSalawat(m); if m > 0 { Task { notifDenied = !(await prayers.requestNotifications()) } }
                 }
                 VoiceBox(k: "salawat")
             }.padding(.vertical, 12)
@@ -338,7 +339,7 @@ extension PrayerSettings {
             toggleRow(on, tr("تنبيهات الصلاة"), tr("أذان أو إشعار عند دخول كل وقت")) { v in on = v; prayers.setAlerts(v); if v { Task { notifDenied = !(await prayers.requestNotifications()) } } }
             if prayers.ringSilentAvailable {
                 Hairline()
-                toggleRow(ringSilent, tr("يرنّ حتى في الصامت"), tr("الأذان منبّه بالصوت الذي اخترته"), new: true) { v in
+                toggleRow(ringSilent, tr("يرنّ حتى في الصامت"), tr("الأذان منبّه بالصوت الذي اخترته"), newKey: "ringSilent") { v in
                     ringSilent = v
                     Task { let ok = await prayers.setRingSilent(v); if v && !ok { ringSilent = false; ui.say(tr("اسمح للتطبيق بالمنبّهات من الإعدادات أولًا")) } }
                 }

@@ -235,9 +235,27 @@ struct Hairline: View {
     @Environment(\.pal) private var c
     var body: some View { Rectangle().fill(c.text.opacity(0.07)).frame(height: 1).padding(.leading, inset) }
 }
+/// «جديد» on a new setting: it goes once the setting is used, or after the days the dashboard sets (7 by default) from the first time it was shown
+final class NewMarks: ObservableObject {
+    static let shared = NewMarks()
+    @Published private(set) var usedKeys: Set<String> = []
+    private let d = UserDefaults.standard
+    func show(_ k: String) -> Bool {
+        if usedKeys.contains(k) || d.bool(forKey: "newUsed-\(k)") { return false }
+        let now = Date().timeIntervalSince1970
+        var since = d.double(forKey: "newSince-\(k)"); if since == 0 { since = now; d.set(now, forKey: "newSince-\(k)") }
+        let j = Repo.shared.data?.site.j["newFeatureDays"]
+        let days = (j != nil && j!.isNull == false) ? j!.int : 7
+        return days > 0 && now - since < Double(days) * 86400
+    }
+    func used(_ k: String) { guard !usedKeys.contains(k) else { return }; d.set(true, forKey: "newUsed-\(k)"); usedKeys.insert(k) }
+}
 struct NewBadge: View {
+    var k: String
+    @ObservedObject private var marks = NewMarks.shared
     @Environment(\.pal) private var c
-    var body: some View { Text(tr("جديد")).font(F.plex(10, .bold)).foregroundStyle(c.gold2).padding(.horizontal, 6).padding(.vertical, 1).background(RoundedRectangle(cornerRadius: 6).fill(c.gold.opacity(0.14))) }
+    var body: some View { if marks.show(k) { badge } }
+    private var badge: some View { Text(tr("جديد")).font(F.plex(10, .bold)).foregroundStyle(c.gold2).padding(.horizontal, 6).padding(.vertical, 1).background(RoundedRectangle(cornerRadius: 6).fill(c.gold.opacity(0.14))) }
 }
 /// a small segmented control (adhan / notification / off…)
 struct MiniSeg: View {
@@ -270,11 +288,11 @@ struct PrayerAlertRow: View {
         HStack(spacing: 14) {
             RoundedRectangle(cornerRadius: 8).fill(PrayerSky.swatch(p.key)).frame(width: 24, height: 24).overlay(RoundedRectangle(cornerRadius: 8).strokeBorder(Color.white.opacity(0.12)))
             VStack(alignment: .leading, spacing: 0) {
-                HStack(spacing: 6) { Text(p.name).font(F.plex(15, .semibold)).foregroundStyle(c.text).lineLimit(1); if new { NewBadge() } }
+                HStack(spacing: 6) { Text(p.name).font(F.plex(15, .semibold)).foregroundStyle(c.text).lineLimit(1); if new { NewBadge(k: "alert-\(p.key)") } }
                 Text(sub ?? Fmt.time(p.time)).font(F.plex(12.5)).foregroundStyle(c.faint.mix(c.muted, 0.5)).lineLimit(1)
             }
             Spacer(minLength: 4)
-            MiniSeg(items: items, selected: prayers.mode(p.key), enabled: prayers.alertsOn) { prayers.setMode(p.key, $0) }
+            MiniSeg(items: items, selected: prayers.mode(p.key), enabled: prayers.alertsOn) { if new { NewMarks.shared.used("alert-\(p.key)") }; prayers.setMode(p.key, $0) }
         }.frame(minHeight: 60)
     }
 }
