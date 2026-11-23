@@ -46,29 +46,23 @@ playing() { local pid=$(adb shell pidof $P | tr -d "\r"); [ -z "$pid" ] && { ech
 up() { adb shell input swipe 540 1500 540 700 600; sleep ${1:-1.5}; }
 snap() { timeout 30 adb exec-out screencap -p > "shots/b_$1.png"; }
 
-adb install -r new.apk > shots/install_new.txt 2>&1; perms
-adb shell am start -W -n $P/.MainActivity > /dev/null; sleep 20
-setpref onboarded 1; setpref lang ar; setlong lat 4629159534621622691; setlong lng 4629503834813135166
-U=$(adb shell stat -c %u /data/data/$P | tr -d "\r"); adb shell "mkdir -p /data/data/$P/no_backup && touch /data/data/$P/no_backup/onboarded && chown -R $U:$U /data/data/$P/no_backup && restorecon -R /data/data/$P/no_backup"
-go() { adb shell am force-stop $P; timeout 40 adb shell am start -W -n $P/.MainActivity --ez shot true --es open "$1" > /dev/null; sleep ${2:-14}; }
-adb logcat -c
-# the same clip export on 2.10.89 (old.apk): tap «تصدير» by hand on both
-cliptest() { # $1 name
-  go clip 40; snap ${1}_open
-  tapText "تصدير"; sleep 3; snap ${1}_t3
-  sleep 60; snap ${1}_t60
-  sleep 60; snap ${1}_t120
+setup() {
+  adb uninstall $P >/dev/null 2>&1; adb install -r $1 > shots/install_$2.txt 2>&1; perms
+  adb shell am start -W -n $P/.MainActivity > /dev/null; sleep 20
+  setpref onboarded 1; setpref lang ar; setlong lat 4629159534621622691; setlong lng 4629503834813135166
+  U=$(adb shell stat -c %u /data/data/$P | tr -d "\r"); adb shell "mkdir -p /data/data/$P/no_backup && touch /data/data/$P/no_backup/onboarded && chown -R $U:$U /data/data/$P/no_backup && restorecon -R /data/data/$P/no_backup"
 }
-adb logcat -c; (adb logcat -v time > shots/live_new.txt 2>&1 &)
-cliptest new
-pkill -f "adb logcat" || true
-adb uninstall $P; adb install -r old.apk > shots/install_old.txt 2>&1; perms
-adb shell am start -W -n $P/.MainActivity > /dev/null; sleep 20
-setpref onboarded 1; setpref lang ar; setlong lat 4629159534621622691; setlong lng 4629503834813135166
-U=$(adb shell stat -c %u /data/data/$P | tr -d "\r"); adb shell "mkdir -p /data/data/$P/no_backup && touch /data/data/$P/no_backup/onboarded && chown -R $U:$U /data/data/$P/no_backup && restorecon -R /data/data/$P/no_backup"
-adb logcat -c; (adb logcat -v time > shots/live_old.txt 2>&1 &)
-cliptest old
-pkill -f "adb logcat" || true
+go() { adb shell am force-stop $P; timeout 40 adb shell am start -W -n $P/.MainActivity --ez shot true --es open "$1" > /dev/null; sleep ${2:-14}; }
+cliptest() { # $1 tag
+  adb logcat -c; (adb logcat -v time > shots/live_$1.txt 2>&1 &)
+  go clip 40; snap ${1}_open
+  rec rec_$1 175; tapText "تصدير"; sleep 3; snap ${1}_t0
+  for k in 1 2 3 4 5; do sleep 30; snap ${1}_t$k; done
+  endrec rec_$1
+  pkill -f "adb logcat" || true
+}
+setup old.apk old; cliptest old
+setup new.apk new; cliptest new
 timeout 60 adb logcat -d > shots/logcat_all.txt 2>&1 || true
 timeout 60 adb logcat -d -b crash > shots/crash.txt 2>&1 || true
 kill $GEO 2>/dev/null || true
