@@ -81,6 +81,28 @@ shots() { # $1 prefix
     timeout 20 adb logcat -d -t 300 > "shots/log_$1_$k.txt" 2>&1; timeout 10 adb logcat -c 2>/dev/null || true
   done
 }
+playing() { # how many sounds the app has playing now
+  local pid=$(adb shell pidof $P | tr -d "\r")
+  [ -z "$pid" ] && { echo "0 (app not running)"; return; }
+  echo "$(adb shell dumpsys audio | grep -E "u/pid:[0-9]+/$pid " | grep -c "state:started") (pid $pid)"
+}
+swipeaway() { # $1 label, $2 the screen to open, $3 the text to tap there: is the sound still on after the app is swiped away?
+  adb shell am force-stop $P
+  timeout 40 adb shell am start -W -n $P/.MainActivity --ez shot true --es open "\\$2" > /dev/null; sleep 16
+  [ -n "$3" ] && { tapText "$3"; sleep 5; }
+  echo "before: $(playing)" > "shots/sw_$1.txt"
+  timeout 30 adb exec-out screencap -p > "shots/sw_$1_a.png"
+  adb shell input keyevent KEYCODE_HOME; sleep 2; adb shell input keyevent KEYCODE_APP_SWITCH; sleep 3
+  timeout 30 adb exec-out screencap -p > "shots/sw_$1_b.png"
+  adb shell input swipe 540 1000 540 100 200; sleep 6
+  echo "after swipe: $(playing)" >> "shots/sw_$1.txt"
+  adb shell input keyevent KEYCODE_HOME; sleep 1
+}
+flow() { # $1 label: the first open after the update, as it happens (the intro, then What's New) — a frame every moment
+  adb shell am force-stop $P; sleep 2
+  adb shell am start -n $P/.MainActivity > /dev/null
+  for i in $(seq -w 1 16); do timeout 10 adb exec-out screencap -p > "shots/flow_$1_$i.png"; done
+}
 perf() { # $1 prefix: frame stats while scrolling each screen, and the cold start time
   for k in home recitations quran adhkar prayer community library; do
     adb shell am force-stop $P
@@ -101,13 +123,18 @@ setpref onboarded 1; setpref lang ar; setlong lat 4629159534621622691; setlong l
 U=$(adb shell stat -c %u /data/data/$P | tr -d "\r"); adb shell "mkdir -p /data/data/$P/no_backup && touch /data/data/$P/no_backup/onboarded && chown -R $U:$U /data/data/$P/no_backup && restorecon -R /data/data/$P/no_backup"
 shots old
 perf old
+swipeaway old_rain "#ambient" "مطر"
+swipeaway old_player player ""
 adb shell am force-stop $P
 adb shell cat /data/data/$P/shared_prefs/badr.xml > shots/old_prefs.xml
 adb shell ls -laR /data/data/$P > shots/old_files.txt
 # ---- the new version installed over the old one (an update: the data stays)
 adb install -r new.apk > shots/install_new.txt 2>&1; perms
+flow new
 shots new
 perf new
+swipeaway new_rain "#ambient" "مطر"
+swipeaway new_player player ""
 KEYS="settingsrem friday fadail"; shots new
 # the update's first open: «الجديد في بدر التلاوات» (and scrolled), then the same screens in the silver theme
 KEYS="whatsnew"; shots new
