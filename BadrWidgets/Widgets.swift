@@ -110,6 +110,9 @@ struct AyahProvider: AppIntentTimelineProvider {
         return AyahEntry(date: at, ayah: l.first { $0.day == f.string(from: at) } ?? l.last, pal: pal, short: sh.first { $0.day == f.string(from: at) } ?? sh.last)
     }
 }
+/// the ayah between its ornate brackets, set right to left (without the embedding the brackets came out facing outwards)
+func ayahLine(_ t: String) -> String { "\u{202B}\u{FD3F}\(t)\u{FD3E}\u{202C}" }
+
 struct AyahWidgetView: View {
     let e: AyahEntry
     @Environment(\.widgetFamily) private var fam
@@ -120,9 +123,9 @@ struct AyahWidgetView: View {
     private var lock: some View {
         let a = e.short ?? e.ayah
         return Group {
-            if fam == .accessoryInline { Text(a.map { "﴿\($0.text)﴾" } ?? "آية اليوم") }
+            if fam == .accessoryInline { Text(a.map { ayahLine($0.text) } ?? "آية اليوم") }
             else {
-                Text(a.map { "﴿ \($0.text) ﴾" } ?? "﴿ فَإِنَّ مَعَ ٱلۡعُسۡرِ يُسۡرًا ﴾").font(.custom("AmiriQuran-Regular", size: 17)).multilineTextAlignment(.center)
+                Text(ayahLine(a?.text ?? "فَإِنَّ مَعَ ٱلۡعُسۡرِ يُسۡرًا")).font(.custom("AmiriQuran-Regular", size: 17)).multilineTextAlignment(.center)
                     .lineLimit(3).minimumScaleFactor(0.5).frame(maxWidth: .infinity, maxHeight: .infinity)
             }
         }
@@ -139,7 +142,7 @@ struct AyahWidgetView: View {
                 if let a = e.ayah { Text("\(a.surah) · \(a.a.ar)").font(plex(11)).foregroundStyle(p.muted) }
             }
             Spacer(minLength: 0)
-            Text(e.ayah.map { "﴿\($0.text)﴾" } ?? "افتح التطبيق مرة لتظهر آية اليوم").font(.custom("AmiriQuran-Regular", size: 22)).foregroundStyle(p.text)
+            Text(e.ayah.map { ayahLine($0.text) } ?? "افتح التطبيق مرة لتظهر آية اليوم").font(.custom("AmiriQuran-Regular", size: 22)).foregroundStyle(p.text)
                 .multilineTextAlignment(.center).lineSpacing(6).minimumScaleFactor(0.45).frame(maxWidth: .infinity)
             Spacer(minLength: 0)
         }
