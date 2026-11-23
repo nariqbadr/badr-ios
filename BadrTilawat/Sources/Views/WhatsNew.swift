@@ -71,6 +71,7 @@ struct WhatsNewView: View {
     @State private var rowScroll: CGFloat = 0
     @State private var rowDrag: CGFloat = 0
     @State private var rowW: CGFloat = 0
+    @State private var rowH: CGFloat = 270
 
     private func leave(_ go: (() -> Void)? = nil) {
         guard !leaving else { return }; leaving = true; WhatsNew.seen(repo.data?.site)
@@ -139,10 +140,15 @@ struct WhatsNewView: View {
                 let maxS = max(0, contentW - rowW), step: CGFloat = 160
                 let shown = min(maxS, max(0, rowScroll + rowDrag))
                 let order = L.rtl ? Array(tiles.reversed()) : tiles
-                HStack(alignment: .top, spacing: 10) { ForEach(order) { t in poster(t).environment(\.layoutDirection, L.dir) } }
-                    .padding(.horizontal, 20).fixedSize()
-                    .offset(x: L.rtl ? (rowW - contentW) + shown : -shown)
-                    .frame(maxWidth: .infinity, alignment: .leading).clipped()
+                // a box as wide as the card (the row inside is wider and is not let widen it), as tall as the posters
+                Color.clear.frame(maxWidth: .infinity).frame(height: rowH)
+                    .overlay(alignment: .topLeading) {
+                        HStack(alignment: .top, spacing: 10) { ForEach(order) { t in poster(t).environment(\.layoutDirection, L.dir) } }
+                            .padding(.horizontal, 20).fixedSize()
+                            .background(GeometryReader { g in Color.clear.onAppear { rowH = g.size.height }.onChange(of: g.size.height) { rowH = $0 } })
+                            .offset(x: L.rtl ? (rowW - contentW) + shown : -shown)
+                    }
+                    .clipped()
                     .environment(\.layoutDirection, .leftToRight)
                     .background(GeometryReader { g in Color.clear.onAppear { rowW = g.size.width }.onChange(of: g.size.width) { rowW = $0 } })
                     .contentShape(Rectangle())
