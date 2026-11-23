@@ -54,9 +54,9 @@ go() { adb shell am force-stop $P; timeout 40 adb shell am start -W -n $P/.MainA
 adb logcat -c
 go quranSearch 25; snap search; up; snap search2
 go adhkar 20; tapText "المساء"; sleep 3; snap evening
-for i in 1 2 3 4; do adb shell input tap 339 1911; sleep 1.2; done; snap evening5
-adb shell input tap 339 1911; sleep 1.2; snap evening6
-tapText "الصباح"; sleep 3; for i in 1 2 3 4; do adb shell input tap 339 1911; sleep 1.2; done; snap morning5
+for i in 1 2 3 4 5 6 7 8 9 10; do adb shell input tap 540 1515; sleep 1.3; done; sleep 1; snap evening5
+for i in 1; do adb shell input tap 540 1515; sleep 1.5; done; snap evening6
+tapText "الصباح"; sleep 3; for i in 1 2 3 4 5 6 7 8 9 10; do adb shell input tap 540 1515; sleep 1.3; done; sleep 1; snap morning5
 timeout 60 adb logcat -d > shots/logcat_all.txt 2>&1 || true
 timeout 60 adb logcat -d -b crash > shots/crash.txt 2>&1 || true
 kill $GEO 2>/dev/null || true
