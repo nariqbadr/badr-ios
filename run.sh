@@ -65,7 +65,7 @@ shots() { # $1 prefix
     elif [ "$k" = fridayx ]; then timeout 40 adb shell am start -W -n $P/.MainActivity --es open "friday" > /dev/null; sleep 20; adb shell input swipe 540 1400 540 700 700; sleep 3; tapText "قراءة سورة الكهف"; sleep 3; timeout 30 adb exec-out screencap -p > "shots/$1_fridayk.png"
       adb shell input swipe 540 1400 540 600 700; sleep 3; timeout 30 adb exec-out screencap -p > "shots/$1_fridayk2.png"; adb shell input swipe 540 1400 540 600 700; sleep 3; timeout 30 adb exec-out screencap -p > "shots/$1_fridayk3.png"
       tapText "اللهم صلِّ"; sleep 1; tapText "اللهم صلِّ"; sleep 2; timeout 30 adb exec-out screencap -p > "shots/$1_fridayk4.png"
-    elif [ "$k" = hometab ]; then timeout 40 adb shell am start -W -n $P/.MainActivity --es open "home" > /dev/null; sleep 6; adb shell input swipe 540 1300 540 700 600
+    elif [ "$k" = hometab ]; then timeout 40 adb shell am start -W -n $P/.MainActivity --ez shot true --es open "home" > /dev/null; sleep 6; adb shell input swipe 540 1300 540 700 600
     elif [ "$k" = kahf ]; then timeout 40 adb shell am start -W -n $P/.MainActivity --es open "quran/18" > /dev/null
     elif [ "$k" = prayerdown ]; then timeout 40 adb shell am start -W -n $P/.MainActivity --es open "prayer" > /dev/null; sleep 18; adb shell input swipe 540 1500 540 600 700; sleep 1; adb shell input swipe 540 1500 540 600 700
     else timeout 40 adb shell am start -W -n $P/.MainActivity --es open "\\$k" > /dev/null; fi
