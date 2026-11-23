@@ -137,6 +137,8 @@ KEYS="settingsrem friday fadail"; shots new
 # the update's first open: «الجديد في بدر التلاوات» (and scrolled), then the same screens in the silver theme
 KEYS="whatsnew"; shots new
 adb shell input swipe 540 1700 540 500 700; sleep 3; timeout 30 adb exec-out screencap -p > shots/new_whatsnew2.png
+adb shell input swipe 800 1000 200 1000 400; sleep 2; timeout 30 adb exec-out screencap -p > shots/new_whatsnew2b.png
+adb shell input swipe 200 1000 800 1000 400; sleep 2
 adb shell input swipe 540 1700 540 500 700; sleep 3; timeout 30 adb exec-out screencap -p > shots/new_whatsnew3.png
 adb shell input swipe 540 1700 540 500 700; sleep 3; timeout 30 adb exec-out screencap -p > shots/new_whatsnew4.png
 adb shell input swipe 540 1700 540 500 700; sleep 3; timeout 30 adb exec-out screencap -p > shots/new_whatsnew5.png
