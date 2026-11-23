@@ -5,7 +5,7 @@ adb root; sleep 3
 adb shell wm size 1080x2340; adb shell wm density 440; sleep 2
 ( for i in $(seq 1 400); do adb emu geo fix 31.3016 30.0784 >/dev/null 2>&1; sleep 3; done ) &
 GEO=$!
-KEYS=""
+KEYS="home recitations quran adhkar prayer community library surah mushaf drawer player"
 setpref() { # $1 key $2 value
   adb shell am force-stop $P
   F=/data/data/$P/shared_prefs/badr.xml
@@ -81,19 +81,34 @@ shots() { # $1 prefix
     timeout 20 adb logcat -d -t 300 > "shots/log_$1_$k.txt" 2>&1; timeout 10 adb logcat -c 2>/dev/null || true
   done
 }
+perf() { # $1 prefix: frame stats while scrolling each screen, and the cold start time
+  for k in home recitations quran adhkar prayer community library; do
+    adb shell am force-stop $P
+    timeout 40 adb shell am start -W -n $P/.MainActivity --ez shot true --es open "$k" > /dev/null; sleep 18
+    adb shell dumpsys gfxinfo $P reset > /dev/null
+    for n in 1 2 3; do adb shell input swipe 540 1450 540 450 350; sleep 1.2; done
+    for n in 1 2 3; do adb shell input swipe 540 450 540 1450 350; sleep 1.2; done
+    sleep 2
+    adb shell dumpsys gfxinfo $P | grep -E "Total frames rendered|Janky frames|50th|90th|95th|99th|Number Slow" > "shots/perf_$1_$k.txt"
+  done
+  : > "shots/start_$1.txt"
+  for n in 1 2 3; do adb shell am force-stop $P; sleep 2; timeout 60 adb shell am start -W -n $P/.MainActivity --ez shot true --es open home | grep -E "TotalTime|WaitTime" >> "shots/start_$1.txt"; sleep 8; done
+}
 # ---- the old version
 adb install -r old.apk > shots/install_old.txt 2>&1; perms
 adb shell am start -W -n $P/.MainActivity > /dev/null; sleep 25; adb exec-out screencap -p > shots/old_first.png
 setpref onboarded 1; setpref lang ar; setlong lat 4629159534621622691; setlong lng 4629503834813135166
 U=$(adb shell stat -c %u /data/data/$P | tr -d "\r"); adb shell "mkdir -p /data/data/$P/no_backup && touch /data/data/$P/no_backup/onboarded && chown -R $U:$U /data/data/$P/no_backup && restorecon -R /data/data/$P/no_backup"
 shots old
+perf old
 adb shell am force-stop $P
 adb shell cat /data/data/$P/shared_prefs/badr.xml > shots/old_prefs.xml
 adb shell ls -laR /data/data/$P > shots/old_files.txt
 # ---- the new version installed over the old one (an update: the data stays)
 adb install -r new.apk > shots/install_new.txt 2>&1; perms
 shots new
-KEYS="settingsrem"; shots new
+perf new
+KEYS="settingsrem friday fadail"; shots new
 # the update's first open: «الجديد في بدر التلاوات» (and scrolled), then the same screens in the silver theme
 KEYS="whatsnew"; shots new
 adb shell input swipe 540 1700 540 500 700; sleep 3; timeout 30 adb exec-out screencap -p > shots/new_whatsnew2.png
