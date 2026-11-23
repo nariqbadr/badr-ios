@@ -96,7 +96,7 @@ tapText "استماع"; sleep 4; snap listen; tapText "إيقاف"; sleep 1
 tapText "تجربة الإشعار"; sleep 3; snap tested
 adb shell cmd statusbar expand-notifications; sleep 3; snap shade
 tapText "صلِّ على محمد"; sleep 6; snap voice
-sleep 8; tapText "إغلاق"; sleep 2
+sleep 8; adb shell input keyevent 4; sleep 2
 endrec tour4
 
 # ---- 5: the rain sound, then the app swiped away: nothing keeps sounding
