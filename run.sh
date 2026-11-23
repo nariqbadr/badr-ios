@@ -101,6 +101,8 @@ swipeaway() { # $1 label, $2 the screen to open, $3 the text to tap there: is th
 flow() { # $1 label: the first open after the update, as it happens (the intro, then What's New) — a frame every moment
   adb shell am force-stop $P; sleep 2
   adb shell am start -n $P/.MainActivity > /dev/null
+  # «تخطي» pressed early in the intro (the case where the home screen used to show for a moment first)
+  sleep 2.5; adb shell input tap 540 1780
   for i in $(seq -w 1 16); do timeout 10 adb exec-out screencap -p > "shots/flow_$1_$i.png"; done
   # «متابعة» at its end: it fades out to the home screen, and does not come again
   for n in 1 2 3 4 5 6 7 8 9 10; do adb shell input swipe 540 1500 540 500 600; sleep 0.8; done; sleep 1.5
