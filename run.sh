@@ -51,18 +51,8 @@ adb shell am start -W -n $P/.MainActivity > /dev/null; sleep 20
 setpref onboarded 1; setpref lang ar; setlong lat 4629159534621622691; setlong lng 4629503834813135166
 U=$(adb shell stat -c %u /data/data/$P | tr -d "\r"); adb shell "mkdir -p /data/data/$P/no_backup && touch /data/data/$P/no_backup/onboarded && chown -R $U:$U /data/data/$P/no_backup && restorecon -R /data/data/$P/no_backup"
 go() { adb shell am force-stop $P; timeout 40 adb shell am start -W -n $P/.MainActivity --ez shot true --es open "$1" > /dev/null; sleep ${2:-14}; }
-# home: the ayah of the day (scrolled to it)
-go home; for n in 1 2 3; do up 1.2; snap home$n; done
-tapText "التفسير"; sleep 5; snap tafsir
-# the surah page (al-Ikhlas, al-Kahf), the read-along page
-go "quran/112"; snap surah112; go "quran/18"; snap surah18; up 1.5; snap surah18b
-go readtrack 20; snap read; up 1.5; snap readb
-# the mushaf: an ayah tapped (its menu), the page's tafsir
-go mushaf; adb shell input tap 540 1000; sleep 4; snap mushafmenu; adb shell input keyevent 4; sleep 2
-tapText "scroll"; [ -z "$B" ] && adb shell input tap 70 300; sleep 5; snap mushaftafsir
-# the adhkar of sleep (al-Ikhlas with its numbers), and Ayat al-Kursi
-go adhkar; tapText "النوم"; sleep 3; snap adhkarsleep; tapText "الصباح"; sleep 3; snap adhkarmorning
-# the community's ayah card
-go community 20; snap community; up 1.5; snap community2
+go community 25; snap community; sleep 20; snap community_late
+go "quran/17" 25; snap surah17
+go community 15; snap community_after
 timeout 60 adb logcat -d -b crash > shots/crash.txt 2>&1 || true
 kill $GEO 2>/dev/null || true
