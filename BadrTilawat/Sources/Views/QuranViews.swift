@@ -156,7 +156,7 @@ enum AyahSearch {
             let kw = key(w)
             var part = AttributedString(w)
             if !ws.isEmpty && kw.count >= 2 && ws.contains(where: { kw.contains($0) || (kw.count >= 3 && $0.contains(kw)) }) {
-                part.foregroundColor = gold; part.backgroundColor = glow
+                part.foregroundColor = gold
             }
             out += part
         }
