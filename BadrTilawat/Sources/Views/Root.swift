@@ -88,7 +88,7 @@ struct RootView: View {
             else if intro && repo.data?.site.introOn != false { IntroView { withAnimation(.easeOut(duration: 0.5)) { intro = false } } }
             else if onboard { Onboarding { withAnimation { onboard = false } } }
             // «الجديد في بدر التلاوات» once after an update, then the dashboard's message (never both at once)
-            else if RootView.shot == "whatsnew" ? !wnDone : (!wnDone && RootView.shot == nil && WhatsNew.shouldShow(repo.data?.site, existing: wnExisting)) { WhatsNewView { go in wnDone = true; go?() } }
+            else if RootView.shot?.hasPrefix("whatsnew") == true ? !wnDone : (!wnDone && RootView.shot == nil && WhatsNew.shouldShow(repo.data?.site, existing: wnExisting)) { WhatsNewView { go in wnDone = true; go?() } }
             else if let s = repo.data?.site, RootView.shot == nil { AppMessages(site: s) }
         }
         .fullScreenCover(isPresented: $ui.playerOpen) { PlayerView() }

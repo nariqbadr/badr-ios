@@ -330,7 +330,24 @@ struct VoiceBox: View {
         let badr = prayers.voice(k) == "badr", playing = rv.playing == k
         VStack(alignment: .leading, spacing: 8) {
             Text(tr("الصوت")).font(F.plex(12.5)).foregroundStyle(c.faint.mix(c.muted, 0.5)).padding(.top, 4)
-            SegBar(items: [("default", tr("صوت الإشعار")), ("badr", tr("الشيخ بدر التركي"))], selected: prayers.voice(k)) { rv.stop(); prayers.setVoice(k, $0) }
+            // the notification sound, or the imam of the Grand Mosque in Makkah (his full title on two lines)
+            HStack(spacing: 2) {
+                ForEach(["default", "badr"], id: \.self) { v in
+                    let on = prayers.voice(k) == v
+                    Button { rv.stop(); prayers.setVoice(k, v) } label: {
+                        VStack(spacing: 1) {
+                            if v == "badr" {
+                                Text(tr("إمام الحرم المكي")).font(F.plex(10.5, .semibold)).foregroundStyle(on ? c.gold2 : c.faint.mix(c.muted, 0.5))
+                                Text(tr("الشيخ د. بدر بن محمد التركي")).font(F.plex(12.5, on ? .bold : .medium)).foregroundStyle(on ? c.text : c.muted)
+                            } else { Text(tr("صوت الإشعار")).font(F.plex(12.5, on ? .bold : .medium)).foregroundStyle(on ? c.text : c.muted) }
+                        }.lineLimit(1).minimumScaleFactor(0.75).padding(.horizontal, 6).padding(.vertical, 6)
+                        .frame(maxWidth: .infinity, minHeight: 36, maxHeight: .infinity)
+                        .background(RoundedRectangle(cornerRadius: 10).fill(on ? c.surface3.mix(c.gold, 0.08) : .clear))
+                        .overlay(RoundedRectangle(cornerRadius: 10).strokeBorder(on ? c.gold.opacity(0.28) : .clear))
+                        .contentShape(Rectangle())
+                    }.buttonStyle(.plain).frame(width: v == "badr" ? nil : 104)
+                }
+            }.fixedSize(horizontal: false, vertical: true).padding(3).background(RoundedRectangle(cornerRadius: 13).fill(Color.black.opacity(0.28)))
             HStack(spacing: 8) {
                 btn(playing ? tr("إيقاف") : tr("استماع"), playing ? "pause" : "play") { rv.toggle(k, badr: badr) }
                 btn(tr("تجربة الإشعار"), "bell") {

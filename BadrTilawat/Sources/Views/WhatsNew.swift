@@ -64,19 +64,23 @@ struct WhatsNewView: View {
         ZStack(alignment: .top) {
             c.bg.ignoresSafeArea()
             RadialGradient(colors: [c.gold.opacity(0.24), c.gold.opacity(0.05), .clear], center: .top, startRadius: 0, endRadius: 300).frame(height: 420).ignoresSafeArea()
+            ScrollViewReader { px in
             ScrollView {
                 VStack(spacing: 12) {
                     head
                     recitations(s)
                     reciters(s)
-                    if WhatsNew.card(s, "friday") { friday }
+                    if WhatsNew.card(s, "friday") { friday.id("friday") }
                     if WhatsNew.card(s, "salawat") { salawat }
-                    if WhatsNew.card(s, "mushaf") { mushaf }
+                    if WhatsNew.card(s, "mushaf") { mushaf.id("mushaf") }
                     if WhatsNew.card(s, "silent") && prayers.ringSilentAvailable { silent }
                     pair(s)
                     if WhatsNew.card(s, "colors") { colors }
                     GoldButton(title: tr("متابعة")) { leave() }.frame(maxWidth: .infinity).padding(.top, 8)
                 }.padding(.horizontal, 16).padding(.top, 32).padding(.bottom, 24)
+            }
+            // (screenshots) whatsnew2: the Friday and salawat cards · whatsnew3: the mushaf's verse
+            .onAppear { if let k = ["whatsnew2": "friday", "whatsnew3": "mushaf"][RootView.shot ?? ""] { DispatchQueue.main.asyncAfter(deadline: .now() + 1) { px.scrollTo(k, anchor: .top) } } }
             }
         }
         .opacity(shown).environment(\.layoutDirection, L.dir)
@@ -172,7 +176,7 @@ struct WhatsNewView: View {
             body(tr("تذكير بالصلاة على النبي ﷺ كل نصف ساعة أو كل ساعة أو كل ساعتين أو مرة في اليوم، على حسب اختيارك."))
             VStack(alignment: .leading, spacing: 6) {
                 Text(tr("عن أبي هريرة رضي الله عنه أن رسول الله ﷺ قال:")).font(F.plex(12)).foregroundStyle(c.muted)
-                Text(tr("«من صلّى عليَّ واحدةً صلّى الله عليه عشرًا»")).font(F.amiri(17, bold: false)).foregroundStyle(c.text).lineSpacing(10)
+                Text(rtlText(tr("«من صلّى عليَّ واحدةً صلّى الله عليه عشرًا»"))).font(F.amiri(17, bold: false)).foregroundStyle(c.text).lineSpacing(10)
                 Text(tr("رواه مسلم")).font(F.plex(12)).foregroundStyle(c.gold)
             }.padding(.horizontal, 16).padding(.vertical, 14).frame(maxWidth: .infinity, alignment: .leading)
                 .background(RoundedRectangle(cornerRadius: 16).fill(Color.black.opacity(0.2))).padding(.top, 10)
@@ -259,9 +263,9 @@ final class BandTextView: UITextView {
         isEditable = false; isSelectable = false; isScrollEnabled = false; backgroundColor = .clear
         textContainerInset = UIEdgeInsets(top: 4, left: 0, bottom: 4, right: 0); textContainer.lineFragmentPadding = 0
         let ink = UIColor(red: 0.16, green: 0.14, blue: 0.09, alpha: 1)
-        let pre = "وَٱلَّيۡلِ إِذَا عَسۡعَسَ \(ReadText.mark("١٧")) وَٱلصُّبۡحِ إِذَا تَنَفَّسَ \(ReadText.mark("١٨")) "
+        let pre = "وَٱلَّيۡلِ إِذَا عَسۡعَسَ \(ReadText.mark("١٧")) وَٱلصُّبۡحِ إِذَا تَنَفَّسَ \(ReadText.mark("١٨")) \u{2002}"
         let mid = "إِنَّهُۥ لَقَوۡلُ رَسُولࣲ كَرِيمࣲ \(ReadText.mark("١٩"))"
-        let post = " ذِي قُوَّةٍ عِندَ ذِي ٱلۡعَرۡشِ مَكِينࣲ \(ReadText.mark("٢٠"))"
+        let post = "\u{2002} ذِي قُوَّةٍ عِندَ ذِي ٱلۡعَرۡشِ مَكِينࣲ \(ReadText.mark("٢٠"))"
         let ps = NSMutableParagraphStyle(); ps.alignment = .center; ps.baseWritingDirection = .rightToLeft; ps.lineSpacing = 12
         let font = UIFont(name: "AmiriQuran-Regular", size: 18) ?? .systemFont(ofSize: 18)
         let soft: [NSAttributedString.Key: Any] = [.font: font, .paragraphStyle: ps, .foregroundColor: ink.withAlphaComponent(0.55)]
@@ -283,8 +287,9 @@ final class BandTextView: UITextView {
         let path = UIBezierPath()
         layoutManager.enumerateEnclosingRects(forGlyphRange: g, withinSelectedGlyphRange: NSRange(location: NSNotFound, length: 0), in: textContainer) { r, _ in
             guard r.width > 1 else { return }
-            let f = r.offsetBy(dx: self.textContainerInset.left, dy: self.textContainerInset.top).insetBy(dx: -6, dy: 0)
-            let h: CGFloat = 32, box = CGRect(x: f.minX, y: f.midY - h / 2 + 1, width: f.width, height: h)
+            // a little more room on the right, where the ayah starts (its first letter's marks reach out past it)
+            let f = r.offsetBy(dx: self.textContainerInset.left, dy: self.textContainerInset.top)
+            let h: CGFloat = 32, box = CGRect(x: f.minX - 8, y: f.midY - h / 2 + 1, width: f.width + 19, height: h)
             path.append(UIBezierPath(roundedRect: box, cornerRadius: 9))
         }
         band.frame = bounds; band.path = path.cgPath

@@ -86,7 +86,7 @@ struct FridayView: View {
         HStack(spacing: 14) {
             VStack(alignment: .leading, spacing: 4) {
                 Text(tr("سنن يوم الجمعة")).font(F.amiri(28)).foregroundStyle(c.text)
-                Text(tr("«خيرُ يومٍ طلعت عليه الشمسُ يومُ الجمعة»")).font(F.amiri(16, bold: false)).foregroundStyle(c.gold2).lineSpacing(6)
+                Text(rtlText(tr("«خيرُ يومٍ طلعت عليه الشمسُ يومُ الجمعة»"))).font(F.amiri(16, bold: false)).foregroundStyle(c.gold2).lineSpacing(6)
                 Text(tr("رواه مسلم")).font(F.plex(11.5)).foregroundStyle(c.faint.mix(c.muted, 0.5))
                 if !Friday.isFriday(now) {
                     let d = Calendar.current.dateComponents([.day], from: Calendar.current.startOfDay(for: now), to: Calendar.current.startOfDay(for: Friday.nextFriday(now))).day ?? 1
@@ -136,8 +136,8 @@ struct FridayView: View {
                     }
                     if !s.hadith.isEmpty {
                         VStack(alignment: .leading, spacing: 6) {
-                            if !s.rawi.isEmpty { Text(s.rawi).font(F.plex(12)).foregroundStyle(c.muted).lineSpacing(4) }
-                            Text("«\(s.hadith)»").font(F.amiri(17, bold: false)).foregroundStyle(c.text).lineSpacing(10)
+                            if !s.rawi.isEmpty { Text(rtlText(s.rawi)).font(F.plex(12)).foregroundStyle(c.muted).lineSpacing(4) }
+                            Text(rtlText("«\(s.hadith)»")).font(F.amiri(17, bold: false)).foregroundStyle(c.text).lineSpacing(10)
                             Text(s.src).font(F.plex(11.5)).foregroundStyle(c.gold)
                         }.padding(.horizontal, 14).padding(.vertical, 12).frame(maxWidth: .infinity, alignment: .leading)
                             .background(RoundedRectangle(cornerRadius: 14).fill(Color.black.opacity(0.22))).padding(.top, 12)
@@ -187,8 +187,8 @@ struct FadailView: View {
                     let hero = i == 0, txt = "\(v.rawi) «\(v.hadith)»\n\(v.src)"
                     VStack(alignment: .leading, spacing: 10) {
                         HStack(spacing: 10) { Rectangle().fill(c.gold).frame(width: 18, height: 1.5); Text(v.title).font(F.plex(13.5, .bold)).foregroundStyle(c.gold2) }
-                        if !v.rawi.isEmpty { Text(v.rawi).font(F.plex(12.5)).foregroundStyle(c.muted).lineSpacing(5) }
-                        Text("«\(v.hadith)»").font(F.amiri(hero ? 20 : 18, bold: false)).foregroundStyle(c.text).lineSpacing(hero ? 14 : 14)
+                        if !v.rawi.isEmpty { Text(rtlText(v.rawi)).font(F.plex(12.5)).foregroundStyle(c.muted).lineSpacing(5) }
+                        Text(rtlText("«\(v.hadith)»")).font(F.amiri(hero ? 20 : 18, bold: false)).foregroundStyle(c.text).lineSpacing(hero ? 14 : 14)
                         VStack(spacing: 0) {
                             Rectangle().fill(c.text.opacity(0.07)).frame(height: 1)
                             HStack(spacing: 0) {
