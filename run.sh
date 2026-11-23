@@ -52,9 +52,23 @@ setpref onboarded 1; setpref lang ar; setlong lat 4629159534621622691; setlong l
 U=$(adb shell stat -c %u /data/data/$P | tr -d "\r"); adb shell "mkdir -p /data/data/$P/no_backup && touch /data/data/$P/no_backup/onboarded && chown -R $U:$U /data/data/$P/no_backup && restorecon -R /data/data/$P/no_backup"
 go() { adb shell am force-stop $P; timeout 40 adb shell am start -W -n $P/.MainActivity --ez shot true --es open "$1" > /dev/null; sleep ${2:-14}; }
 adb logcat -c
-adb logcat -c; (adb logcat -v time > shots/live.txt 2>&1 &)
-rec clip 170; go clipsave 160; snap clipsave; endrec clip
-adb shell dumpsys meminfo com.bawazirquran.app | head -12 > shots/mem.txt
+# the same clip export on 2.10.89 (old.apk): tap «تصدير» by hand on both
+cliptest() { # $1 name
+  go clip 40; snap ${1}_open
+  tapText "تصدير"; sleep 3; snap ${1}_t3
+  sleep 60; snap ${1}_t60
+  sleep 60; snap ${1}_t120
+}
+adb logcat -c; (adb logcat -v time > shots/live_new.txt 2>&1 &)
+cliptest new
+pkill -f "adb logcat" || true
+adb uninstall $P; adb install -r old.apk > shots/install_old.txt 2>&1; perms
+adb shell am start -W -n $P/.MainActivity > /dev/null; sleep 20
+setpref onboarded 1; setpref lang ar; setlong lat 4629159534621622691; setlong lng 4629503834813135166
+U=$(adb shell stat -c %u /data/data/$P | tr -d "\r"); adb shell "mkdir -p /data/data/$P/no_backup && touch /data/data/$P/no_backup/onboarded && chown -R $U:$U /data/data/$P/no_backup && restorecon -R /data/data/$P/no_backup"
+adb logcat -c; (adb logcat -v time > shots/live_old.txt 2>&1 &)
+cliptest old
+pkill -f "adb logcat" || true
 timeout 60 adb logcat -d > shots/logcat_all.txt 2>&1 || true
 timeout 60 adb logcat -d -b crash > shots/crash.txt 2>&1 || true
 kill $GEO 2>/dev/null || true
