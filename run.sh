@@ -61,11 +61,14 @@ cliptest() { # $1 tag
   endrec rec_$1
   pkill -f "adb logcat" || true
 }
-setup new.apk new
-adb logcat -c; (adb logcat -v time > shots/live_long.txt 2>&1 &)
-go clipshort 30; snap L0
-for k in $(seq 1 14); do sleep 55; snap L$k; adb shell "ls -la /sdcard/Movies/*/ 2>/dev/null; ls -la /data/data/$P/cache 2>/dev/null | tail -3" > shots/files_$k.txt; done
-pkill -f "adb logcat" || true
+setup old.apk old
+adb shell cat /data/data/$P/shared_prefs/badr.xml > shots/prefs_old_before.txt; adb shell ls /data/data/$P/shared_prefs > shots/prefs_files.txt
+setpref theme maroon
+adb shell am start -W -n $P/.MainActivity > /dev/null; sleep 20; snap old_maroon
+adb install -r new.apk > shots/upgrade.txt 2>&1
+adb shell am start -W -n $P/.MainActivity > /dev/null; sleep 25; snap new_after_upgrade
+adb shell am force-stop $P; adb shell am start -W -n $P/.MainActivity > /dev/null; sleep 20; snap new_restart
+adb shell cat /data/data/$P/shared_prefs/badr.xml > shots/prefs_new_after.txt
 timeout 60 adb logcat -d > shots/logcat_all.txt 2>&1 || true
 timeout 60 adb logcat -d -b crash > shots/crash.txt 2>&1 || true
 kill $GEO 2>/dev/null || true
