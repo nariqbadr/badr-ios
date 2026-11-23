@@ -41,7 +41,7 @@ enum WhatsNew {
         // «الفجريات» for Shuraim (unless a collection of them is already shown) and «تلاوات مختارة» for Bandar Baleela: their pages
         if !out.contains(where: { $0.title.contains("فجر") }) {
             let r = all.first { $0.name.contains("الشريم") }
-            out.append(Tile(id: "shuraim", title: tr("الفجريات"), sub: bare(r?.shown ?? tr("سعود بن إبراهيم الشريم")), image: nil, asset: "WNShuraim") { UIState.shared?.go(r.map { .reciter($0.id) } ?? .recitations) })
+            out.append(Tile(id: "shuraim", title: tr("فجريات وتلاوات مختارة"), sub: bare(r?.shown ?? tr("سعود بن إبراهيم الشريم")), image: nil, asset: "WNShuraim") { UIState.shared?.go(r.map { .reciter($0.id) } ?? .recitations) })
         }
         let b = all.first { $0.name.contains("بليلة") }
         out.append(Tile(id: "baleela", title: tr("تلاوات مختارة"), sub: bare(b?.shown ?? tr("بندر بن عبدالعزيز بليلة")), image: nil, asset: "WNBaleela") { UIState.shared?.go(b.map { .reciter($0.id) } ?? .recitations) })
@@ -146,7 +146,7 @@ struct WhatsNewView: View {
                 LinearGradient(stops: [.init(color: .clear, location: 0.35), .init(color: .black.opacity(0.88), location: 1)], startPoint: .top, endPoint: .bottom)
                 HStack(alignment: .bottom, spacing: 8) {
                     VStack(alignment: .leading, spacing: 0) {
-                        Text(t.title).font(F.amiri(big ? 20 : 18)).foregroundStyle(.white).lineLimit(1)
+                        Text(t.title).font(F.amiri(big ? 20 : 17)).foregroundStyle(.white).lineLimit(big ? 1 : 2)
                         Text(t.sub).font(F.plex(11.5)).foregroundStyle(.white.opacity(0.78)).lineLimit(1)
                     }
                     Spacer(minLength: 0)
