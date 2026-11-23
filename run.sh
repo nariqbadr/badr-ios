@@ -53,9 +53,12 @@ U=$(adb shell stat -c %u /data/data/$P | tr -d "\r"); adb shell "mkdir -p /data/
 go() { adb shell am force-stop $P; timeout 40 adb shell am start -W -n $P/.MainActivity --ez shot true --es open "$1" > /dev/null; sleep ${2:-14}; }
 adb logcat -c
 go quranSearch 25; snap search; up; snap search2
-go adhkar 20; tapText "المساء"; sleep 3; snap evening; cp /tmp/ui.xml shots/ui_ev.xml
-adb shell input tap 540 1515; sleep 2; snap evtap1; timeout 30 adb shell uiautomator dump /sdcard/ui.xml; adb pull /sdcard/ui.xml shots/ui_ev2.xml
-for i in 1 2 3 4 5 6 7 8 9; do tapText "اضغط"; sleep 1.3; done; sleep 1; snap evening5
+go adhkar 20; tapText "المساء"; sleep 3
+for i in $(seq 10); do tapText "اضغط"; sleep 1.2; done; sleep 1; snap ev4
+tapText "اضغط"; sleep 1.2; sleep 1; snap ev5
+for i in $(seq 20); do tapText "اضغط"; sleep 1.2; done; sleep 1; snap ev12
+for i in $(seq 6); do tapText "اضغط"; sleep 1.2; done; sleep 1; snap ev14
+tapText "الصباح"; sleep 3; for i in $(seq 10); do tapText "اضغط"; sleep 1.2; done; sleep 1; snap mo4
 timeout 60 adb logcat -d > shots/logcat_all.txt 2>&1 || true
 timeout 60 adb logcat -d -b crash > shots/crash.txt 2>&1 || true
 kill $GEO 2>/dev/null || true
