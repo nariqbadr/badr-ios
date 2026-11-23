@@ -266,7 +266,7 @@ final class BandTextView: UITextView {
         textContainerInset = UIEdgeInsets(top: 4, left: 0, bottom: 4, right: 0); textContainer.lineFragmentPadding = 0
         let ink = UIColor(red: 0.16, green: 0.14, blue: 0.09, alpha: 1)
         let pre = "وَٱلَّيۡلِ إِذَا عَسۡعَسَ \(ReadText.mark("١٧")) وَٱلصُّبۡحِ إِذَا تَنَفَّسَ \(ReadText.mark("١٨")) \u{2002}"
-        let mid = "إِنَّهُۥ لَقَوۡلُ رَسُولࣲ كَرِيمࣲ \(ReadText.mark("١٩"))".replacingOccurrences(of: " ", with: "\u{00A0}")  // one line: one band, as wide as the ayah
+        let mid = "إِنَّهُۥ لَقَوۡلُ رَسُولࣲ كَرِيمࣲ \(ReadText.mark("١٩"))"
         let post = "\u{2002} ذِي قُوَّةٍ عِندَ ذِي ٱلۡعَرۡشِ مَكِينࣲ \(ReadText.mark("٢٠"))"
         let ps = NSMutableParagraphStyle(); ps.alignment = .center; ps.baseWritingDirection = .rightToLeft; ps.lineSpacing = 12
         let font = UIFont(name: "AmiriQuran-Regular", size: 18) ?? .systemFont(ofSize: 18)
