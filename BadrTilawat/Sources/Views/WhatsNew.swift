@@ -68,8 +68,8 @@ struct WhatsNewView: View {
     @State private var leaving = false
     @State private var ringSilent = false
     /// the new recitations' row: where it started, how far it has been dragged (0…1), its width
-    @State private var rowX0: CGFloat?
-    @State private var rowProg: CGFloat = 0
+    @State private var rowScroll: CGFloat = 0
+    @State private var rowDrag: CGFloat = 0
     @State private var rowW: CGFloat = 0
 
     private func leave(_ go: (() -> Void)? = nil) {
@@ -134,24 +134,34 @@ struct WhatsNewView: View {
                 VStack(alignment: .leading, spacing: 6) {
                     eyebrow(tr("تلاوات جديدة")); Text(tr("أُضيفت إلى التلاوات")).font(F.amiri(26)).foregroundStyle(c.text)
                 }.padding(.horizontal, 20).padding(.top, 20)
-                ScrollView(.horizontal, showsIndicators: false) {
-                    // where the first poster is on the screen (screen points: the row's own space does not move in Arabic)
-                    HStack(alignment: .top, spacing: 10) {
-                        ForEach(Array(tiles.enumerated()), id: \.element.id) { i, t in
-                            poster(t).background { if i == 0 { GeometryReader { g in Color.clear.preference(key: RowX.self, value: g.frame(in: .global).minX) } } }
+                // the row is moved by the app itself (its own drag, snapped to a poster), so the dots always know where it is.
+                // It is laid out left to right; in Arabic the posters are reversed and the first one starts at the right.
+                let maxS = max(0, contentW - rowW), step: CGFloat = 160
+                let shown = min(maxS, max(0, rowScroll + rowDrag))
+                let order = L.rtl ? Array(tiles.reversed()) : tiles
+                HStack(alignment: .top, spacing: 10) { ForEach(order) { t in poster(t).environment(\.layoutDirection, L.dir) } }
+                    .padding(.horizontal, 20).fixedSize()
+                    .offset(x: L.rtl ? (rowW - contentW) + shown : -shown)
+                    .frame(maxWidth: .infinity, alignment: .leading).clipped()
+                    .environment(\.layoutDirection, .leftToRight)
+                    .background(GeometryReader { g in Color.clear.onAppear { rowW = g.size.width }.onChange(of: g.size.width) { rowW = $0 } })
+                    .contentShape(Rectangle())
+                    .simultaneousGesture(DragGesture(minimumDistance: 12)
+                        .onChanged { v in
+                            guard abs(v.translation.width) > abs(v.translation.height) else { return }
+                            rowDrag = L.rtl ? v.translation.width : -v.translation.width
                         }
-                    }.padding(.horizontal, 20)
-                }
-                .background(GeometryReader { g in Color.clear.onAppear { rowW = g.size.width }.onChange(of: g.size.width) { rowW = $0 } })
-                .onPreferenceChange(RowX.self) { x in
-                    if rowX0 == nil { rowX0 = x }
-                    let max = contentW - rowW
-                    rowProg = max > 1 ? min(1, abs(x - (rowX0 ?? x)) / max) : -1
-                }
-                .padding(.top, 10)
+                        .onEnded { v in
+                            let moved = L.rtl ? v.predictedEndTranslation.width : -v.predictedEndTranslation.width
+                            let target = abs(v.translation.width) > abs(v.translation.height) ? rowScroll + moved : rowScroll
+                            withAnimation(.spring(response: 0.38, dampingFraction: 0.86)) {
+                                rowScroll = min(maxS, max(0, (target / step).rounded() * step)); rowDrag = 0
+                            }
+                        })
+                    .padding(.top, 10)
                 // the dots: which part of the row is in sight (none when it all fits)
-                if rowW > 0 && contentW - rowW > 1 {
-                    let on = Int((rowProg * CGFloat(n - 1)).rounded())
+                if rowW > 0 && maxS > 1 {
+                    let on = Int((shown / maxS * CGFloat(n - 1)).rounded())
                     HStack(spacing: 5) {
                         ForEach(0..<n, id: \.self) { i in Capsule().fill(i == on ? c.gold : c.text.opacity(0.25)).frame(width: i == on ? 16 : 5, height: 5) }
                     }.frame(maxWidth: .infinity).padding(.top, 6).animation(.easeOut(duration: 0.2), value: on)
@@ -343,7 +353,3 @@ final class BandTextView: UITextView {
     }
 }
 
-private struct RowX: PreferenceKey {
-    static var defaultValue: CGFloat = 0
-    static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) { value = nextValue() }
-}
