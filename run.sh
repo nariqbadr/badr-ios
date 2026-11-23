@@ -52,13 +52,12 @@ setpref onboarded 1; setpref lang ar; setlong lat 4629159534621622691; setlong l
 U=$(adb shell stat -c %u /data/data/$P | tr -d "\r"); adb shell "mkdir -p /data/data/$P/no_backup && touch /data/data/$P/no_backup/onboarded && chown -R $U:$U /data/data/$P/no_backup && restorecon -R /data/data/$P/no_backup"
 go() { adb shell am force-stop $P; timeout 40 adb shell am start -W -n $P/.MainActivity --ez shot true --es open "$1" > /dev/null; sleep ${2:-14}; }
 adb logcat -c
-go quranSearch 25; snap search; up; snap search2
-go adhkar 20; tapText "المساء"; sleep 3
-for i in $(seq 10); do tapText "اضغط"; sleep 1.2; done; sleep 1; snap ev4
-tapText "اضغط"; sleep 1.2; sleep 1; snap ev5
-for i in $(seq 20); do tapText "اضغط"; sleep 1.2; done; sleep 1; snap ev12
-for i in $(seq 6); do tapText "اضغط"; sleep 1.2; done; sleep 1; snap ev14
-tapText "الصباح"; sleep 3; for i in $(seq 10); do tapText "اضغط"; sleep 1.2; done; sleep 1; snap mo4
+go quranSearch 25; snap search
+go adhkar 20; tapText "المساء"; sleep 3; snap ev0
+adb shell input tap 540 700; sleep 1.5; snap evcard
+for i in $(seq 9); do tapText "اضغط"; sleep 1.2; done; sleep 1; snap ev4
+tapText "النوم"; sleep 3; snap sl0
+tapText "الصباح"; sleep 3; snap mo0
 timeout 60 adb logcat -d > shots/logcat_all.txt 2>&1 || true
 timeout 60 adb logcat -d -b crash > shots/crash.txt 2>&1 || true
 kill $GEO 2>/dev/null || true
