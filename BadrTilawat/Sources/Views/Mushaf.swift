@@ -105,6 +105,9 @@ struct MushafView: View {
         .modifier(FollowMark())
         .task {
             if !ready { await Task.detached { MushafData.load() }.value; ready = true }
+            // an ayah opened from the search: lit on its page
+            let hi = UserDefaults.standard.integer(forKey: "mushafHi")
+            if (1...6236).contains(hi) { UserDefaults.standard.removeObject(forKey: "mushafHi"); followG = hi }
             // the simulator's screenshots (BZ_HI="page:ayah index on that page:size"): an ayah lit as while reading along
             if let v = ProcessInfo.processInfo.environment["BZ_HI"]?.split(separator: ":").compactMap({ Double($0) }), v.count == 3 {
                 size = v[2]; page = Int(v[0]); try? await Task.sleep(nanoseconds: 1_500_000_000); followG = MushafData.firstG(Int(v[0])) + Int(v[1])

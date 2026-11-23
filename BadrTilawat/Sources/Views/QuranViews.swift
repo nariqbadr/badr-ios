@@ -1,16 +1,20 @@
 import SwiftUI
 
-/// «القرآن»: the mushaf, read-and-listen and the surah index in one place (like the Android app).
+/// «القرآن»: the mushaf, read-and-listen and the surah index in one place (like the Android app). A surah opens in the mushaf at
+/// its first page; the search finds surahs by name or number and ayahs by their words (every ayah that has them, with its surah).
 struct QuranView: View {
     /* UI actions only: reading it does not redraw this view on every tab or sheet change */ private var ui: UIState { UIState.shared! }
     @EnvironmentObject var repo: Repo
     @Environment(\.pal) private var c
     @State private var q = ""
+    @State private var found: [Int]?
     var body: some View {
         let mus = repo.data?.site.sec("mushaf") != false
         let last = Store.shared.str("lastRead").split(separator: ":").compactMap { Int($0) }
+        let tq = q.trimmingCharacters(in: .whitespaces)
+        let list = Array(Quran.surahs.enumerated()).filter { q.isEmpty || QuranMeta.norm($0.element).contains(QuranMeta.norm(tq)) || "\($0.offset + 1)" == tq }
         ScrollView {
-            VStack(alignment: .leading, spacing: 0) {
+            LazyVStack(alignment: .leading, spacing: 0) {
                 if q.isEmpty {
                     if mus {
                         HStack(spacing: 10) {
@@ -31,19 +35,107 @@ struct QuranView: View {
                     }
                 }
                 SectionHead(title: tr("فهرس السور"), kicker: tr("١١٤ سورة"))
-                SearchField(text: $q, hint: tr("ابحث عن سورة باسمها أو رقمها")).padding(.horizontal, 16).padding(.vertical, 4)
-                ForEach(Array(Quran.surahs.enumerated()).filter { q.isEmpty || QuranMeta.norm($0.element).contains(QuranMeta.norm(q.trimmingCharacters(in: .whitespaces))) || "\($0.offset + 1)" == q.trimmingCharacters(in: .whitespaces) }, id: \.offset) { i, n in
+                SearchField(text: $q, hint: tr("ابحث عن سورة أو آية")).padding(.horizontal, 16).padding(.vertical, 4)
+                if !q.isEmpty && !list.isEmpty && found?.isEmpty == false {
+                    Text(tr("السور")).font(F.plex(13, .bold)).foregroundStyle(c.gold).padding(.horizontal, 20).padding(.top, 10)
+                }
+                ForEach(list, id: \.offset) { i, n in
                     HStack(spacing: 14) {
                         SurahMedal(n: i + 1, size: 44)
                         VStack(alignment: .leading, spacing: 0) { Text(tr("سورة {0}", n)).font(F.amiri(20, bold: false)).foregroundStyle(c.text); Text(tr("{0} آية · صفحة {1}", Quran.ayahs[i].ar, Quran.surahPage[i].ar)).font(F.plex(12.5)).foregroundStyle(c.muted) }
                         Spacer()
-                        if mus { Button { UserDefaults.standard.set(Quran.surahPage[i], forKey: "mushafPage"); ui.path.append(.mushaf) } label: { SiteIcon(name: "book", size: 22, color: c.faint).frame(width: 44, height: 44) }.buttonStyle(.plain).accessibilityLabel(tr("افتح في المصحف")) }
+                        SiteIcon(name: L.rtl ? "chev-l" : "chev-r", size: 20, color: c.faint.mix(c.muted, 0.5))
                     }
                     .padding(.horizontal, 18).padding(.vertical, 10).contentShape(Rectangle())
-                    .onTapGesture { ui.path.append(.surah(i + 1)) }
+                    .onTapGesture {
+                        if mus { UserDefaults.standard.set(Quran.surahPage[i], forKey: "mushafPage"); ui.path.append(.mushaf) } else { ui.path.append(.surah(i + 1)) }
+                    }
+                }
+                // the ayahs found
+                if let f = found {
+                    HStack {
+                        Text(tr("في الآيات")).font(F.plex(13, .bold)).foregroundStyle(c.gold)
+                        Spacer()
+                        Text(f.isEmpty ? tr("لا توجد آية بهذه الكلمات") : f.count >= AyahSearch.limit ? tr("أكثر من {0} آية", AyahSearch.limit.ar) : tr("{0} آية", f.count.ar)).font(F.plex(12)).foregroundStyle(c.muted)
+                    }.padding(.horizontal, 20).padding(.top, 18).padding(.bottom, 6)
+                    ForEach(f, id: \.self) { g in AyahHit(g: g) }
+                    if f.count >= AyahSearch.limit {
+                        Text(tr("اكتب كلمات أكثر لتضييق البحث")).font(F.plex(12)).foregroundStyle(c.muted).frame(maxWidth: .infinity).padding(.top, 6)
+                    }
                 }
             }.padding(.bottom, 24)
         }
+        // (screenshots) the search with words found in several ayahs
+        .onAppear { if RootView.shot == "quranSearch" && q.isEmpty { q = "الحي القيوم" } }
+        // the ayahs with these words (a moment after the typing stops)
+        .task(id: q) {
+            found = nil
+            guard AyahSearch.key(q).replacingOccurrences(of: " ", with: "").count >= 2 else { return }
+            try? await Task.sleep(nanoseconds: 250_000_000)
+            if Task.isCancelled { return }
+            let query = q
+            let r = await Task.detached(priority: .userInitiated) { AyahSearch.find(query) }.value
+            if !Task.isCancelled { found = r }
+        }
+    }
+}
+
+/// An ayah found: its surah and number, its page and juz, the ayah as printed; a tap opens it lit in the mushaf.
+struct AyahHit: View {
+    let g: Int
+    /* UI actions only */ private var ui: UIState { UIState.shared! }
+    @Environment(\.pal) private var c
+    var body: some View {
+        let (s, a) = MushafData.sa(g), p = MushafData.pageOf(g)
+        Button {
+            UserDefaults.standard.set(p, forKey: "mushafPage"); UserDefaults.standard.set(g, forKey: "mushafHi"); ui.path.append(.mushaf)
+        } label: {
+            VStack(alignment: .leading, spacing: 0) {
+                HStack(spacing: 10) {
+                    SurahMedal(n: s, size: 34)
+                    VStack(alignment: .leading, spacing: 0) {
+                        Text(tr("سورة {0}", Quran.surahs[s - 1])).font(F.amiri(17)).foregroundStyle(c.text)
+                        Text(tr("الآية {0} · صفحة {1} · الجزء {2}", a.ar, p.ar, MushafData.juzOf(g).ar)).font(F.plex(11.5)).foregroundStyle(c.muted).lineLimit(1)
+                    }
+                    Spacer(minLength: 4)
+                    SiteIcon(name: "book", size: 18, color: c.gold)
+                }
+                Rectangle().fill(c.text.opacity(0.07)).frame(height: 1).padding(.vertical, 10)
+                Text(rtlText(MushafData.text(g) + " " + MushafData.endMark(g))).font(.custom(MushafData.font, size: 21)).foregroundStyle(c.text)
+                    .lineSpacing(12).lineLimit(5).multilineTextAlignment(.leading).frame(maxWidth: .infinity, alignment: .leading)
+            }
+            .padding(.horizontal, 16).padding(.vertical, 14)
+            .background(RoundedRectangle(cornerRadius: 20).fill(LinearGradient(colors: [c.surface2, c.surface], startPoint: .top, endPoint: .bottom)))
+            .overlay(RoundedRectangle(cornerRadius: 20).strokeBorder(c.gold.opacity(0.18)))
+        }.buttonStyle(Press(scale: 0.98)).padding(.horizontal, 16).padding(.vertical, 5)
+    }
+}
+
+/// The ayahs' words, made plain once (no marks, one alef-less spelling) so a search finds an ayah however its words are typed.
+enum AyahSearch {
+    static let limit = 60
+    nonisolated(unsafe) private static var idx: [String]?
+    private static let lock = NSLock()
+    private static let marks = try! NSRegularExpression(pattern: "[\\u0610-\\u061A\\u064B-\\u065F\\u0670\\u06D6-\\u06ED\\u0640\\u0660-\\u0669\\u06F0-\\u06F9\\u06DD\\u06DE\\u06E9]")
+    /// letters only: no marks or numbers, one form of each letter, and no alef at all (the mushaf writes many words without it)
+    static func key(_ t: String) -> String {
+        var s = marks.stringByReplacingMatches(in: t, range: NSRange(t.startIndex..., in: t), withTemplate: "")
+        for ch in ["أ", "إ", "آ", "ٱ", "ا"] { s = s.replacingOccurrences(of: ch, with: "") }
+        s = s.replacingOccurrences(of: "ى", with: "ي").replacingOccurrences(of: "ة", with: "ه").replacingOccurrences(of: "ؤ", with: "و").replacingOccurrences(of: "ئ", with: "ي")
+        return s.split(whereSeparator: { $0.isWhitespace }).joined(separator: " ")
+    }
+    private static func build() -> [String] {
+        MushafData.load()
+        var b = Array(repeating: "", count: 6237)
+        for pg in MushafData.pages { for l in pg { if case .words(let segs) = l { for x in segs where (1...6236).contains(x.g) { b[x.g] += " " + x.text } } } }
+        return b.map { " " + key($0) + " " }
+    }
+    static func find(_ q: String) -> [Int] {
+        lock.lock(); let i = idx ?? build(); idx = i; lock.unlock()
+        let k = key(q); guard k.replacingOccurrences(of: " ", with: "").count >= 2 else { return [] }
+        var out: [Int] = []
+        for g in 1...6236 where i[g].contains(k) { out.append(g); if out.count >= limit { break } }
+        return out
     }
 }
 

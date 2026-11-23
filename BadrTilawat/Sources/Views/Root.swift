@@ -171,6 +171,7 @@ struct RootView: View {
         case "liveMd": ui.path = [.liveAt("md")]
         case "lang": ui.sheet = .lang
         case "prayerSettings": ui.sheet = .prayer
+        case "quranSearch": ui.go(.quran)
         case "prayerRemind": Prayers.shared.setMode("qiyam", "notify"); ui.sheet = .prayer
         case "adhan": ui.adhan = AdhanKey(key: "fajr")
         default: if let t = Route.tab(r) { ui.go(t) }
