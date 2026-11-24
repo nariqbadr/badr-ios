@@ -104,7 +104,7 @@ struct AyahHit: View {
                     SiteIcon(name: "book", size: 18, color: c.gold)
                 }
                 Rectangle().fill(c.text.opacity(0.07)).frame(height: 1).padding(.vertical, 10)
-                Text(AyahSearch.marked(g, q, gold: c.gold2, glow: c.gold.opacity(0.14))).font(.custom(MushafData.font, size: 21)).foregroundStyle(c.text)
+                Text(AyahSearch.marked(g, q, gold: c.gold2, glow: c.gold.opacity(0.14), dim: c.text.opacity(0.5))).font(.custom(MushafData.font, size: 21)).foregroundStyle(c.text)
                     .lineSpacing(12).lineLimit(5).multilineTextAlignment(.leading).frame(maxWidth: .infinity, alignment: .leading)
             }
             .padding(.horizontal, 16).padding(.vertical, 14)
@@ -124,7 +124,7 @@ enum AyahSearch {
     static func key(_ t: String) -> String {
         var s = marks.stringByReplacingMatches(in: t, range: NSRange(t.startIndex..., in: t), withTemplate: "")
         for ch in ["أ", "إ", "آ", "ٱ", "ا"] { s = s.replacingOccurrences(of: ch, with: "") }
-        s = s.replacingOccurrences(of: "ى", with: "ي").replacingOccurrences(of: "ة", with: "ه").replacingOccurrences(of: "ؤ", with: "و").replacingOccurrences(of: "ئ", with: "ي")
+        s = s.replacingOccurrences(of: "ى", with: "ي").replacingOccurrences(of: "ة", with: "ه").replacingOccurrences(of: "ئ", with: "ي")
         return s.split(whereSeparator: { $0.isWhitespace }).joined(separator: " ")
     }
     private static func build() -> [String] {
@@ -148,16 +148,17 @@ enum AyahSearch {
         return out
     }
     /// the ayah as printed, the words that answer the search in gold
-    static func marked(_ g: Int, _ q: String, gold: Color, glow: Color) -> AttributedString {
+    static func marked(_ g: Int, _ q: String, gold: Color, glow: Color, dim: Color? = nil) -> AttributedString {
         let ws = words(q)
+        let all = MushafData.text(g).split(separator: " ").map(String.init)
+        func hit(_ w: String) -> Bool { let kw = key(w); return !ws.isEmpty && kw.count >= 2 && ws.contains(where: { kw.contains($0) || (kw.count >= 3 && $0.contains(kw)) }) }
+        // the found words in the accent, the others a little faded: seen in every theme (the silver ones have a white accent)
+        let any = all.contains(where: hit)
         var out = AttributedString("\u{202B}")
-        for (n, w) in MushafData.text(g).split(separator: " ").map(String.init).enumerated() {
+        for (n, w) in all.enumerated() {
             if n > 0 { out += AttributedString(" ") }
-            let kw = key(w)
             var part = AttributedString(w)
-            if !ws.isEmpty && kw.count >= 2 && ws.contains(where: { kw.contains($0) || (kw.count >= 3 && $0.contains(kw)) }) {
-                part.foregroundColor = gold
-            }
+            if hit(w) { part.foregroundColor = gold } else if any, let dim { part.foregroundColor = dim }
             out += part
         }
         out += AttributedString(" " + MushafData.endMark(g) + "\u{202C}")
@@ -361,7 +362,7 @@ struct MushafSearch: View {
                                 }
                                 Spacer()
                             }.padding(.horizontal, 20).padding(.vertical, 8).contentShape(Rectangle())
-                        }.buttonStyle(.plain)
+                        }.buttonStyle(.plain).id("s\(i)")
                     }
                     if let f = found {
                         HStack {
@@ -369,7 +370,7 @@ struct MushafSearch: View {
                             Spacer()
                             Text(f.isEmpty ? tr("لا توجد آية بهذه الكلمات") : f.count >= AyahSearch.limit ? tr("أكثر من {0} آية", AyahSearch.limit.ar) : tr("{0} آية", f.count.ar)).font(F.plex(12)).foregroundStyle(c.muted)
                         }.padding(.horizontal, 20).padding(.top, 14).padding(.bottom, 4)
-                        ForEach(f, id: \.self) { g in AyahHit(g: g, q: q) { go(MushafData.pageOf(g), g) } }
+                        ForEach(f, id: \.self) { g in AyahHit(g: g, q: q) { go(MushafData.pageOf(g), g) }.id("a\(g)") }
                     }
                 }.padding(.top, 6).padding(.bottom, 24)
             }
