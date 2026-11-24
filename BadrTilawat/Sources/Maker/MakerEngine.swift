@@ -47,8 +47,14 @@ final class MakerContext: @unchecked Sendable {
     var tafsir: [Int: String] = [:]
     var videoFrames = MakerVideoFrames()
     func quranFont(_ s: CGFloat) -> UIFont { UIFont(name: quranFontName, size: s) ?? ClipEngine.font("amiri", s) }
+    /// fonts uploaded in the dashboard for the names (family → its registered PostScript name)
+    var nameFontNames: [String: String] = [:]
     func nameFont(_ k: String, _ s: CGFloat) -> UIFont {
-        switch k { case "amiri": return ClipEngine.font("amiriB", s); case "ruqaa", "kufi", "tajawal", "lateef": return ClipEngine.font(k, s); default: return ClipEngine.font("bold", s) }
+        switch k {
+        case "amiri": return ClipEngine.font("amiriB", s)
+        case "ruqaa", "kufi", "tajawal", "lateef": return ClipEngine.font(k, s)
+        default: if let ps = nameFontNames[k], let f = UIFont(name: ps, size: s) { return f }; return ClipEngine.font("bold", s)
+        }
     }
     private struct Lay { let fs: CGFloat; let lines: [[String]]; let lh: CGFloat; let boxW: CGFloat }
     private var layCache: [String: Lay] = [:]
@@ -64,9 +70,11 @@ final class MakerContext: @unchecked Sendable {
     }
     private func layout(_ text: String, _ W: CGFloat, _ H: CGFloat, _ u: CGFloat, _ o: MakerOpts) -> Lay {
         let withT = !o.tafsir.isEmpty, scenic = MAKER_SCENIC.contains(o.tpl)
-        let key = "\(text)|\(W)|\(H)|\(o.fontScale)|\(o.font)|\(withT)|\(scenic)"
+        let key = "\(text)|\(W)|\(H)|\(o.fontScale)|\(o.font)|\(withT)|\(scenic)|\(o.tpl)"
         lock.lock(); if let l = layCache[key] { lock.unlock(); return l }; lock.unlock()
-        let boxW = W * (W > H ? 0.72 : 0.78), maxH = H * (H > W ? 0.52 : 0.5) * (withT ? 0.66 : 1) * (scenic ? 0.82 : 1)
+        // inside the arch on the templates that draw one, so the ayahs never cover its sides
+        let arch = ["emerald", "gray", "mist", "olive", "nightblue"].contains(o.tpl)
+        let boxW = W * (arch ? (W > H ? 0.64 : 0.66) : (W > H ? 0.72 : 0.78)), maxH = H * (H > W ? 0.52 : 0.5) * (withT ? 0.66 : 1) * (scenic ? 0.82 : 1)
         let base: CGFloat = W > H ? 64 : H > W * 1.5 ? 80 : 70
         var fs = (base * u * CGFloat(o.fontScale) / 100 * (text.count < 60 ? 1.25 : text.count > 260 ? 0.8 : 1)).rounded()
         var lines: [[String]] = [], lh: CGFloat = 0

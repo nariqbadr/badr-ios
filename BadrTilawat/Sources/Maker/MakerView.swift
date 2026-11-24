@@ -168,16 +168,24 @@ struct MakerView: View {
                 ayahs = (f...t).map { MAyah(n: $0, text: ayahClean(o.surah, $0, txt[$0 - 1])) }
                 ctx.tafsir = o.tafsir.isEmpty ? [:] : await repo.tafsir(o.surah, edition: o.tafsir)
                 ctx.quranFontName = await quranFontName(o.font)
+                await nameFontsReady()
                 ctx.clearLayout()
                 if o.tpl == "video" { await prepareVideos() }
                 refreshNow()
             }
-        } else { Task { if o.tpl == "video" { await prepareVideos() }; refreshNow() } }
+        } else { Task { await nameFontsReady(); if o.tpl == "video" { await prepareVideos() }; refreshNow() } }
         if o.tpl == "photo" && MakerBackgrounds.photo == nil {
             let img = repo.data?.site.heroImage.isEmpty == false ? repo.data!.site.heroImage : repo.reciter(repo.data?.site.featuredReciterId)?.image ?? ""
             if let u = Repo.media(img) { Task { if let (d, _) = try? await URLSession.shared.data(from: u), let i = UIImage(data: d) { MakerBackgrounds.photo = i; MakerBackgrounds.clear(); refreshNow() } } }
         }
         if o.tpl == "video" && o.videos.isEmpty { o.videos = [mk["videos"][0]["url"].str.isEmpty ? "scene:sky" : mk["videos"][0]["url"].str] }
+    }
+    /// the names' fonts uploaded in the dashboard, loaded once
+    private func nameFontsReady() async {
+        for k in [o.rfont, o.mfont] where !["plex", "amiri", "ruqaa", "kufi", "tajawal", "lateef"].contains(k) && ctx.nameFontNames[k] == nil {
+            if let f = mk["fonts"].array.first(where: { $0["family"].str == k }), let u = Repo.media(f["url"].str), let n = await registerFont(u, key: k) { ctx.nameFontNames[k] = n }
+            else { ui.say(tr("تعذّر تحميل الخط")) }
+        }
     }
     private func quranFontName(_ k: String) async -> String {
         switch k {
@@ -366,7 +374,7 @@ struct MakerView: View {
                 slider(tr("خروج الصورة · {0}", sec(o.vfo)), Binding(get: { Double(o.vfo) }, set: { o.vfo = CGFloat(($0 * 10).rounded() / 10) }), 0...3)
                 slider(tr("دخول الصوت · {0}", sec(o.afi)), Binding(get: { Double(o.afi) }, set: { o.afi = CGFloat(($0 * 10).rounded() / 10) }), 0...4)
                 slider(tr("خروج الصوت · {0}", sec(o.afo)), Binding(get: { Double(o.afo) }, set: { o.afo = CGFloat(($0 * 10).rounded() / 10) }), 0...4)
-                let nameFonts = [("plex", tr("عادي")), ("amiri", tr("أميري")), ("ruqaa", tr("رقعة")), ("kufi", tr("كوفي")), ("tajawal", tr("تجوال عريض")), ("lateef", tr("لطيف"))]
+                let nameFonts = [("plex", tr("عادي")), ("amiri", tr("أميري")), ("ruqaa", tr("رقعة")), ("kufi", tr("كوفي")), ("tajawal", tr("تجوال عريض")), ("lateef", tr("لطيف"))] + mk["fonts"].array.filter { ["info", "both"].contains($0["use"].str) }.map { ($0["family"].str, $0["name"].str.isEmpty ? $0["family"].str : $0["name"].str) }
                 if o.rname {
                     field(tr("نص اسم القارئ"), tr("فارغ = «بصوت الشيخ …»"), Binding(get: { o.rtext }, set: { o.rtext = String($0.prefix(70)) }))
                     menu(tr("خط اسم القارئ"), nameFonts.first { $0.0 == o.rfont }?.1 ?? tr("عادي"), nameFonts) { o.rfont = $0 }

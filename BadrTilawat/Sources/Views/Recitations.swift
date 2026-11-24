@@ -23,8 +23,12 @@ struct RecitationsView: View {
     @State private var kind = RecKind.value.isEmpty ? "all" : RecKind.value
     var body: some View {
         let all = repo.data?.recitations ?? []
-        let vids = all.filter(\.isVideo).count
-        let kv = vids > 0 && kind == "video", ka = kind == "all" || vids == 0
+        // «الكل · سمعي · مرئي» under the reciters, only when the chosen one (or all of them) has both
+        let scope = rec.isEmpty ? all : all.filter { $0.reciterId == rec }
+        let vids = scope.filter(\.isVideo).count
+        let bothKinds = vids > 0 && vids < scope.count
+        let kind = bothKinds ? self.kind : "all"
+        let kv = bothKinds && kind == "video", ka = kind == "all"
         let nq = QuranMeta.norm(q.trimmingCharacters(in: .whitespaces))
         let list = sortTracks(all.filter { ka || $0.isVideo == kv }.filter { rec.isEmpty || $0.reciterId == rec }
             .filter { nq.isEmpty || QuranMeta.norm("\($0.title) \($0.surah) \(repo.reciter($0.reciterId)?.name ?? "") \($0.tags.joined(separator: " ")) \($0.description) \($0.location)").contains(nq) }, sort, repo.data?.plays ?? [:])
@@ -32,26 +36,12 @@ struct RecitationsView: View {
         let grouped = sort == "new" && q.isEmpty && list.count > 6 && Set(list.map(ageGroup)).count > 1
         ScrollView {
             LazyVStack(alignment: .leading, spacing: 0) {
-                if vids > 0 { KindTabs(kind: kind, nAll: all.count, nAudio: all.count - vids, nVideo: vids) { kind = $0; RecKind.value = $0; rec = "" }.padding(.horizontal, 16).padding(.vertical, 6) }
                 if !kv && repo.data?.site.sec("mushaf") != false { QuranFullBanner().padding(.horizontal, 16).padding(.vertical, 6) }
                 // «المجموعات» (a year, a Ramadan, a mosque…), for the chosen reciter — as on the site and Android
                 if !kv { let cols = repo.collections(rec); if !cols.isEmpty { CollectionsRow(cols: cols, showReciter: rec.isEmpty) } }
                 SearchField(text: $q, hint: tr("ابحث بالسورة أو القارئ أو المكان")).padding(.horizontal, 16).padding(.vertical, 8)
-                ScrollView(.horizontal, showsIndicators: false) {
-                    HStack(spacing: 8) {
-                        Pill(title: tr("الكل"), on: rec.isEmpty) { rec = "" }
-                        ForEach((repo.data?.reciters ?? []).map { r in (r, all.filter { (ka || $0.isVideo == kv) && $0.reciterId == r.id }.count) }.filter { $0.1 > 0 }, id: \.0.id) { r, n in
-                            Button { rec = rec == r.id ? "" : r.id } label: {
-                                HStack(spacing: 7) {
-                                    RemoteImage(raw: r.image).frame(width: 28, height: 28).clipShape(Circle())
-                                    Text(nm(noSheikh(r.name))).font(F.plex(14, .semibold)).foregroundStyle(rec == r.id ? c.onGold : c.text).lineLimit(1)
-                                    Text(n.ar).font(F.plex(11)).foregroundStyle(rec == r.id ? c.onGold.opacity(0.7) : c.faint)
-                                }.padding(.leading, 5).padding(.trailing, 12).padding(.vertical, 4)
-                                .background(Capsule().fill(rec == r.id ? c.gold : c.surface.opacity(0.7))).overlay(Capsule().stroke(rec == r.id ? .clear : c.line))
-                            }.buttonStyle(Press())
-                        }
-                    }.padding(.horizontal, 16)
-                }
+                ReciterCircles(all: all, rec: rec) { rec = $0 }
+                if bothKinds { KindTabs(kind: kind, nAll: scope.count, nAudio: scope.count - vids, nVideo: vids) { self.kind = $0; RecKind.value = $0 }.padding(.horizontal, 16).padding(.vertical, 8) }
                 HStack {
                     Text(kv ? "\(list.count.ar) \(list.count == 1 ? "تلاوة مرئية" : "تلاوات مرئية")" : tr("{0} تلاوة", list.count.ar) + (rec.isEmpty ? tr(" من {0} قارئ", (repo.data?.reciters.count ?? 0).ar) : tr(" للشيخ {0}", noSheikh(repo.reciter(rec)?.name ?? ""))))
                         .font(F.plex(12.5)).foregroundStyle(c.muted)
@@ -91,12 +81,56 @@ struct RecitationsView: View {
 }
 
 /// «الكل / صوتية / مرئية».
+/// A reciter's name in two words under his photo: «بدر بن محمد التركي - تلاوات الحرم المكي» → «بدر التركي»
+func circleName(_ n: String) -> String {
+    let base = noSheikh(n).components(separatedBy: " - ")[0].replacingOccurrences(of: "د.", with: "")
+    var out: [String] = [], skip = false
+    for x in base.split(whereSeparator: { $0.isWhitespace }).map(String.init) { if skip { skip = false; continue }; if x == "بن" || x == "ابن" { skip = true; continue }; out.append(x) }
+    return out.count <= 2 ? out.joined(separator: " ") : "\(out.first!) \(out.last!)"
+}
+/// four small rounded squares («الكل»)
+struct GridGlyph: View {
+    var color: Color
+    var body: some View {
+        Canvas { ctx, sz in
+            let q = sz.width * 0.38, g = sz.width * 0.14, w = sz.width * 0.09
+            for ix in 0..<2 { for iy in 0..<2 { ctx.stroke(Path(roundedRect: CGRect(x: CGFloat(ix) * (q + g) + w / 2, y: CGFloat(iy) * (q + g) + w / 2, width: q, height: q), cornerRadius: q * 0.3), with: .color(color), lineWidth: w) } }
+        }
+    }
+}
+/// The reciters as round photos (as stories), «الكل» first; the chosen one has a ring.
+struct ReciterCircles: View {
+    let all: [Track]; let rec: String; let pick: (String) -> Void
+    @EnvironmentObject var repo: Repo
+    @Environment(\.pal) private var c
+    private func cell<P: View>(_ on: Bool, _ name: String, _ n: Int, _ tap: @escaping () -> Void, @ViewBuilder _ pic: () -> P) -> some View {
+        Button(action: tap) {
+            VStack(spacing: 0) {
+                pic().clipShape(Circle()).padding(on ? 4 : 1).frame(width: 64, height: 64).overlay(Circle().stroke(on ? c.gold : c.line, lineWidth: on ? 2 : 1))
+                Text(name).font(F.plex(12.5, on ? .bold : .semibold)).foregroundStyle(on ? c.text : c.text.opacity(0.85)).lineLimit(1).padding(.top, 6)
+                Text(tr("{0} تلاوة", n.ar)).font(F.plex(10.5)).foregroundStyle(c.faint.mix(c.muted, 0.5)).lineLimit(1)
+            }.frame(width: 74)
+        }.buttonStyle(Press(scale: 0.94))
+    }
+    var body: some View {
+        let counts = (repo.data?.reciters ?? []).map { r in (r, all.filter { $0.reciterId == r.id }.count) }.filter { $0.1 > 0 }
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: 6) {
+                cell(rec.isEmpty, tr("الكل"), all.count, { pick("") }) { ZStack { Circle().fill(rec.isEmpty ? c.gold : Color.clear); GridGlyph(color: rec.isEmpty ? c.onGold : c.text).frame(width: 24, height: 24) } }
+                ForEach(counts, id: \.0.id) { r, n in
+                    let on = rec == r.id
+                    cell(on, circleName(r.name), n, { pick(on ? "" : r.id) }) { RemoteImage(raw: r.image) }
+                }
+            }.padding(.horizontal, 12)
+        }.padding(.vertical, 6)
+    }
+}
 struct KindTabs: View {
     let kind: String; let nAll: Int, nAudio: Int, nVideo: Int; let pick: (String) -> Void
     @Environment(\.pal) private var c
     var body: some View {
         HStack(spacing: 4) {
-            ForEach([("all", tr("الكل"), nAll), ("audio", tr("صوتية"), nAudio), ("video", tr("مرئية"), nVideo)], id: \.0) { k, l, n in
+            ForEach([("all", tr("الكل"), nAll), ("audio", tr("سمعي"), nAudio), ("video", tr("مرئي"), nVideo)], id: \.0) { k, l, n in
                 let on = k == kind
                 Button { pick(k) } label: {
                     HStack(spacing: 5) {
