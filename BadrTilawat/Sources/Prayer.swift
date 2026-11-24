@@ -106,11 +106,13 @@ final class Prayers: NSObject, ObservableObject, CLLocationManagerDelegate {
         guard Store.shared.str("placeBy") != "manual", let lat = Store.shared.double("lat"), let lon = Store.shared.double("lon"),
               let pm = try? await CLGeocoder().reverseGeocodeLocation(CLLocation(latitude: lat, longitude: lon), preferredLocale: L.locale).first else { return }
         let name = [pm.locality ?? pm.administrativeArea, pm.country].compactMap { $0 }.joined(separator: tr("، "))
-        if !name.isEmpty { Store.shared.set("place", name); rev += 1 }
+        if !name.isEmpty { Store.shared.set("place", name); Store.shared.set("placeLang", L.code); rev += 1 }
     }
     /// Each time the app opens or comes back (at most every 15 minutes): the place follows the phone, unless a city was chosen by hand.
     private var lastAuto = Date.distantPast
     func relocateIfStale() async {
+        // a name written in another language (the language changed since): written again in this one
+        let pl = Store.shared.str("placeLang"); if Store.shared.str("placeBy") != "manual" && (pl.isEmpty ? "ar" : pl) != L.code { await renamePlace() }
         guard authorized, Store.shared.str("placeBy") != "manual", Date().timeIntervalSince(lastAuto) > 15 * 60 else { return }
         lastAuto = Date(); _ = await locate()
     }
@@ -134,7 +136,7 @@ final class Prayers: NSObject, ObservableObject, CLLocationManagerDelegate {
         let pm = try? await CLGeocoder().reverseGeocodeLocation(CLLocation(latitude: lat, longitude: lon), preferredLocale: L.locale).first
         if let pm { Store.shared.set("cc", pm.isoCountryCode ?? Store.shared.str("cc")) }
         let name = [pm?.locality ?? pm?.administrativeArea, pm?.country].compactMap { $0 }.joined(separator: tr("، "))
-        Store.shared.set("place", name.isEmpty ? fallbackName : name)
+        Store.shared.set("place", name.isEmpty ? fallbackName : name); Store.shared.set("placeLang", L.code)
         rev += 1; schedule()
     }
     nonisolated func locationManager(_ manager: CLLocationManager, didUpdateLocations locations: [CLLocation]) {
