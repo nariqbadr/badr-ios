@@ -230,6 +230,7 @@ struct PrayerSettings: View {
     @State private var hits: [Prayers.CityHit] = []
     @State private var searching = false
     @State private var picked: Prayers.CityHit?
+    @FocusState private var cityFocus: Bool
     @State private var busy = false
     @State private var modes: [String: String] = [:]
     @State private var pre = 0
@@ -543,7 +544,7 @@ extension PrayerSettings {
                 }.frame(minHeight: 52).contentShape(Rectangle())
             }.buttonStyle(.plain)
             if cityOpen {
-                TextField(tr("اكتب اسم مدينتك ثم اخترها من النتائج"), text: $cityQ).font(F.plex(15)).padding(.horizontal, 12).padding(.vertical, 10).background(RoundedRectangle(cornerRadius: 12).fill(c.surface3)).padding(.bottom, 6)
+                TextField(tr("اكتب اسم مدينتك ثم اخترها من النتائج"), text: $cityQ).font(F.plex(15)).focused($cityFocus).onAppear { cityFocus = true }.padding(.horizontal, 12).padding(.vertical, 10).background(RoundedRectangle(cornerRadius: 12).fill(c.surface3)).padding(.bottom, 6)
                     .task(id: cityQ + "|" + cc) {
                         hits = []; let q = cityQ.trimmingCharacters(in: .whitespaces)
                         guard q.count >= 2 else { searching = false; return }
