@@ -104,3 +104,4 @@ for t in vs[:4]:
             print('  4MB in', round(dt,2),'s', round(n/dt/1e6,2),'MB/s')
         except Exception as e: print('  ERR', e)
 PY
+kill $GEO 2>/dev/null || true
