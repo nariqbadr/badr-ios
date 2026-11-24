@@ -67,42 +67,40 @@ d=json.load(sys.stdin); d=d.get('data',d); r=d.get('readable',{}).get('tracks',{
 ts=[t for t in d.get('recitations',[]) if ((t.get('video') or {}).get('q')) and t.get('id') in r]
 ts.sort(key=lambda t:(t.get('publishAt') or t.get('createdAt') or '', t.get('order',0)), reverse=True)
 print(ts[0]['id'] if ts else '')" 2>/dev/null); echo "CLIP=$CLIP"
-setup new.apk new
-pipstate() { adb shell dumpsys activity activities | grep -iE "mPictureInPicture|pinned|windowingMode=pinned" | head -5 > shots/pip_$1.txt; adb shell dumpsys window | grep -iE "pinned|PIP" | head -5 >> shots/pip_$1.txt; }
-watchtest() { # $1 tag
-  adb shell am force-stop $P
-  timeout 40 adb shell am start -W -n $P/.MainActivity --ez shot true --es open "watch/$CLIP" > /dev/null; sleep 22
-  snap ${1}_page
-  rec rec_$1 60
-  # the big play button sits in the middle of the video; tap the video first to show the controls if they are hidden
-  adb shell input tap 540 546
-  sleep 0.25; snap ${1}_tap250
-  sleep 0.8; snap ${1}_tap1000
-  sleep 8; snap ${1}_playing; echo "playing: $(playing)" > shots/vid_$1.txt
-  adb shell input keyevent KEYCODE_HOME; sleep 4; snap ${1}_home; pipstate $1
-  sleep 6; snap ${1}_home2; sleep 5; snap ${1}_home3
-  endrec rec_$1
-}
-# the adhan stops at the first press of the power button (screen on: pressed 1 s after it starts; screen off: woken, then one press)
-adhantest() { # $1 tag, $2 "off" to start with the screen off
-  adb shell input keyevent KEYCODE_WAKEUP; sleep 1; adb shell wm dismiss-keyguard; sleep 1
-  go home 15
-  [ "$2" = off ] && { adb shell input keyevent KEYCODE_SLEEP; sleep 3; }
-  adb shell am start-foreground-service -n $P/.prayer.AdhanService --es key dhuhr --es name الظهر --ez fromApp false > shots/adhan_$1_start.txt 2>&1
-  sleep ${3:-1.2}; echo "before: $(playing)" > shots/adhan_$1.txt; snap adhan_$1_before
-  adb shell input keyevent KEYCODE_POWER; sleep 1.5
-  echo "after 1 press: $(playing)" >> shots/adhan_$1.txt
-  adb shell dumpsys activity services $P/.prayer.AdhanService | grep -c ServiceRecord >> shots/adhan_$1.txt
-  adb shell input keyevent KEYCODE_WAKEUP; sleep 1; adb shell wm dismiss-keyguard
-}
-# the city picked by hand
-go prayerSettings 20
-for k in 1 2 3 4 5 6 7 8 9 10; do adb shell input swipe 540 1600 540 400 300; sleep 0.4; done; sleep 1
-tapText "اختر المدينة"; sleep 2; adb shell input text "Benha"; sleep 8; snap place_search
-snap place_search2
-tapText "بنها" || tapText "Banha"; sleep 1.5; snap place_picked
-for k in 1 2 3 4 5 6; do adb shell input swipe 540 1600 540 500 300; sleep 0.4; done; sleep 1; snap place_picked2
-tapText "حفظ"; sleep 3; adb shell cat /data/data/$P/shared_prefs/badr.xml | grep -E 'place|"cc"' > shots/place_manual.txt; snap place_saved
-timeout 60 adb logcat -d > shots/logcat_all.txt 2>&1 || true
-timeout 60 adb logcat -d -b crash > shots/crash.txt 2>&1 || true
-kill $GEO 2>/dev/null || true
+mkdir -p shots
+curl -s --max-time 60 "https://bawazirquran.com/wp-admin/admin-ajax.php?action=bz&do=data" > /tmp/data.json
+python3 - > shots/probe.txt 2>&1 <<'PY'
+import json, urllib.request, time, struct, urllib.parse
+d=json.load(open('/tmp/data.json')); d=d.get('data',d)
+site='https://bawazirquran.com/'
+def media(s):
+    s=(s or '').strip()
+    if s.startswith('http'): return s.replace(' ','%20')
+    if s.startswith('//'): return 'https:'+s
+    return site+'/'.join(urllib.parse.quote(p) for p in s.split('/') if p)
+vs=[t for t in d.get('recitations',[]) if (t.get('video') or {}).get('q')]
+print('videos', len(vs))
+for t in vs[:4]:
+    for q in t['video']['q'][:2]:
+        u=media(q.get('url')); print('\n==', t.get('id'), q.get('h'), u)
+        try:
+            r=urllib.request.Request(u, method='HEAD'); t0=time.time(); res=urllib.request.urlopen(r, timeout=30)
+            print('HEAD', res.status, 'final', res.geturl()); 
+            for k in ['Content-Length','Accept-Ranges','Content-Type','Server','Cache-Control','CF-Cache-Status','X-Cache']: print(' ',k, res.headers.get(k))
+            size=int(res.headers.get('Content-Length') or 0)
+            # top-level atoms via range requests
+            off=0; atoms=[]
+            while off < size and len(atoms) < 8:
+                rr=urllib.request.Request(u, headers={'Range':f'bytes={off}-{off+15}'}); t1=time.time(); b=urllib.request.urlopen(rr, timeout=30); data=b.read()
+                if len(data)<8: break
+                sz,typ=struct.unpack('>I4s',data[:8]); 
+                if sz==1: sz=struct.unpack('>Q',data[8:16])[0]
+                atoms.append((typ.decode('latin1'), off, sz, b.status, round(time.time()-t1,2)))
+                if sz<8: break
+                off+=sz
+            print('  atoms', atoms)
+            # speed: first 4 MB
+            rr=urllib.request.Request(u, headers={'Range':'bytes=0-4194303'}); t1=time.time(); n=len(urllib.request.urlopen(rr, timeout=60).read()); dt=time.time()-t1
+            print('  4MB in', round(dt,2),'s', round(n/dt/1e6,2),'MB/s')
+        except Exception as e: print('  ERR', e)
+PY
