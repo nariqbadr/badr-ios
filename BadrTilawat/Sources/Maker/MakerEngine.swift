@@ -382,10 +382,19 @@ enum MakerEngine {
             guard let A = tm.ayahs.first(where: { $0[0] == first }), let B = tm.ayahs.first(where: { $0[0] == last }) else { throw MakerError(msg: "هذه التلاوة لا تحتوي على الآيات المختارة") }
             let audio = tm.url.isEmpty ? await repo.track(tid)?.audio ?? "" : tm.url
             guard let u = await Repo.media(audio) else { throw MakerError(msg: "تعذّر تحميل الصوت") }
-            let file = try await download(u, "t-\(tid.replacingOccurrences(of: "/", with: "_")).audio")
+            // the file's name carries its address: a recitation whose audio was replaced on the site is fetched again
+            // (an old copy kept here made the ayahs fall past its end: a silent video of a second and a half)
+            let name = "t-\(tid.replacingOccurrences(of: "/", with: "_"))-\(String(u.absoluteString.utf8.reduce(UInt32(5381)) { ($0 &<< 5) &+ $0 &+ UInt32($1) }, radix: 16)).audio"
+            var file = try await download(u, name)
             await status("جارٍ تجهيز الصوت…")
             let t0 = max(0, A[1] - 300), t1 = B[2] + 300
-            let clip = try decode(file, Double(t0) / 1000, Double(t1) / 1000)
+            var clip = (try? decode(file, Double(t0) / 1000, Double(t1) / 1000)) ?? []
+            // shorter than the ayahs need: the copy is damaged — fetched once more, and never a silent video
+            if CGFloat(clip.count) < CGFloat(t1 - t0) / 1000 * R * 0.6 {
+                try? FileManager.default.removeItem(at: file); file = try await download(u, name)
+                clip = (try? decode(file, Double(t0) / 1000, Double(t1) / 1000)) ?? []
+                if CGFloat(clip.count) < CGFloat(t1 - t0) / 1000 * R * 0.6 { throw MakerError(msg: "تعذّر تحميل صوت التلاوة — حاول مرة أخرى") }
+            }
             let segs: [MSeg] = ayahs.enumerated().map { i, a in
                 let at = tm.ayahs.first { $0[0] == a.n }!, st = CGFloat(at[1] - t0) / 1000
                 let en = i + 1 < ayahs.count ? CGFloat(tm.ayahs.first { $0[0] == ayahs[i + 1].n }![1] - t0) / 1000 : min(CGFloat(clip.count) / R, CGFloat(at[2] - t0) / 1000)
@@ -403,7 +412,8 @@ enum MakerEngine {
             let ajax = await Repo.ajax, enc = await Repo.enc(rv)
             guard let u = URL(string: ajax + "?action=bz&do=ayah_audio&r=\(enc)&k=\(Quran.key(o.surah, first))" + (last > first ? "&to=\(last)" : "")) else { throw MakerError(msg: "تعذّر تحميل الصوت") }
             let file = try await download(u, "sr-\(rv.dropFirst(3))-\(o.surah)-\(first)-\(last).mp3")
-            let clip = try decode(file)
+            let clip = (try? decode(file)) ?? []
+            if CGFloat(clip.count) < R * 0.5 { try? FileManager.default.removeItem(at: file); throw MakerError(msg: "تعذّر تحميل صوت التلاوة — حاول مرة أخرى") }
             let st0 = tm.ayahs[first - 1][1], t0 = st0 - st0 % max(1, tm.per)
             let segs: [MSeg] = ayahs.enumerated().map { i, a in
                 let st = CGFloat(tm.ayahs[a.n - 1][1] - t0) / 1000
@@ -428,7 +438,9 @@ enum MakerEngine {
                     var f: URL?
                     for fo in folders { f = try? await download(URL(string: "https://everyayah.com/data/\(fo)/\(key).mp3")!, "\(fo)-\(key).mp3"); if f != nil { break } }
                     guard let f else { throw MakerError(msg: "تعذّر تحميل صوت التلاوة لهذا القارئ — جرّب قارئًا آخر أو «بدون صوت»") }
-                    let clip = try decode(f); parts.append((t, clip)); d = CGFloat(clip.count) / R
+                    let clip = (try? decode(f)) ?? []
+                    if CGFloat(clip.count) < R * 0.3 { try? FileManager.default.removeItem(at: f); throw MakerError(msg: "تعذّر تحميل صوت التلاوة — حاول مرة أخرى") }
+                    parts.append((t, clip)); d = CGFloat(clip.count) / R
                 } else { d = max(4, CGFloat(words(a.text).count) * 0.62) }
                 segs.append(MSeg(a, t, d)); t += d + gap
             }

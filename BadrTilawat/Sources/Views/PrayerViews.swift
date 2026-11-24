@@ -482,7 +482,10 @@ extension PrayerSettings {
             HStack(alignment: .top, spacing: 10) {
                 VStack(alignment: .leading, spacing: 3) {
                     Text(tr("موقعك الحالي")).font(F.plex(12, .semibold)).foregroundStyle(c.gold)
-                    Text(prayers.place.isEmpty ? tr("لم يُحدَّد بعد") : prayers.place).font(F.plex(17, .bold)).foregroundStyle(c.text)
+                    // in detail here: the district with the city, the street, the coordinates (the card shows the city only)
+                    let area = by == "gps" ? Store.shared.str("placeArea") : ""
+                    let cityName = Store.shared.str("placeCity").isEmpty ? (prayers.place.components(separatedBy: tr("، ")).first ?? "") : Store.shared.str("placeCity")
+                    Text(!area.isEmpty ? [area, cityName].filter { !$0.isEmpty }.joined(separator: tr("، ")) : (prayers.place.isEmpty ? tr("لم يُحدَّد بعد") : prayers.place)).font(F.plex(17, .bold)).foregroundStyle(c.text)
                     let street = Store.shared.str("placeStreet")
                     if by == "gps" && !street.isEmpty { Text(street).font(F.plex(14)).foregroundStyle(c.muted) }
                     if let la = Store.shared.double("lat"), let lo = Store.shared.double("lon") {

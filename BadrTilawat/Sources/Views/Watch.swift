@@ -113,7 +113,11 @@ final class VideoEngine: NSObject, ObservableObject, AVPictureInPictureControlle
         }
         kvo.append(player.observe(\.timeControlStatus, options: [.new]) { [weak self] p, _ in
             let st = p.timeControlStatus
-            Task { @MainActor in self?.playing = st != .paused; self?.buffering = st == .waitingToPlayAtSpecifiedRate; self?.nowPlaying() }
+            Task { @MainActor in
+                self?.playing = st != .paused; self?.buffering = st == .waitingToPlayAtSpecifiedRate; self?.nowPlaying()
+                // started at once (see quick()); once it plays, later stalls wait for enough again, as usual
+                if st == .playing { p.automaticallyWaitsToMinimizeStalling = true }
+            }
         })
         let nc = NotificationCenter.default
         obs.append(nc.addObserver(forName: .AVPlayerItemDidPlayToEndTime, object: nil, queue: .main) { [weak self] n in
@@ -232,8 +236,14 @@ final class VideoEngine: NSObject, ObservableObject, AVPictureInPictureControlle
             wantPlay = true
             try? AVAudioSession.sharedInstance().setCategory(.playback, mode: .moviePlayback); try? AVAudioSession.sharedInstance().setActive(true)
             AudioPlayer.shared.pause(); AyahPlayer.shared.stop()
-            player.currentItem?.preferredForwardBufferDuration = 0; player.play(); player.rate = Store.shared.speed; remote()
+            player.currentItem?.preferredForwardBufferDuration = 0; quick(); remote()
         }
+    }
+    /// the first second of a video from the internet starts as soon as a little of it is here (the files start with their
+    /// index, the connection is good): no waiting for the player's own estimate that the whole of it will flow
+    private func quick() {
+        player.automaticallyWaitsToMinimizeStalling = false
+        player.playImmediately(atRate: Store.shared.speed)
     }
     private var itemKVO: NSKeyValueObservation?
     /// a copy that broke (often the connection, e.g. while the same video is being saved): tried again quietly at the same
@@ -255,7 +265,7 @@ final class VideoEngine: NSObject, ObservableObject, AVPictureInPictureControlle
         try? AVAudioSession.sharedInstance().setActive(true)
         AudioPlayer.shared.pause(); AyahPlayer.shared.stop()
         player.currentItem?.preferredForwardBufferDuration = 0
-        player.play(); player.rate = Store.shared.speed
+        quick()
         remote()
         Repo.shared.event("play", ["id": track?.id ?? ""])
     }
