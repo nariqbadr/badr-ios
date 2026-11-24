@@ -110,6 +110,8 @@ private let STROKE = hexC(0xE3C88D), FRAME = hexC(0xC9A45C)
 
 /// Opening: the site's intro, frame for frame (front-page.php .intro + site.css): the same elements, delays, durations and easing.
 struct IntroView: View {
+    /// turned off from the dashboard while it plays (the site's newer word): it fades out as at its end, never cut
+    var stop = false
     let done: () -> Void
     @EnvironmentObject var store: Store
     @EnvironmentObject var repo: Repo
@@ -175,6 +177,7 @@ struct IntroView: View {
         .opacity(out ? 0 : 1)
         .environment(\.colorScheme, .dark)
         .onAppear { t0 = Date(); if IntroView.frozen == nil { DispatchQueue.main.asyncAfter(deadline: .now() + 3.9) { finish() } } }
+        .onChange(of: stop) { if $0 { finish() } }
     }
 
     @ViewBuilder private func mark(k: @escaping (Double, Double, Ease) -> Double) -> some View {

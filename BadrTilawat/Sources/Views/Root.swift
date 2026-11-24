@@ -27,6 +27,10 @@ struct RootView: View {
     /// what lasts for the whole run of the app, though the screen is drawn again (a language change): the intro and What's New, once
     static var introDone = false, wnSettled = false
     @State private var intro = (RootView.shot == nil && !RootView.introDone) || RootView.shot == "intro"
+    /// the intro is decided once, from the saved copy of the site at the opening; the site's newer word only fades it out
+    @State private var introAtStart = Repo.shared.data?.site.introOn != false
+    /// no intro: the app comes up from the opening colour softly instead of at once
+    @State private var rise = RootView.shot == nil && !RootView.introDone && Repo.shared.data?.site.introOn == false
     @State private var onboard = RootView.shot == nil && !UserDefaults.standard.bool(forKey: "onboarded")
     @State private var wnExisting = UserDefaults.standard.bool(forKey: "onboarded")
     @State private var wnDone = RootView.wnSettled
@@ -97,8 +101,9 @@ struct RootView: View {
             let showWn = RootView.shot?.hasPrefix("whatsnew") == true ? !wnDone : (repo.data != nil && !wnDone && RootView.shot == nil && WhatsNew.shouldShow(repo.data?.site, existing: wnExisting))
             if let m = repo.data?.site.maintenance, m.on { Maintenance(title: m.title, message: m.message) }
             else {
-                if showWn && !onboard { WhatsNewView(ready: !(intro && repo.data?.site.introOn != false)) { go in wnDone = true; RootView.wnSettled = true; go?() }.transition(.identity) }
-                if intro && repo.data?.site.introOn != false { IntroView { withAnimation(.easeOut(duration: 0.5)) { intro = false } } }
+                if showWn && !onboard { WhatsNewView(ready: !(intro && (introAtStart || RootView.shot == "intro"))) { go in wnDone = true; RootView.wnSettled = true; go?() }.transition(.identity) }
+                if intro && (introAtStart || RootView.shot == "intro") { IntroView(stop: repo.data?.site.introOn == false && RootView.shot != "intro") { RootView.introDone = true; withAnimation(.easeOut(duration: 0.5)) { intro = false } } }
+                if rise { hexC(0x0E1D19).ignoresSafeArea().transition(.opacity).allowsHitTesting(false).task { try? await Task.sleep(nanoseconds: 60_000_000); withAnimation(.easeOut(duration: 0.45)) { rise = false } } }
                 else if onboard { Onboarding { withAnimation { onboard = false } } }
                 else if decided, !showWn, let s = repo.data?.site, RootView.shot == nil { AppMessages(site: s) }
             }
