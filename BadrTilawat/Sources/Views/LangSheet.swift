@@ -13,7 +13,7 @@ struct LangSheet: View {
                 LazyVGrid(columns: [GridItem(.flexible(), spacing: 10), GridItem(.flexible(), spacing: 10)], spacing: 10) {
                     ForEach(Lang.all, id: \.0) { code, name in
                         let on = lang.code == code
-                        Button { dismiss(); DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) { lang.set(code) } } label: {
+                        Button { dismiss(); DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) { lang.set(code); Task { await Prayers.shared.renamePlace() } } } label: {
                             HStack {
                                 Text(name).font(F.plex(15, on ? .bold : .medium)).foregroundStyle(on ? c.gold2 : c.text)
                                     .environment(\.layoutDirection, ["ar", "ur", "fa"].contains(code) ? .rightToLeft : .leftToRight)

@@ -101,6 +101,13 @@ final class Prayers: NSObject, ObservableObject, CLLocationManagerDelegate {
         if hasPlace && Store.shared.str("placeBy") != "ip" { return false }
         return await locateByIp()
     }
+    /// The place's name in the app's language (after a language change); a city typed by hand stays as typed.
+    func renamePlace() async {
+        guard Store.shared.str("placeBy") != "manual", let lat = Store.shared.double("lat"), let lon = Store.shared.double("lon"),
+              let pm = try? await CLGeocoder().reverseGeocodeLocation(CLLocation(latitude: lat, longitude: lon), preferredLocale: L.locale).first else { return }
+        let name = [pm.locality ?? pm.administrativeArea, pm.country].compactMap { $0 }.joined(separator: tr("، "))
+        if !name.isEmpty { Store.shared.set("place", name); rev += 1 }
+    }
     /// Each time the app opens or comes back (at most every 15 minutes): the place follows the phone, unless a city was chosen by hand.
     private var lastAuto = Date.distantPast
     func relocateIfStale() async {
@@ -124,7 +131,7 @@ final class Prayers: NSObject, ObservableObject, CLLocationManagerDelegate {
     }
     private func save(_ lat: Double, _ lon: Double, by: String, fallbackName: String = "") async {
         Store.shared.set("lat", lat); Store.shared.set("lon", lon); Store.shared.set("placeBy", by)
-        let pm = try? await CLGeocoder().reverseGeocodeLocation(CLLocation(latitude: lat, longitude: lon), preferredLocale: Locale(identifier: "ar")).first
+        let pm = try? await CLGeocoder().reverseGeocodeLocation(CLLocation(latitude: lat, longitude: lon), preferredLocale: L.locale).first
         if let pm { Store.shared.set("cc", pm.isoCountryCode ?? Store.shared.str("cc")) }
         let name = [pm?.locality ?? pm?.administrativeArea, pm?.country].compactMap { $0 }.joined(separator: tr("، "))
         Store.shared.set("place", name.isEmpty ? fallbackName : name)
