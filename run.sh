@@ -67,14 +67,32 @@ d=json.load(sys.stdin); d=d.get('data',d); r=d.get('readable',{}).get('tracks',{
 ts=[t for t in d.get('recitations',[]) if ((t.get('video') or {}).get('q')) and t.get('id') in r]
 ts.sort(key=lambda t:(t.get('publishAt') or t.get('createdAt') or '', t.get('order',0)), reverse=True)
 print(ts[0]['id'] if ts else '')" 2>/dev/null); echo "CLIP=$CLIP"
-setup new.apk new
-# the maker's video, exported by itself: its length and its sound are checked
-adb shell touch /data/local/tmp/mark; go makerimage 25; sleep 20; adb shell input keyevent KEYCODE_BACK; sleep 2; tapText "فيديو"; sleep 2; snap maker_start
-for i in $(seq 1 36); do sleep 10; [ $((i % 6)) -eq 0 ] && snap maker_$i; adb shell "find /sdcard -name '*.mp4' -newer /data/local/tmp/mark 2>/dev/null" | tr -d '\r' > /tmp/now.txt; [ -s /tmp/now.txt ] && break; done
-sleep 8; snap maker_end
-cp /tmp/now.txt shots/mp4s.txt
-F=$(head -1 /tmp/now.txt)
-case "$F" in *.mp4) adb pull "$F" shots/maker.mp4 > /dev/null 2>&1 ;; esac
-timeout 60 adb logcat -d > shots/logcat_all.txt 2>&1 || true
-timeout 60 adb logcat -d -b crash > shots/crash.txt 2>&1 || true
+mkdir -p shots
+curl -s --max-time 60 "https://bawazirquran.com/wp-admin/admin-ajax.php?action=bz&do=data" > /tmp/data.json
+python3 - > shots/probe2.txt 2>&1 <<'PY'
+import json, urllib.request, urllib.parse, subprocess
+d=json.load(open('/tmp/data.json')); d=d.get('data',d)
+site='https://bawazirquran.com/'
+def media(s):
+    s=(s or '').strip()
+    if s.startswith('http'): return s.replace(' ','%20')
+    if s.startswith('//'): return 'https:'+s
+    return site+'/'.join(urllib.parse.quote(p) for p in s.split('/') if p)
+rd=d.get('readable',{}).get('tracks',{})
+tr={t['id']:t for t in d.get('recitations',[])}
+recs={r['id']:r.get('name') for r in d.get('reciters',[])}
+hits=[(k,v) for k,v in rd.items() if len(v)>=3 and v[0]==24 and v[1]<=35 and v[2]>=36]
+print('tracks for 24:35-36', hits)
+for k,v in hits:
+    t=tr.get(k,{}); print('\n==',k, recs.get(t.get('reciterId')), 'audio', t.get('audio'), 'video', bool((t.get('video') or {}).get('q')))
+    j=json.load(urllib.request.urlopen(site+'wp-admin/admin-ajax.php?action=bz&do=track_times&id='+urllib.parse.quote(k), timeout=60))
+    print(' ok', j.get('ok'), 'surah', j.get('surah'), 'url', j.get('url'), 'n ayahs', len(j.get('ayahs') or []))
+    ay=[a for a in (j.get('ayahs') or []) if a and a[0] in (34,35,36,37)]; print(' times', ay)
+    print(' first/last', (j.get('ayahs') or [None])[0], (j.get('ayahs') or [None])[-1])
+    u=media(j.get('url') or t.get('audio'))
+    print(' media', u)
+    try:
+        out=subprocess.run(['ffprobe','-v','error','-show_entries','format=duration,format_name:stream=codec_name,sample_rate,channels','-of','default=nw=1',u],capture_output=True,text=True,timeout=120); print(out.stdout, out.stderr[:300])
+    except Exception as e: print(' ffprobe', e)
+PY
 kill $GEO 2>/dev/null || true
