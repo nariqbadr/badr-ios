@@ -103,7 +103,7 @@ struct RootView: View {
             else {
                 if showWn && !onboard { WhatsNewView(ready: !(intro && (introAtStart || RootView.shot == "intro"))) { go in wnDone = true; RootView.wnSettled = true; go?() }.transition(.identity) }
                 if intro && (introAtStart || RootView.shot == "intro") { IntroView(stop: repo.data?.site.introOn == false && RootView.shot != "intro") { RootView.introDone = true; withAnimation(.easeOut(duration: 0.5)) { intro = false } } }
-                if rise { hexC(0x0E1D19).ignoresSafeArea().transition(.opacity).allowsHitTesting(false).task { try? await Task.sleep(nanoseconds: 60_000_000); withAnimation(.easeOut(duration: 0.45)) { rise = false } } }
+                if rise { Color("LaunchBg").ignoresSafeArea().transition(.opacity).allowsHitTesting(false).task { try? await Task.sleep(nanoseconds: 60_000_000); withAnimation(.easeOut(duration: 0.45)) { rise = false } } }
                 else if onboard { Onboarding { withAnimation { onboard = false } } }
                 else if decided, !showWn, let s = repo.data?.site, RootView.shot == nil { AppMessages(site: s) }
             }
