@@ -95,19 +95,13 @@ adhantest() { # $1 tag, $2 "off" to start with the screen off
   adb shell dumpsys activity services $P/.prayer.AdhanService | grep -c ServiceRecord >> shots/adhan_$1.txt
   adb shell input keyevent KEYCODE_WAKEUP; sleep 1; adb shell wm dismiss-keyguard
 }
-# the opening: twice cold (the site saved), recorded — it should fade, never cut, and land on home
-for n in 1 2; do
-  adb shell am force-stop $P; sleep 2
-  rec open$n 9; adb shell am start -n $P/.MainActivity > /dev/null; sleep 8; endrec open$n; snap open${n}_end
-done
-# the ayah search marks
-go quranSearch 20; snap search
 # the city picked by hand
 go prayerSettings 20
 for k in 1 2 3 4 5 6 7 8 9 10; do adb shell input swipe 540 1600 540 400 300; sleep 0.4; done; sleep 1
 tapText "اختر المدينة"; sleep 2; adb shell input text "Benha"; sleep 8; snap place_search
 snap place_search2
-tapText "بنها" || tapText "Banha"; sleep 1; snap place_picked
+tapText "بنها" || tapText "Banha"; sleep 1.5; snap place_picked
+for k in 1 2 3 4 5 6; do adb shell input swipe 540 1600 540 500 300; sleep 0.4; done; sleep 1; snap place_picked2
 tapText "حفظ"; sleep 3; adb shell cat /data/data/$P/shared_prefs/badr.xml | grep -E 'place|"cc"' > shots/place_manual.txt; snap place_saved
 timeout 60 adb logcat -d > shots/logcat_all.txt 2>&1 || true
 timeout 60 adb logcat -d -b crash > shots/crash.txt 2>&1 || true
