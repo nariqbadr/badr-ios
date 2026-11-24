@@ -24,10 +24,12 @@ struct RootView: View {
     @Environment(\.pal) private var c
     /// screenshot runs in the simulator (CI): open this screen straight away, no intro or onboarding
     static let shot = ProcessInfo.processInfo.environment["BZ_ROUTE"]
-    @State private var intro = RootView.shot == nil || RootView.shot == "intro"
+    /// what lasts for the whole run of the app, though the screen is drawn again (a language change): the intro and What's New, once
+    static var introDone = false, wnSettled = false
+    @State private var intro = (RootView.shot == nil && !RootView.introDone) || RootView.shot == "intro"
     @State private var onboard = RootView.shot == nil && !UserDefaults.standard.bool(forKey: "onboarded")
     @State private var wnExisting = UserDefaults.standard.bool(forKey: "onboarded")
-    @State private var wnDone = false
+    @State private var wnDone = RootView.wnSettled
     @State private var wnWaitOver = false
     @State private var barH: CGFloat = 70
     @State private var opened: [String] = []
@@ -93,7 +95,7 @@ struct RootView: View {
             let showWn = RootView.shot?.hasPrefix("whatsnew") == true ? !wnDone : (decided && !wnDone && RootView.shot == nil && WhatsNew.shouldShow(repo.data?.site, existing: wnExisting))
             if let m = repo.data?.site.maintenance, m.on { Maintenance(title: m.title, message: m.message) }
             else {
-                if showWn && !onboard { WhatsNewView(ready: !(intro && repo.data?.site.introOn != false)) { go in wnDone = true; go?() }.transition(.identity) }
+                if showWn && !onboard { WhatsNewView(ready: !(intro && repo.data?.site.introOn != false)) { go in wnDone = true; RootView.wnSettled = true; go?() }.transition(.identity) }
                 else if !decided && wnExisting && !onboard && !wnDone { c.bg.ignoresSafeArea().transition(.opacity) }
                 if intro && repo.data?.site.introOn != false { IntroView { withAnimation(.easeOut(duration: 0.5)) { intro = false } } }
                 else if onboard { Onboarding { withAnimation { onboard = false } } }

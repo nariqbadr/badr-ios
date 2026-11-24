@@ -30,6 +30,8 @@ struct BadrApp: App {
         .onChange(of: phase) { p in
             if p == .active {
                 Task { await repo.refresh(); if let t = repo.data?.site.defaultTheme { store.applyDefaultTheme(t) } }
+                // the place follows the phone each time the app opens or comes back (a guess from the internet is replaced; a city chosen by hand stays)
+                if RootView.shot == nil { Task { await Prayers.shared.relocateIfStale() } }
                 Repo.shared.event("heartbeat")
                 // the rest waits a moment: coming back (or returning from the floating video) answers at once
                 Task {

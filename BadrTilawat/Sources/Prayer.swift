@@ -16,7 +16,7 @@ final class Prayers: NSObject, ObservableObject, CLLocationManagerDelegate {
     private let lm = CLLocationManager()
     private var locCont: CheckedContinuation<CLLocation?, Never>?
 
-    override private init() { super.init(); lm.delegate = self; lm.desiredAccuracy = kCLLocationAccuracyKilometer }
+    override private init() { super.init(); lm.delegate = self; lm.desiredAccuracy = kCLLocationAccuracyHundredMeters }
 
     var place: String { Store.shared.str("place") }
     var hasPlace: Bool { Store.shared.double("lat") != nil }
@@ -91,10 +91,21 @@ final class Prayers: NSObject, ObservableObject, CLLocationManagerDelegate {
             lm.requestWhenInUseAuthorization()
             for _ in 0..<60 where lm.authorizationStatus == .notDetermined { try? await Task.sleep(nanoseconds: 500_000_000) }
         }
-        if authorized, let loc = await withCheckedContinuation({ (c: CheckedContinuation<CLLocation?, Never>) in locCont = c; lm.requestLocation() }) {
+        if authorized, let loc = await withCheckedContinuation({ (c: CheckedContinuation<CLLocation?, Never>) in locCont?.resume(returning: nil); locCont = c; lm.requestLocation() }) {
+            // the same spot (within a kilometre): nothing to compute again
+            if let la = Store.shared.double("lat"), let lo = Store.shared.double("lon"), Store.shared.str("placeBy") == "gps", !Store.shared.str("place").isEmpty,
+               loc.distance(from: CLLocation(latitude: la, longitude: lo)) < 1000 { return true }
             await save(loc.coordinate.latitude, loc.coordinate.longitude, by: "gps"); return true
         }
+        // the internet's guess (often a town away) only when there is no place yet, or the one there is was a guess too
+        if hasPlace && Store.shared.str("placeBy") != "ip" { return false }
         return await locateByIp()
+    }
+    /// Each time the app opens or comes back (at most every 15 minutes): the place follows the phone, unless a city was chosen by hand.
+    private var lastAuto = Date.distantPast
+    func relocateIfStale() async {
+        guard authorized, Store.shared.str("placeBy") != "manual", Date().timeIntervalSince(lastAuto) > 15 * 60 else { return }
+        lastAuto = Date(); _ = await locate()
     }
     func locateByIp() async -> Bool {
         guard let u = URL(string: "https://ipapi.co/json/"), let (d, _) = try? await Repo.shared.session.data(from: u) else { return false }
