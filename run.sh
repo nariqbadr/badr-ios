@@ -67,18 +67,14 @@ d=json.load(sys.stdin); d=d.get('data',d); r=d.get('readable',{}).get('tracks',{
 ts=[t for t in d.get('recitations',[]) if ((t.get('video') or {}).get('q')) and t.get('id') in r]
 ts.sort(key=lambda t:(t.get('publishAt') or t.get('createdAt') or '', t.get('order',0)), reverse=True)
 print(ts[0]['id'] if ts else '')" 2>/dev/null); echo "CLIP=$CLIP"
-mkdir -p shots
-curl -s --max-time 60 "https://bawazirquran.com/wp-admin/admin-ajax.php?action=bz&do=data" > /tmp/data.json
-python3 - > shots/probe3.txt 2>&1 <<'PY'
-import urllib.request, subprocess, json
-u='https://bawazirquran.com/wp-admin/admin-ajax.php?action=bz&do=ayah_audio&r=sr%3Abadr&k=024035&to=36'
-r=urllib.request.urlopen(u, timeout=120); b=r.read()
-print('status', r.status, 'final', r.geturl()); print(dict(r.headers))
-print('len', len(b)); print('head hex', b[:64].hex()); print('head txt', b[:200])
-open('/tmp/a.mp3','wb').write(b)
-o=subprocess.run(['ffprobe','-v','error','-show_entries','format=duration,format_name,bit_rate:stream=codec_name,sample_rate,channels','-of','default=nw=1','/tmp/a.mp3'],capture_output=True,text=True); print(o.stdout, o.stderr[:500])
-# find first mp3 frame sync
-i=b.find(b'\xff'); print('first 0xFF at', i, b[i:i+4].hex() if i>=0 else '')
-PY
-cp /tmp/a.mp3 shots/a.mp3 2>/dev/null || true
+setup new.apk new
+# the maker's video, exported by itself: its length and its sound are checked
+adb shell touch /data/local/tmp/mark; go makerimage 25; sleep 20; adb shell input keyevent KEYCODE_BACK; sleep 2; tapText "فيديو"; sleep 2; snap maker_start
+for i in $(seq 1 36); do sleep 10; [ $((i % 6)) -eq 0 ] && snap maker_$i; adb shell "find /sdcard -name '*.mp4' -newer /data/local/tmp/mark 2>/dev/null" | tr -d '\r' > /tmp/now.txt; [ -s /tmp/now.txt ] && break; done
+sleep 8; snap maker_end
+cp /tmp/now.txt shots/mp4s.txt
+F=$(head -1 /tmp/now.txt)
+case "$F" in *.mp4) adb pull "$F" shots/maker.mp4 > /dev/null 2>&1 ;; esac
+timeout 60 adb logcat -d > shots/logcat_all.txt 2>&1 || true
+timeout 60 adb logcat -d -b crash > shots/crash.txt 2>&1 || true
 kill $GEO 2>/dev/null || true
