@@ -95,30 +95,20 @@ adhantest() { # $1 tag, $2 "off" to start with the screen off
   adb shell dumpsys activity services $P/.prayer.AdhanService | grep -c ServiceRecord >> shots/adhan_$1.txt
   adb shell input keyevent KEYCODE_WAKEUP; sleep 1; adb shell wm dismiss-keyguard
 }
-# the Haram stream on home: sound on, then the other mosque — the sound should stay on
-livetest() {
-  go home 30; snap live_0
-  adb shell input tap 140 705; sleep 8; echo "sound on: $(playing)" > shots/live.txt; snap live_1
-  tapText "المسجد النبوي"; sleep 15; echo "after switching: $(playing)" >> shots/live.txt; snap live_2
-  tapText "الحرم المكي"; sleep 15; echo "after switching back: $(playing)" >> shots/live.txt; snap live_3
-  adb shell input tap 140 705; sleep 3; echo "muted: $(playing)" >> shots/live.txt
-  tapText "المسجد النبوي"; sleep 15; echo "muted, switched: $(playing)" >> shots/live.txt; snap live_4
-}
-livetest
-# the place: a phone in Heliopolis whose saved name was «القاهرة، مصر» (as before) — written again with its district
-adb shell am force-stop $P
-setpref place "القاهرة، مصر"; setpref placeBy gps; adb shell "sed -i 's#<string name=\"placeFmt\">[^<]*</string>##' /data/data/$P/shared_prefs/badr.xml"
-setlong lat 4629162518256375824; setlong lon 4629510702802566906
-adb shell am start -W -n $P/.MainActivity > /dev/null; sleep 30
-adb shell cat /data/data/$P/shared_prefs/badr.xml | grep -E 'place' > shots/place_ar.txt
-go home 20; snap place_home
+# the opening: twice cold (the site saved), recorded — it should fade, never cut, and land on home
+for n in 1 2; do
+  adb shell am force-stop $P; sleep 2
+  rec open$n 9; adb shell am start -n $P/.MainActivity > /dev/null; sleep 8; endrec open$n; snap open${n}_end
+done
+# the ayah search marks
+go quranSearch 20; snap search
+# the city picked by hand
 go prayerSettings 20
-for k in 1 2 3 4 5 6 7 8 9 10; do adb shell input swipe 540 1600 540 400 300; sleep 0.4; done; sleep 1; snap place_sheet
-tapText "اختر المدينة"; sleep 1.5; adb shell input text "Benha"; sleep 6; snap place_search
-tapText "Benha" || tapText "بنها"; sleep 1; snap place_picked
+for k in 1 2 3 4 5 6 7 8 9 10; do adb shell input swipe 540 1600 540 400 300; sleep 0.4; done; sleep 1
+tapText "اختر المدينة"; sleep 2; adb shell input text "Benha"; sleep 7; snap place_search
+for k in 1 2 3; do adb shell input swipe 540 1500 540 900 300; sleep 0.4; done; sleep 1; snap place_search2
+tapText "Banha" || tapText "Benha" || tapText "بنها"; sleep 1; snap place_picked
 tapText "حفظ"; sleep 3; adb shell cat /data/data/$P/shared_prefs/badr.xml | grep -E 'place|"cc"' > shots/place_manual.txt; snap place_saved
-setpref lang en; adb shell am start -W -n $P/.MainActivity > /dev/null; sleep 25
-adb shell cat /data/data/$P/shared_prefs/badr.xml | grep -E 'place' > shots/place_en.txt
 timeout 60 adb logcat -d > shots/logcat_all.txt 2>&1 || true
 timeout 60 adb logcat -d -b crash > shots/crash.txt 2>&1 || true
 kill $GEO 2>/dev/null || true
