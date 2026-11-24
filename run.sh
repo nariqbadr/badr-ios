@@ -95,8 +95,16 @@ adhantest() { # $1 tag, $2 "off" to start with the screen off
   adb shell dumpsys activity services $P/.prayer.AdhanService | grep -c ServiceRecord >> shots/adhan_$1.txt
   adb shell input keyevent KEYCODE_WAKEUP; sleep 1; adb shell wm dismiss-keyguard
 }
-watchtest ar; adb shell input keyevent KEYCODE_HOME; sleep 1
-setpref lang en; watchtest en
+# the Haram stream on home: sound on, then the other mosque — the sound should stay on
+livetest() {
+  go home 30; snap live_0
+  adb shell input tap 140 705; sleep 8; echo "sound on: $(playing)" > shots/live.txt; snap live_1
+  tapText "المسجد النبوي"; sleep 15; echo "after switching: $(playing)" >> shots/live.txt; snap live_2
+  tapText "الحرم المكي"; sleep 15; echo "after switching back: $(playing)" >> shots/live.txt; snap live_3
+  adb shell input tap 140 705; sleep 3; echo "muted: $(playing)" >> shots/live.txt
+  tapText "المسجد النبوي"; sleep 15; echo "muted, switched: $(playing)" >> shots/live.txt; snap live_4
+}
+livetest
 timeout 60 adb logcat -d > shots/logcat_all.txt 2>&1 || true
 timeout 60 adb logcat -d -b crash > shots/crash.txt 2>&1 || true
 kill $GEO 2>/dev/null || true
