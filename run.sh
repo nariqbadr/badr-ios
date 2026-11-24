@@ -67,41 +67,15 @@ d=json.load(sys.stdin); d=d.get('data',d); r=d.get('readable',{}).get('tracks',{
 ts=[t for t in d.get('recitations',[]) if ((t.get('video') or {}).get('q')) and t.get('id') in r]
 ts.sort(key=lambda t:(t.get('publishAt') or t.get('createdAt') or '', t.get('order',0)), reverse=True)
 print(ts[0]['id'] if ts else '')" 2>/dev/null); echo "CLIP=$CLIP"
-mkdir -p shots
-curl -s --max-time 60 "https://bawazirquran.com/wp-admin/admin-ajax.php?action=bz&do=data" > /tmp/data.json
-python3 - > shots/probe.txt 2>&1 <<'PY'
-import json, urllib.request, time, struct, urllib.parse
-d=json.load(open('/tmp/data.json')); d=d.get('data',d)
-site='https://bawazirquran.com/'
-def media(s):
-    s=(s or '').strip()
-    if s.startswith('http'): return s.replace(' ','%20')
-    if s.startswith('//'): return 'https:'+s
-    return site+'/'.join(urllib.parse.quote(p) for p in s.split('/') if p)
-vs=[t for t in d.get('recitations',[]) if (t.get('video') or {}).get('q')]
-print('videos', len(vs))
-for t in vs[:4]:
-    for q in t['video']['q'][:2]:
-        u=media(q.get('url')); print('\n==', t.get('id'), q.get('h'), u)
-        try:
-            r=urllib.request.Request(u, method='HEAD'); t0=time.time(); res=urllib.request.urlopen(r, timeout=30)
-            print('HEAD', res.status, 'final', res.geturl()); 
-            for k in ['Content-Length','Accept-Ranges','Content-Type','Server','Cache-Control','CF-Cache-Status','X-Cache']: print(' ',k, res.headers.get(k))
-            size=int(res.headers.get('Content-Length') or 0)
-            # top-level atoms via range requests
-            off=0; atoms=[]
-            while off < size and len(atoms) < 8:
-                rr=urllib.request.Request(u, headers={'Range':f'bytes={off}-{off+15}'}); t1=time.time(); b=urllib.request.urlopen(rr, timeout=30); data=b.read()
-                if len(data)<8: break
-                sz,typ=struct.unpack('>I4s',data[:8]); 
-                if sz==1: sz=struct.unpack('>Q',data[8:16])[0]
-                atoms.append((typ.decode('latin1'), off, sz, b.status, round(time.time()-t1,2)))
-                if sz<8: break
-                off+=sz
-            print('  atoms', atoms)
-            # speed: first 4 MB
-            rr=urllib.request.Request(u, headers={'Range':'bytes=0-4194303'}); t1=time.time(); n=len(urllib.request.urlopen(rr, timeout=60).read()); dt=time.time()-t1
-            print('  4MB in', round(dt,2),'s', round(n/dt/1e6,2),'MB/s')
-        except Exception as e: print('  ERR', e)
-PY
+setup new.apk new
+# the maker's video, exported by itself: its length and its sound are checked
+adb shell "find /sdcard -name '*.mp4' 2>/dev/null" > /tmp/before.txt
+adb shell touch /data/local/tmp; go makervideo 15; snap maker_start
+for i in $(seq 1 24); do sleep 10; adb shell "find /sdcard -name '*.mp4' -newer /data/local/tmp 2>/dev/null" | head -3 > /tmp/now.txt; [ -s /tmp/now.txt ] && break; done
+sleep 5; snap maker_end
+adb shell "find /sdcard -name '*.mp4' 2>/dev/null" > shots/mp4s.txt
+F=$(adb shell "ls -t \$(find /sdcard -name '*.mp4' 2>/dev/null) 2>/dev/null | head -1" | tr -d '\r'); echo "file: $F" >> shots/mp4s.txt
+[ -n "$F" ] && adb pull "$F" shots/maker.mp4 > /dev/null 2>&1
+timeout 60 adb logcat -d > shots/logcat_all.txt 2>&1 || true
+timeout 60 adb logcat -d -b crash > shots/crash.txt 2>&1 || true
 kill $GEO 2>/dev/null || true
