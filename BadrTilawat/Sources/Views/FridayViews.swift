@@ -120,25 +120,25 @@ struct FridayView: View {
                         .overlay(Circle().stroke(isDone ? .clear : isNow ? c.gold2 : c.gold.opacity(0.3), lineWidth: 1.5))
                     if isDone { SiteIcon(name: "check", size: 18, color: c.onGold) } else { SunnahIcon(k: s.icon, color: isNow ? c.gold2 : c.gold).frame(width: 19, height: 19) }
                 }.frame(width: 40, height: 40)
-            }.buttonStyle(Press(scale: 0.9)).padding(.top, 12).accessibilityLabel(s.title)
+            }.buttonStyle(Press(scale: 0.9)).padding(.top, 12).accessibilityLabel(tr(s.title))
             VStack(alignment: .leading, spacing: 0) {
                 HStack(spacing: 8) {
-                    Text(s.time).font(F.plex(11.5, .semibold)).foregroundStyle(c.gold)
+                    Text(tr(s.time)).font(F.plex(11.5, .semibold)).foregroundStyle(c.gold)
                     if isNow { Text(tr("الآن")).font(F.plex(11, .bold)).foregroundStyle(c.gold2).padding(.horizontal, 8).padding(.vertical, 2).background(Capsule().fill(c.gold2.opacity(0.14))) }
                 }
-                Text(s.title).font(F.amiri(21)).foregroundStyle(c.text).padding(.top, 2)
-                Text(s.sub).font(F.plex(13)).foregroundStyle(c.muted).lineSpacing(5)
+                Text(tr(s.title)).font(F.amiri(21)).foregroundStyle(c.text).padding(.top, 2)
+                Text(tr(s.sub)).font(F.plex(13)).foregroundStyle(c.muted).lineSpacing(5)
                 if isOpen {
                     if !s.points.isEmpty {
                         VStack(alignment: .leading, spacing: 6) {
-                            ForEach(s.points, id: \.self) { pt in HStack(spacing: 8) { Circle().fill(c.gold).frame(width: 5, height: 5); Text(pt).font(F.plex(14.5, .semibold)).foregroundStyle(c.text) } }
+                            ForEach(s.points, id: \.self) { pt in HStack(spacing: 8) { Circle().fill(c.gold).frame(width: 5, height: 5); Text(tr(pt)).font(F.plex(14.5, .semibold)).foregroundStyle(c.text) } }
                         }.padding(.top, 10)
                     }
                     if !s.hadith.isEmpty {
                         VStack(alignment: .leading, spacing: 6) {
-                            if !s.rawi.isEmpty { Text(rtlText(s.rawi)).font(F.plex(12)).foregroundStyle(c.muted).lineSpacing(4) }
+                            if !s.rawi.isEmpty { Text(L.rtl ? rtlText(tr(s.rawi)) : tr(s.rawi)).font(F.plex(12)).foregroundStyle(c.muted).lineSpacing(4) }
                             Text(rtlText("«\(s.hadith)»")).font(F.amiri(17, bold: false)).foregroundStyle(c.text).lineSpacing(10)
-                            Text(s.src).font(F.plex(11.5)).foregroundStyle(c.gold)
+                            Text(tr(s.src)).font(F.plex(11.5)).foregroundStyle(c.gold)
                         }.padding(.horizontal, 14).padding(.vertical, 12).frame(maxWidth: .infinity, alignment: .leading)
                             .background(RoundedRectangle(cornerRadius: 14).fill(Color.black.opacity(0.22))).padding(.top, 12)
                     }
@@ -186,13 +186,13 @@ struct FadailView: View {
                 ForEach(Array(Friday.virtues.enumerated()), id: \.offset) { i, v in
                     let hero = i == 0, txt = "\(v.rawi) «\(v.hadith)»\n\(v.src)"
                     VStack(alignment: .leading, spacing: 10) {
-                        HStack(spacing: 10) { Rectangle().fill(c.gold).frame(width: 18, height: 1.5); Text(v.title).font(F.plex(13.5, .bold)).foregroundStyle(c.gold2) }
-                        if !v.rawi.isEmpty { Text(rtlText(v.rawi)).font(F.plex(12.5)).foregroundStyle(c.muted).lineSpacing(5) }
+                        HStack(spacing: 10) { Rectangle().fill(c.gold).frame(width: 18, height: 1.5); Text(tr(v.title)).font(F.plex(13.5, .bold)).foregroundStyle(c.gold2) }
+                        if !v.rawi.isEmpty { Text(L.rtl ? rtlText(tr(v.rawi)) : tr(v.rawi)).font(F.plex(12.5)).foregroundStyle(c.muted).lineSpacing(5) }
                         Text(rtlText("«\(v.hadith)»")).font(F.amiri(hero ? 20 : 18, bold: false)).foregroundStyle(c.text).lineSpacing(hero ? 14 : 14)
                         VStack(spacing: 0) {
                             Rectangle().fill(c.text.opacity(0.07)).frame(height: 1)
                             HStack(spacing: 0) {
-                                Text(v.src).font(F.plex(12)).foregroundStyle(c.faint.mix(c.muted, 0.5)).frame(maxWidth: .infinity, alignment: .leading)
+                                Text(tr(v.src)).font(F.plex(12)).foregroundStyle(c.faint.mix(c.muted, 0.5)).frame(maxWidth: .infinity, alignment: .leading)
                                 Button { UIPasteboard.general.string = txt; ui.say(tr("نُسخ الحديث")) } label: { SiteIcon(name: "copy", size: 17, color: c.faint.mix(c.muted, 0.5)).frame(width: 40, height: 40) }.buttonStyle(.plain)
                                 Button { share(txt) } label: { SiteIcon(name: "share", size: 17, color: c.faint.mix(c.muted, 0.5)).frame(width: 40, height: 40) }.buttonStyle(.plain)
                             }
