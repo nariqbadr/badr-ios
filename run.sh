@@ -62,12 +62,13 @@ cliptest() { # $1 tag
   pkill -f "adb logcat" || true
 }
 setup new.apk new
-go quranSearch 25; snap q1
-go prayerSettings 25
-for i in 1 2 3 4; do up 1.2; done; snap s1
-tapText "سورة الكهف"; sleep 2; snap s2
-up 1.2; snap s3
-go prayerSettings 25; for i in 1 2 3 4; do up 1.2; done; snap s4
+go recitations 25; up 1.2; snap r1
+tapText "بدر التركي"; sleep 3; snap r2
+tapText "مرئي"; sleep 3; snap r3
+tapText "خالد باوزير"; sleep 3; snap r4
+go makerimage 45; snap mk
+adb shell 'ls -t /sdcard/Pictures/*/ | head -3' > shots/pics.txt
+F=$(adb shell 'ls -t /sdcard/Pictures/*/*.* | head -1' | tr -d "\r"); [ -n "$F" ] && adb pull "$F" shots/maker_out.png
 timeout 60 adb logcat -d > shots/logcat_all.txt 2>&1 || true
 timeout 60 adb logcat -d -b crash > shots/crash.txt 2>&1 || true
 kill $GEO 2>/dev/null || true
