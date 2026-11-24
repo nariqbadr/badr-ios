@@ -69,7 +69,7 @@ ts.sort(key=lambda t:(t.get('publishAt') or t.get('createdAt') or '', t.get('ord
 print(ts[0]['id'] if ts else '')" 2>/dev/null); echo "CLIP=$CLIP"
 setup new.apk new
 # the maker's video, exported by itself: its length and its sound are checked
-adb shell touch /data/local/tmp/mark; go maker 25; tapText "فيديو"; sleep 2; snap maker_start
+adb shell touch /data/local/tmp/mark; go makerimage 25; sleep 20; tapText "فيديو"; sleep 2; snap maker_start
 for i in $(seq 1 36); do sleep 10; [ $((i % 6)) -eq 0 ] && snap maker_$i; adb shell "find /sdcard -name '*.mp4' -newer /data/local/tmp/mark 2>/dev/null" | tr -d '\r' > /tmp/now.txt; [ -s /tmp/now.txt ] && break; done
 sleep 8; snap maker_end
 cp /tmp/now.txt shots/mp4s.txt
