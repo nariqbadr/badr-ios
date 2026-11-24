@@ -92,11 +92,12 @@ struct RootView: View {
             // the intro skipped before the site has answered: wait for its word (a moment, at most 2 s) on the intro's colour, so
             // a What's New sent again from the dashboard comes straight after the intro, not over the home screen a moment later
             let decided = repo.fresh || wnWaitOver || RootView.shot != nil
-            let showWn = RootView.shot?.hasPrefix("whatsnew") == true ? !wnDone : (decided && !wnDone && RootView.shot == nil && WhatsNew.shouldShow(repo.data?.site, existing: wnExisting))
+            // What's New is decided from the saved copy of the site at once: nothing is waited for on a blank screen, the app opens
+            // straight on the home page when it was already seen (one sent again from the dashboard shows at the next opening)
+            let showWn = RootView.shot?.hasPrefix("whatsnew") == true ? !wnDone : (repo.data != nil && !wnDone && RootView.shot == nil && WhatsNew.shouldShow(repo.data?.site, existing: wnExisting))
             if let m = repo.data?.site.maintenance, m.on { Maintenance(title: m.title, message: m.message) }
             else {
                 if showWn && !onboard { WhatsNewView(ready: !(intro && repo.data?.site.introOn != false)) { go in wnDone = true; RootView.wnSettled = true; go?() }.transition(.identity) }
-                else if !decided && wnExisting && !onboard && !wnDone { c.bg.ignoresSafeArea().transition(.opacity) }
                 if intro && repo.data?.site.introOn != false { IntroView { withAnimation(.easeOut(duration: 0.5)) { intro = false } } }
                 else if onboard { Onboarding { withAnimation { onboard = false } } }
                 else if decided, !showWn, let s = repo.data?.site, RootView.shot == nil { AppMessages(site: s) }
@@ -127,6 +128,8 @@ struct RootView: View {
         // (What's New) the site's word is waited for 2 s at most after the intro
         .task(id: intro) { if !intro && !repo.fresh { try? await Task.sleep(nanoseconds: 2_000_000_000); withAnimation(.easeOut(duration: 0.3)) { wnWaitOver = true } } }
         .onChange(of: repo.fresh) { f in if f && !intro { withAnimation(.easeOut(duration: 0.3)) { wnWaitOver = true } } }
+        // decided once a run (as on Android): not to be shown now, it does not pop up later over the home page
+        .task(id: repo.data != nil) { if RootView.shot == nil, repo.data != nil, !wnDone, !WhatsNew.shouldShow(repo.data?.site, existing: wnExisting) { wnDone = true; RootView.wnSettled = true } }
         .task {
             #if targetEnvironment(simulator)
             // the CI's screenshots of the community as a signed-in test member (never in a real build)
