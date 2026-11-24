@@ -84,7 +84,9 @@ struct Ico: View {
         "cloud.rain": "rain", "water.waves": "wave", "arrow.up.forward.app": "external", "plus.circle": "plus", "trash.fill": "trash", "flag.fill": "flag", "bookmark.fill": "bookmark"]
     var body: some View {
         // left-to-right languages: the back arrow points the other way
-        let name = L.rtl ? self.name : self.name == "arrow.right" ? "arrow.left" : self.name == "arrow.left" ? "arrow.right" : self.name
+        // drawn for Arabic (right to left): the left-to-right languages see the arrows and the chevrons turned
+        let flip = ["arrow.right": "arrow.left", "arrow.left": "arrow.right", "chevron.right": "chevron.left", "chevron.left": "chevron.right"]
+        let name = L.rtl ? self.name : (flip[self.name] ?? self.name)
         let n = SiteIcons.data[name] != nil ? name : (Ico.alias[name] ?? name)
         if SiteIcons.data[n] != nil { SiteIcon(name: n, size: size, color: color) }
         else if let color { Image(systemName: name).font(.system(size: size * 0.82)).foregroundStyle(color).frame(width: size, height: size) }
