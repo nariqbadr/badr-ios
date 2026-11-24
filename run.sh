@@ -69,37 +69,16 @@ ts.sort(key=lambda t:(t.get('publishAt') or t.get('createdAt') or '', t.get('ord
 print(ts[0]['id'] if ts else '')" 2>/dev/null); echo "CLIP=$CLIP"
 mkdir -p shots
 curl -s --max-time 60 "https://bawazirquran.com/wp-admin/admin-ajax.php?action=bz&do=data" > /tmp/data.json
-python3 - > shots/probe2.txt 2>&1 <<'PY'
-import json, urllib.request, urllib.parse, subprocess
-d=json.load(open('/tmp/data.json')); d=d.get('data',d)
-site='https://bawazirquran.com/'
-def media(s):
-    s=(s or '').strip()
-    if s.startswith('http'): return s.replace(' ','%20')
-    if s.startswith('//'): return 'https:'+s
-    return site+'/'.join(urllib.parse.quote(p) for p in s.split('/') if p)
-rd=d.get('readable',{}).get('tracks',{})
-tr={t['id']:t for t in d.get('recitations',[])}
-recs={r['id']:r.get('name') for r in d.get('reciters',[])}
-hits=[(k,v) for k,v in rd.items() if len(v)>=3 and v[0]==24 and v[1]<=35 and v[2]>=36]
-print('readable sample', list(rd.items())[:8], len(rd)); print('keys', list(d.keys())[:30]); print('tracks for 24:35-36', hits)
-for k,v in rd.items():
-    t=tr.get(k,{})
-    if 'التركي' in (recs.get(t.get('reciterId')) or ''): print(' turki', k, v, t.get('reciterId'))
-mk=d.get('site',{}).get('maker') or {}
-print('maker cfg', {x:mk.get(x) for x in ['defaultReciter','defaultSurah','defaultFrom','defaultTo']})
-hits=[(k,v) for k,v in rd.items() if len(v)>=3 and v[0]==24]
-print('surah 24', hits)
-for k,v in hits:
-    t=tr.get(k,{}); print('\n==',k, recs.get(t.get('reciterId')), 'audio', t.get('audio'), 'video', bool((t.get('video') or {}).get('q')))
-    j=json.load(urllib.request.urlopen(site+'wp-admin/admin-ajax.php?action=bz&do=track_times&id='+urllib.parse.quote(k), timeout=60))
-    print(' ok', j.get('ok'), 'surah', j.get('surah'), 'url', j.get('url'), 'n ayahs', len(j.get('ayahs') or []))
-    ay=[a for a in (j.get('ayahs') or []) if a and a[0] in (34,35,36,37)]; print(' times', ay)
-    print(' first/last', (j.get('ayahs') or [None])[0], (j.get('ayahs') or [None])[-1])
-    u=media(j.get('url') or t.get('audio'))
-    print(' media', u)
-    try:
-        out=subprocess.run(['ffprobe','-v','error','-show_entries','format=duration,format_name:stream=codec_name,sample_rate,channels','-of','default=nw=1',u],capture_output=True,text=True,timeout=120); print(out.stdout, out.stderr[:300])
-    except Exception as e: print(' ffprobe', e)
+python3 - > shots/probe3.txt 2>&1 <<'PY'
+import urllib.request, subprocess, json
+u='https://bawazirquran.com/wp-admin/admin-ajax.php?action=bz&do=ayah_audio&r=sr%3Abadr&k=024035&to=36'
+r=urllib.request.urlopen(u, timeout=120); b=r.read()
+print('status', r.status, 'final', r.geturl()); print(dict(r.headers))
+print('len', len(b)); print('head hex', b[:64].hex()); print('head txt', b[:200])
+open('/tmp/a.mp3','wb').write(b)
+o=subprocess.run(['ffprobe','-v','error','-show_entries','format=duration,format_name,bit_rate:stream=codec_name,sample_rate,channels','-of','default=nw=1','/tmp/a.mp3'],capture_output=True,text=True); print(o.stdout, o.stderr[:500])
+# find first mp3 frame sync
+i=b.find(b'\xff'); print('first 0xFF at', i, b[i:i+4].hex() if i>=0 else '')
 PY
+cp /tmp/a.mp3 shots/a.mp3 2>/dev/null || true
 kill $GEO 2>/dev/null || true
