@@ -61,18 +61,38 @@ cliptest() { # $1 tag
   endrec rec_$1
   pkill -f "adb logcat" || true
 }
+CLIP=$(curl -s --max-time 60 "https://bawazirquran.com/wp-admin/admin-ajax.php?action=bz&do=data" | python3 -c "
+import json,sys
+d=json.load(sys.stdin); d=d.get('data',d); r=d.get('readable',{}).get('tracks',{})
+ts=[t for t in d.get('recitations',[]) if ((t.get('video') or {}).get('q')) and t.get('id') in r]
+ts.sort(key=lambda t:(t.get('publishAt') or t.get('createdAt') or '', t.get('order',0)), reverse=True)
+print(ts[0]['id'] if ts else '')" 2>/dev/null); echo "CLIP=$CLIP"
 setup new.apk new
-adb shell am force-stop $P
-setlong lat 4629197055236018222; setlong lon 4629523087701542175; setpref placeBy ip; setpref place "El Khanka"
-adb shell cmd location set-location-enabled true 2>/dev/null; adb emu geo fix 31.4913 30.0074 2>/dev/null; sleep 2; adb emu geo fix 31.4913 30.0074
-adb shell cat /data/data/$P/shared_prefs/badr.xml | grep -E 'place|"lat"|"lon"' > shots/place_before.txt
-adb shell am start -W -n $P/.MainActivity > /dev/null; sleep 30; adb emu geo fix 31.4914 30.0075; sleep 15; snap loc1
-adb shell cat /data/data/$P/shared_prefs/badr.xml | grep -E 'place|"lat"|"lon"' > shots/place_after.txt
-setpref lang en
-adb shell am start -W -n $P/.MainActivity > /dev/null; sleep 25
-adb shell cat /data/data/$P/shared_prefs/badr.xml | grep -E 'place' > shots/place_en.txt
-go home 25; snap en_home
-go live 25; snap en_live
+pipstate() { adb shell dumpsys activity activities | grep -iE "mPictureInPicture|pinned|windowingMode=pinned" | head -5 > shots/pip_$1.txt; adb shell dumpsys window | grep -iE "pinned|PIP" | head -5 >> shots/pip_$1.txt; }
+watchtest() { # $1 tag
+  adb shell am force-stop $P
+  timeout 40 adb shell am start -W -n $P/.MainActivity --es open "watch/$CLIP" > /dev/null; sleep 22
+  snap ${1}_page
+  rec rec_$1 60
+  # the big play button sits in the middle of the video; tap the video first to show the controls if they are hidden
+  tapText "تشغيل" || true
+  [ -z "$B" ] && { adb shell input tap 540 560; sleep 0.4; adb shell input tap 540 560; }
+  sleep 0.25; snap ${1}_tap250
+  sleep 0.8; snap ${1}_tap1000
+  sleep 8; snap ${1}_playing
+  adb shell input keyevent KEYCODE_HOME; sleep 4; snap ${1}_home; pipstate $1
+  sleep 6; snap ${1}_home2
+  endrec rec_$1
+}
+watchtest ar
+setpref lang en; watchtest en
+setpref lang fr
+adb shell am start -W -n $P/.MainActivity > /dev/null; sleep 25; snap fr_home
+go prayerSettings 20; snap fr_adhan; go widgets 20; snap fr_widgets
+go friday 20; snap fr_friday
+setpref lang ur
+go home 25; snap ur_home
+go prayerSettings 20; snap ur_adhan; go fadail 20; snap ur_fadail
 timeout 60 adb logcat -d > shots/logcat_all.txt 2>&1 || true
 timeout 60 adb logcat -d -b crash > shots/crash.txt 2>&1 || true
 kill $GEO 2>/dev/null || true
