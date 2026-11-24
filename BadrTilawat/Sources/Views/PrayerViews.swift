@@ -222,8 +222,14 @@ struct PrayerSettings: View {
     /* UI actions only: reading it does not redraw this view on every tab or sheet change */ private var ui: UIState { UIState.shared! }
     @Environment(\.pal) private var c
     @Environment(\.dismiss) private var dismiss
-    @State private var city = ""
-    @State private var country = ""
+    @State private var cc = Store.shared.str("cc").uppercased()
+    @State private var countryOpen = false
+    @State private var countryQ = ""
+    @State private var cityOpen = false
+    @State private var cityQ = ""
+    @State private var hits: [Prayers.CityHit] = []
+    @State private var searching = false
+    @State private var picked: Prayers.CityHit?
     @State private var busy = false
     @State private var modes: [String: String] = [:]
     @State private var pre = 0
@@ -462,19 +468,38 @@ extension PrayerSettings {
             }.frame(minHeight: 62).contentShape(Rectangle())
         }.buttonStyle(.plain)
     }
+    /// every country, in the app's language, in its alphabetical order
+    private var countries: [(String, String)] {
+        Locale.isoRegionCodes.compactMap { code in L.locale.localizedString(forRegionCode: code).map { (code, $0) } }
+            .sorted { $0.1.compare($1.1, locale: L.locale) == .orderedAscending }
+    }
     @ViewBuilder var placeSection: some View {
         GroupHead(title: tr("الموقع"))
+        // where the times are computed for: the district and city, then the street and the coordinates (as other apps show it)
+        let by = Store.shared.str("placeBy")
         SettingsGroup {
+            HStack(alignment: .top, spacing: 10) {
+                VStack(alignment: .leading, spacing: 3) {
+                    Text(tr("موقعك الحالي")).font(F.plex(12, .semibold)).foregroundStyle(c.gold)
+                    Text(prayers.place.isEmpty ? tr("لم يُحدَّد بعد") : prayers.place).font(F.plex(17, .bold)).foregroundStyle(c.text)
+                    let street = Store.shared.str("placeStreet")
+                    if by == "gps" && !street.isEmpty { Text(street).font(F.plex(14)).foregroundStyle(c.muted) }
+                    if let la = Store.shared.double("lat"), let lo = Store.shared.double("lon") {
+                        Text(tr("خط الطول: {0}   خط العرض: {1}", String(format: "%.4f", lo), String(format: "%.4f", la))).font(F.plex(12)).foregroundStyle(sub)
+                    }
+                    let how = by == "gps" ? tr("محدَّد من موقع جوالك") : by == "manual" ? tr("مختار يدويًا") : by == "ip" ? tr("تقريبي من الإنترنت") : ""
+                    if !how.isEmpty { Text(how).font(F.plex(11.5)).foregroundStyle(sub) }
+                }
+                Spacer(minLength: 0)
+                if by == "gps" { Image(systemName: "checkmark.seal.fill").font(.system(size: 22)).foregroundStyle(c.gold) }
+            }.padding(.vertical, 14)
+            Hairline()
             Button {
-                busy = true; locOk = nil
+                busy = true; locOk = nil; picked = nil
                 Task { let ok = await prayers.locate(); busy = false; withAnimation(.spring(response: 0.45, dampingFraction: 0.7)) { locOk = ok }; if ok { UINotificationFeedbackGenerator().notificationOccurred(.success) } }
             } label: {
                 HStack(spacing: 10) { SiteIcon(name: "locate", size: 18, color: c.gold2); Text(busy ? tr("جارٍ التحديد…") : tr("حدّد موقعي تلقائيًا")).font(F.plex(15, .semibold)).foregroundStyle(c.gold2); Spacer() }.frame(minHeight: 52).contentShape(Rectangle())
             }.buttonStyle(.plain)
-            Hairline()
-            HStack(spacing: 12) { Text(tr("المدينة")).font(F.plex(14)).foregroundStyle(c.muted).frame(width: 64, alignment: .leading); TextField(tr("مثال: القاهرة"), text: $city).font(F.plex(15)) }.frame(minHeight: 52)
-            Hairline()
-            HStack(spacing: 12) { Text(tr("الدولة")).font(F.plex(14)).foregroundStyle(c.muted).frame(width: 64, alignment: .leading); TextField(tr("مثال: مصر"), text: $country).font(F.plex(15)) }.frame(minHeight: 52)
         }
         if let ok = locOk {
             HStack(spacing: 8) {
@@ -487,10 +512,64 @@ extension PrayerSettings {
             }.padding(.horizontal, 12).padding(.vertical, 9)
             .background(RoundedRectangle(cornerRadius: 14).fill(c.gold.opacity(ok ? 0.12 : 0.05))).overlay(RoundedRectangle(cornerRadius: 14).stroke(c.gold.opacity(ok ? 0.45 : 0.15))).padding(.top, 10)
         }
-        GoldButton(title: tr("حفظ المدينة"), icon: "checkmark") {
-            guard !city.isEmpty else { return }
-            Task { let ok = await prayers.setCity(city, country); ui.say(ok ? tr("تم حفظ المدينة") : tr("لم نجد هذه المدينة")); if ok { dismiss() } }
-        }.frame(maxWidth: .infinity).padding(.top, 16)
+        // by hand: the country from the list, then the city from the search results (nothing typed is taken as it is)
+        GroupHead(title: tr("اختيار يدوي"))
+        let all = countries
+        let ccName = all.first { $0.0 == cc }?.1 ?? ""
+        SettingsGroup {
+            Button { withAnimation { countryOpen.toggle(); cityOpen = false } } label: {
+                HStack(spacing: 12) {
+                    Text(tr("الدولة")).font(F.plex(14)).foregroundStyle(c.muted).frame(width: 64, alignment: .leading)
+                    Text(ccName.isEmpty ? tr("اختر الدولة") : ccName).font(F.plex(15, .semibold)).foregroundStyle(ccName.isEmpty ? sub : c.text)
+                    Spacer(); Image(systemName: countryOpen ? "chevron.up" : "chevron.down").font(.system(size: 13, weight: .semibold)).foregroundStyle(sub)
+                }.frame(minHeight: 52).contentShape(Rectangle())
+            }.buttonStyle(.plain)
+            if countryOpen {
+                TextField(tr("ابحث عن دولة"), text: $countryQ).font(F.plex(15)).padding(.horizontal, 12).padding(.vertical, 10).background(RoundedRectangle(cornerRadius: 12).fill(c.surface3)).padding(.bottom, 6)
+                let q = countryQ.trimmingCharacters(in: .whitespaces)
+                ForEach(all.filter { q.isEmpty || $0.1.localizedCaseInsensitiveContains(q) }.prefix(40), id: \.0) { code, name in
+                    Button { cc = code; countryOpen = false; countryQ = ""; picked = nil; hits = []; cityQ = ""; withAnimation { cityOpen = true } } label: {
+                        HStack { Text(name).font(F.plex(15, code == cc ? .bold : .regular)).foregroundStyle(code == cc ? c.gold : c.text); Spacer(); if code == cc { Image(systemName: "checkmark").foregroundStyle(c.gold) } }
+                            .frame(minHeight: 42).contentShape(Rectangle())
+                    }.buttonStyle(.plain)
+                }
+            }
+            Hairline()
+            Button { withAnimation { cityOpen.toggle(); countryOpen = false } } label: {
+                HStack(spacing: 12) {
+                    Text(tr("المدينة")).font(F.plex(14)).foregroundStyle(c.muted).frame(width: 64, alignment: .leading)
+                    Text(picked?.name ?? tr("اختر المدينة")).font(F.plex(15, .semibold)).foregroundStyle(picked == nil ? sub : c.gold)
+                    Spacer(); Image(systemName: cityOpen ? "chevron.up" : "chevron.down").font(.system(size: 13, weight: .semibold)).foregroundStyle(sub)
+                }.frame(minHeight: 52).contentShape(Rectangle())
+            }.buttonStyle(.plain)
+            if cityOpen {
+                TextField(tr("اكتب اسم مدينتك ثم اخترها من النتائج"), text: $cityQ).font(F.plex(15)).padding(.horizontal, 12).padding(.vertical, 10).background(RoundedRectangle(cornerRadius: 12).fill(c.surface3)).padding(.bottom, 6)
+                    .task(id: cityQ + "|" + cc) {
+                        hits = []; let q = cityQ.trimmingCharacters(in: .whitespaces)
+                        guard q.count >= 2 else { searching = false; return }
+                        searching = true
+                        try? await Task.sleep(nanoseconds: 450_000_000); if Task.isCancelled { return }
+                        let r = await prayers.searchCities(q, cc: cc, countryName: ccName)
+                        if !Task.isCancelled { hits = r; searching = false }
+                    }
+                if searching { Text(tr("جارٍ البحث…")).font(F.plex(13)).foregroundStyle(sub).padding(.vertical, 8) }
+                else if cityQ.trimmingCharacters(in: .whitespaces).count >= 2 && hits.isEmpty { Text(tr("لا نتائج — جرّب اسمًا آخر")).font(F.plex(13)).foregroundStyle(sub).padding(.vertical, 8) }
+                ForEach(hits, id: \.self) { h in
+                    Button { picked = h; withAnimation { cityOpen = false } } label: {
+                        HStack(spacing: 10) {
+                            SiteIcon(name: "pin", size: 16, color: c.gold)
+                            VStack(alignment: .leading, spacing: 1) { Text(h.name).font(F.plex(15, .semibold)).foregroundStyle(c.text); if !h.sub.isEmpty { Text(h.sub).font(F.plex(12)).foregroundStyle(c.muted) } }
+                            Spacer(); if picked == h { Image(systemName: "checkmark").foregroundStyle(c.gold) }
+                        }.frame(minHeight: 48).contentShape(Rectangle())
+                    }.buttonStyle(.plain)
+                }
+            }
+        }
+        // one save for the whole page: the city picked by hand (the other settings are kept as they are changed)
+        GoldButton(title: tr("حفظ"), icon: "checkmark") {
+            if let h = picked { prayers.setPicked(h) }
+            ui.say(tr("تم الحفظ")); dismiss()
+        }.frame(maxWidth: .infinity).padding(.top, 18)
     }
 }
 

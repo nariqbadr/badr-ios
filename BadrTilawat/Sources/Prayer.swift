@@ -1,6 +1,7 @@
 import Foundation
 import Adhan
 import CoreLocation
+import MapKit
 import UserNotifications
 
 struct PrayerTime: Identifiable { let key: String, name: String, time: Date; var id: String { key + "\(time.timeIntervalSince1970)" } }
@@ -106,6 +107,7 @@ final class Prayers: NSObject, ObservableObject, CLLocationManagerDelegate {
         guard Store.shared.str("placeBy") != "manual", let lat = Store.shared.double("lat"), let lon = Store.shared.double("lon"),
               let pm = try? await CLGeocoder().reverseGeocodeLocation(CLLocation(latitude: lat, longitude: lon), preferredLocale: L.locale).first else { return }
         let name = placeName(pm)
+        if Store.shared.str("placeBy") != "gps" { Store.shared.set("placeStreet", "") }
         if !name.isEmpty { Store.shared.set("place", name); Store.shared.set("placeLang", L.code); Store.shared.set("placeFmt", "2"); rev += 1 }
     }
     /// The district and its city («مصر الجديدة، القاهرة»), or the city and its country when the district is not known.
@@ -115,6 +117,8 @@ final class Prayers: NSObject, ObservableObject, CLLocationManagerDelegate {
         let area = pm.subLocality?.trimmingCharacters(in: .whitespaces)
         // the city and the country on their own (the statistics), whatever the name shows
         Store.shared.set("placeCity", city ?? ""); Store.shared.set("placeCountry", pm.country ?? "")
+        // the street, shown only in the settings (the card shows the district)
+        Store.shared.set("placeStreet", [pm.thoroughfare, pm.subThoroughfare].compactMap { $0?.trimmingCharacters(in: .whitespaces) }.filter { !$0.isEmpty }.joined(separator: " "))
         if let area, !area.isEmpty, area != city { return [area, city].compactMap { $0 }.joined(separator: tr("، ")) }
         return [city, pm.country].compactMap { $0 }.joined(separator: tr("، "))
     }
@@ -137,6 +141,34 @@ final class Prayers: NSObject, ObservableObject, CLLocationManagerDelegate {
         await save(lat, lon, by: "ip", fallbackName: [j["city"].str, j["country_name"].str].filter { !$0.isEmpty }.joined(separator: tr("، ")))
         return true
     }
+    /// A city found by its name, to be picked from a list («اختيار يدوي»).
+    struct CityHit: Hashable { let name: String; let sub: String; let lat: Double; let lon: Double; let cc: String; let country: String }
+    /// Cities matching [q] in the country [cc] (its name helps the search).
+    func searchCities(_ q: String, cc: String, countryName: String) async -> [CityHit] {
+        let r = MKLocalSearch.Request(); r.naturalLanguageQuery = countryName.isEmpty ? q : "\(q), \(countryName)"; r.resultTypes = .address
+        guard let res = try? await MKLocalSearch(request: r).start() else {
+            // the older way when the map search gives nothing
+            let ps = (try? await CLGeocoder().geocodeAddressString(r.naturalLanguageQuery ?? q)) ?? []
+            return hits(ps, cc: cc, countryName: countryName)
+        }
+        return hits(res.mapItems.map { $0.placemark }, cc: cc, countryName: countryName)
+    }
+    private func hits(_ ps: [CLPlacemark], cc: String, countryName: String) -> [CityHit] {
+        var seen = Set<String>(); var out: [CityHit] = []
+        for p in ps where cc.isEmpty || (p.isoCountryCode ?? "").uppercased() == cc.uppercased() {
+            guard let l = p.location, let name = p.locality ?? p.subAdministrativeArea ?? p.administrativeArea ?? p.name else { continue }
+            let sub = [p.administrativeArea == name ? nil : p.administrativeArea, p.country].compactMap { $0 }.joined(separator: tr("، "))
+            if seen.insert(name + "|" + sub).inserted { out.append(CityHit(name: name, sub: sub, lat: l.coordinate.latitude, lon: l.coordinate.longitude, cc: p.isoCountryCode ?? cc, country: p.country ?? countryName)) }
+        }
+        return out
+    }
+    /// The city picked by hand: it stays until the person asks for the phone's place again.
+    func setPicked(_ h: CityHit) {
+        Store.shared.set("cc", h.cc); Store.shared.set("lat", h.lat); Store.shared.set("lon", h.lon)
+        Store.shared.set("place", [h.name, h.country].filter { !$0.isEmpty }.joined(separator: tr("، "))); Store.shared.set("placeBy", "manual")
+        Store.shared.set("placeCity", h.name); Store.shared.set("placeCountry", h.country); Store.shared.set("placeStreet", ""); Store.shared.set("placeLang", L.code)
+        rev += 1; schedule()
+    }
     func setCity(_ city: String, _ country: String) async -> Bool {
         guard let p = try? await CLGeocoder().geocodeAddressString("\(city), \(country)").first, let l = p.location else { return false }
         Store.shared.set("cc", p.isoCountryCode ?? "")
@@ -149,6 +181,7 @@ final class Prayers: NSObject, ObservableObject, CLLocationManagerDelegate {
         let pm = try? await CLGeocoder().reverseGeocodeLocation(CLLocation(latitude: lat, longitude: lon), preferredLocale: L.locale).first
         if let pm { Store.shared.set("cc", pm.isoCountryCode ?? Store.shared.str("cc")) }
         let name = placeName(pm)
+        if by != "gps" { Store.shared.set("placeStreet", "") }
         Store.shared.set("place", name.isEmpty ? fallbackName : name); Store.shared.set("placeLang", L.code); Store.shared.set("placeFmt", "2")
         rev += 1; schedule()
     }
