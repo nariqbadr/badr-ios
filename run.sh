@@ -69,13 +69,12 @@ ts.sort(key=lambda t:(t.get('publishAt') or t.get('createdAt') or '', t.get('ord
 print(ts[0]['id'] if ts else '')" 2>/dev/null); echo "CLIP=$CLIP"
 setup new.apk new
 # the maker's video, exported by itself: its length and its sound are checked
-adb shell "find /sdcard -name '*.mp4' 2>/dev/null" > /tmp/before.txt
-adb shell touch /data/local/tmp; go makervideo 15; snap maker_start
-for i in $(seq 1 24); do sleep 10; adb shell "find /sdcard -name '*.mp4' -newer /data/local/tmp 2>/dev/null" | head -3 > /tmp/now.txt; [ -s /tmp/now.txt ] && break; done
-sleep 5; snap maker_end
-adb shell "find /sdcard -name '*.mp4' 2>/dev/null" > shots/mp4s.txt
-F=$(adb shell "ls -t \$(find /sdcard -name '*.mp4' 2>/dev/null) 2>/dev/null | head -1" | tr -d '\r'); echo "file: $F" >> shots/mp4s.txt
-[ -n "$F" ] && adb pull "$F" shots/maker.mp4 > /dev/null 2>&1
+adb shell touch /data/local/tmp/mark; go makervideo 15; snap maker_start
+for i in $(seq 1 36); do sleep 10; [ $((i % 6)) -eq 0 ] && snap maker_$i; adb shell "find /sdcard -name '*.mp4' -newer /data/local/tmp/mark 2>/dev/null" | tr -d '\r' > /tmp/now.txt; [ -s /tmp/now.txt ] && break; done
+sleep 8; snap maker_end
+cp /tmp/now.txt shots/mp4s.txt
+F=$(head -1 /tmp/now.txt)
+case "$F" in *.mp4) adb pull "$F" shots/maker.mp4 > /dev/null 2>&1 ;; esac
 timeout 60 adb logcat -d > shots/logcat_all.txt 2>&1 || true
 timeout 60 adb logcat -d -b crash > shots/crash.txt 2>&1 || true
 kill $GEO 2>/dev/null || true
