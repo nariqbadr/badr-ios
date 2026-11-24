@@ -80,7 +80,7 @@ watchtest() { # $1 tag
   sleep 0.8; snap ${1}_tap1000
   sleep 8; snap ${1}_playing; echo "playing: $(playing)" > shots/vid_$1.txt
   adb shell input keyevent KEYCODE_HOME; sleep 4; snap ${1}_home; pipstate $1
-  sleep 6; snap ${1}_home2
+  sleep 6; snap ${1}_home2; sleep 5; snap ${1}_home3
   endrec rec_$1
 }
 # the adhan stops at the first press of the power button (screen on: pressed 1 s after it starts; screen off: woken, then one press)
@@ -95,7 +95,7 @@ adhantest() { # $1 tag, $2 "off" to start with the screen off
   adb shell dumpsys activity services $P/.prayer.AdhanService | grep -c ServiceRecord >> shots/adhan_$1.txt
   adb shell input keyevent KEYCODE_WAKEUP; sleep 1; adb shell wm dismiss-keyguard
 }
-watchtest ar
+watchtest ar; adb shell input keyevent KEYCODE_HOME; sleep 1
 setpref lang en; watchtest en
 timeout 60 adb logcat -d > shots/logcat_all.txt 2>&1 || true
 timeout 60 adb logcat -d -b crash > shots/crash.txt 2>&1 || true
