@@ -105,14 +105,27 @@ final class Prayers: NSObject, ObservableObject, CLLocationManagerDelegate {
     func renamePlace() async {
         guard Store.shared.str("placeBy") != "manual", let lat = Store.shared.double("lat"), let lon = Store.shared.double("lon"),
               let pm = try? await CLGeocoder().reverseGeocodeLocation(CLLocation(latitude: lat, longitude: lon), preferredLocale: L.locale).first else { return }
-        let name = [pm.locality ?? pm.administrativeArea, pm.country].compactMap { $0 }.joined(separator: tr("، "))
-        if !name.isEmpty { Store.shared.set("place", name); Store.shared.set("placeLang", L.code); rev += 1 }
+        let name = placeName(pm)
+        if !name.isEmpty { Store.shared.set("place", name); Store.shared.set("placeLang", L.code); Store.shared.set("placeFmt", "2"); rev += 1 }
+    }
+    /// The district and its city («مصر الجديدة، القاهرة»), or the city and its country when the district is not known.
+    private func placeName(_ pm: CLPlacemark?) -> String {
+        guard let pm else { return "" }
+        let city = pm.locality ?? pm.subAdministrativeArea ?? pm.administrativeArea
+        let area = pm.subLocality?.trimmingCharacters(in: .whitespaces)
+        // the city and the country on their own (the statistics), whatever the name shows
+        Store.shared.set("placeCity", city ?? ""); Store.shared.set("placeCountry", pm.country ?? "")
+        if let area, !area.isEmpty, area != city { return [area, city].compactMap { $0 }.joined(separator: tr("، ")) }
+        return [city, pm.country].compactMap { $0 }.joined(separator: tr("، "))
     }
     /// Each time the app opens or comes back (at most every 15 minutes): the place follows the phone, unless a city was chosen by hand.
     private var lastAuto = Date.distantPast
+    private var fmtTried = false
     func relocateIfStale() async {
         // a name written in another language (the language changed since): written again in this one
-        let pl = Store.shared.str("placeLang"); if Store.shared.str("placeBy") != "manual" && (pl.isEmpty ? "ar" : pl) != L.code { await renamePlace() }
+        // (and once for the names saved before the district was written: «القاهرة، مصر» → «مصر الجديدة، القاهرة»)
+        let pl = Store.shared.str("placeLang")
+        if Store.shared.str("placeBy") != "manual" && ((pl.isEmpty ? "ar" : pl) != L.code || (Store.shared.str("placeFmt") != "2" && !fmtTried)) { fmtTried = true; await renamePlace() }
         guard authorized, Store.shared.str("placeBy") != "manual", Date().timeIntervalSince(lastAuto) > 15 * 60 else { return }
         lastAuto = Date(); _ = await locate()
     }
@@ -135,8 +148,8 @@ final class Prayers: NSObject, ObservableObject, CLLocationManagerDelegate {
         Store.shared.set("lat", lat); Store.shared.set("lon", lon); Store.shared.set("placeBy", by)
         let pm = try? await CLGeocoder().reverseGeocodeLocation(CLLocation(latitude: lat, longitude: lon), preferredLocale: L.locale).first
         if let pm { Store.shared.set("cc", pm.isoCountryCode ?? Store.shared.str("cc")) }
-        let name = [pm?.locality ?? pm?.administrativeArea, pm?.country].compactMap { $0 }.joined(separator: tr("، "))
-        Store.shared.set("place", name.isEmpty ? fallbackName : name); Store.shared.set("placeLang", L.code)
+        let name = placeName(pm)
+        Store.shared.set("place", name.isEmpty ? fallbackName : name); Store.shared.set("placeLang", L.code); Store.shared.set("placeFmt", "2")
         rev += 1; schedule()
     }
     nonisolated func locationManager(_ manager: CLLocationManager, didUpdateLocations locations: [CLLocation]) {

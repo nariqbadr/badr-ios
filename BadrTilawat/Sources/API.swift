@@ -129,6 +129,10 @@ final class Repo: ObservableObject {
                                        "timezone": TimeZone.current.identifier, "pageLabel": self.page]
             let place = Store.shared.str("place").components(separatedBy: tr("، ")).filter { !$0.isEmpty }
             if place.count >= 2 { f["city"] = place.first; f["country"] = place.last } else if let c = place.first { f["country"] = c }
+            if Store.shared.str("placeBy") != "manual" {
+                let pc = Store.shared.str("placeCity"), pk = Store.shared.str("placeCountry")
+                if !pc.isEmpty { f["city"] = pc }; if !pk.isEmpty { f["country"] = pk }
+            }
             let p = AudioPlayer.shared
             if let t = p.current { f["audioState"] = p.playing ? "playing" : "paused"; f["listeningTitle"] = t.title; f["listeningReciter"] = self.reciter(t.reciterId)?.name ?? "" } else { f["audioState"] = "idle" }
             if !Store.shared.name.isEmpty { f["visitorName"] = Store.shared.name }
