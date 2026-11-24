@@ -75,11 +75,10 @@ watchtest() { # $1 tag
   snap ${1}_page
   rec rec_$1 60
   # the big play button sits in the middle of the video; tap the video first to show the controls if they are hidden
-  tapText "تشغيل" || true
-  [ -z "$B" ] && { adb shell input tap 540 560; sleep 0.4; adb shell input tap 540 560; }
+  adb shell input tap 540 546
   sleep 0.25; snap ${1}_tap250
   sleep 0.8; snap ${1}_tap1000
-  sleep 8; snap ${1}_playing
+  sleep 8; snap ${1}_playing; echo "playing: $(playing)" > shots/vid_$1.txt
   adb shell input keyevent KEYCODE_HOME; sleep 4; snap ${1}_home; pipstate $1
   sleep 6; snap ${1}_home2
   endrec rec_$1
@@ -96,17 +95,8 @@ adhantest() { # $1 tag, $2 "off" to start with the screen off
   adb shell dumpsys activity services $P/.prayer.AdhanService | grep -c ServiceRecord >> shots/adhan_$1.txt
   adb shell input keyevent KEYCODE_WAKEUP; sleep 1; adb shell wm dismiss-keyguard
 }
-adhantest on on 1.2
-adhantest off off 5
 watchtest ar
 setpref lang en; watchtest en
-setpref lang fr
-adb shell am start -W -n $P/.MainActivity > /dev/null; sleep 25; snap fr_home
-go prayerSettings 20; snap fr_adhan; go widgets 20; snap fr_widgets
-go friday 20; snap fr_friday
-setpref lang ur
-go home 25; snap ur_home
-go prayerSettings 20; snap ur_adhan; go fadail 20; snap ur_fadail
 timeout 60 adb logcat -d > shots/logcat_all.txt 2>&1 || true
 timeout 60 adb logcat -d -b crash > shots/crash.txt 2>&1 || true
 kill $GEO 2>/dev/null || true
