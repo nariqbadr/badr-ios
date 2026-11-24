@@ -105,7 +105,7 @@ struct HaramLiveView: View {
         let src = Haram.src(mosque), m = Haram.mosque(mosque)
         ScrollView {
             VStack(alignment: .leading, spacing: 14) {
-                LiveEmbedFull(id: src.embed, ctl: ctl).id("\(mosque)\(key)").aspectRatio(16 / 9, contentMode: .fit)
+                LiveEmbedFull(id: src.embed, ctl: ctl).id("\(mosque)\(key)").onAppear { ctl.sound = sound }.onChange(of: sound) { ctl.sound = $0 }.aspectRatio(16 / 9, contentMode: .fit)
                     .clipShape(RoundedRectangle(cornerRadius: 22)).overlay(RoundedRectangle(cornerRadius: 22).stroke(c.line))
                 HStack { Spacer(); MosqueChips(mosque: $mosque); Spacer() }
                 VStack(spacing: 2) {

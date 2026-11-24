@@ -662,7 +662,7 @@ struct LiveStage: View {
         ZStack {
             c.surface3
             // the video player is made only once the opening has gone (making it is heavy and made the logo stutter)
-            if auto && started && !src.embed.isEmpty { LiveEmbed(id: src.embed, ctl: ctl, play: !busy).id("\(mosque)-\(net.back)") }
+            if auto && started && !src.embed.isEmpty { LiveEmbed(id: src.embed, ctl: ctl, play: !busy).id("\(mosque)-\(net.back)").onAppear { ctl.sound = sound }.onChange(of: sound) { ctl.sound = $0 } }
             RemoteImage(raw: src.poster).opacity(poster || !auto || (busy && !ctl.playing) ? 1 : 0).animation(.easeOut(duration: 0.6), value: poster)
             LinearGradient(stops: [.init(color: .black.opacity(0.35), location: 0), .init(color: .clear, location: 0.5), .init(color: .black.opacity(0.8), location: 1)], startPoint: .top, endPoint: .bottom)
                 .contentShape(Rectangle()).onTapGesture { ui.path.append(.liveAt(mosque)) }
@@ -748,11 +748,15 @@ final class LiveCtl: NSObject, ObservableObject, WKScriptMessageHandler {
     @Published var playing = false
     func js(_ s: String) { web?.evaluateJavaScript(s) }
     func toggle() { js(playing ? "cmd('pauseVideo')" : "cmd('playVideo')"); playing.toggle() }
+    /// the sound the person chose (nil: leave the player's own)
+    var sound: Bool?
     // YouTube's states: 1 playing, 3 buffering (about to play); 0 ended, 2 paused, -1 / 5 not started
     func userContentController(_ uc: WKUserContentController, didReceive m: WKScriptMessage) {
         guard let st = (m.body as? NSNumber)?.intValue else { return }
         let p = st == 1 || st == 3
         if p != playing { DispatchQueue.main.async { self.playing = p } }
+        // a new stream (the other mosque, a reload) starts in the sound the person chose
+        if st == 1, let on = sound { DispatchQueue.main.async { self.js(on ? "cmd('unMute');cmd('setVolume',[100])" : "cmd('mute')") } }
     }
 }
 struct LiveEmbed: UIViewRepresentable {

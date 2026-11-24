@@ -34,7 +34,7 @@ struct LiveView: View {
         let id = ytId(l?["url"].str ?? "") ?? "eC4LfEVxvKg"
         ScrollView {
             VStack(alignment: .leading, spacing: 14) {
-                LiveEmbedFull(id: id, ctl: ctl).id(key).aspectRatio(16 / 9, contentMode: .fit).clipShape(RoundedRectangle(cornerRadius: 22)).overlay(RoundedRectangle(cornerRadius: 22).stroke(c.line))
+                LiveEmbedFull(id: id, ctl: ctl).id(key).onAppear { ctl.sound = sound }.onChange(of: sound) { ctl.sound = $0 }.aspectRatio(16 / 9, contentMode: .fit).clipShape(RoundedRectangle(cornerRadius: 22)).overlay(RoundedRectangle(cornerRadius: 22).stroke(c.line))
                 Text(l?["title"].str.isEmpty == false ? l!["title"].str : tr("البث المباشر من المسجد الحرام")).font(F.amiri(22)).foregroundStyle(c.text)
                 if let n = prayers.next() {
                     TimelineView(.periodic(from: .now, by: 1)) { tl in
@@ -66,7 +66,7 @@ struct LiveEmbedFull: UIViewRepresentable {
         ctl.web = w
         let html = """
         <!doctype html><html><head><meta name="viewport" content="width=device-width,initial-scale=1"><style>html,body{margin:0;height:100%;background:#000}iframe{border:0;width:100%;height:100%}</style></head>
-        <body><iframe id="f" src="https://www.youtube.com/embed/\(id)\(id.contains("?") ? "&" : "?")autoplay=1&mute=0&playsinline=1&rel=0&modestbranding=1&enablejsapi=1" allow="autoplay; encrypted-media; picture-in-picture; fullscreen" allowfullscreen></iframe>
+        <body><iframe id="f" src="https://www.youtube.com/embed/\(id)\(id.contains("?") ? "&" : "?")autoplay=1&mute=\(ctl.sound == false ? 1 : 0)&playsinline=1&rel=0&modestbranding=1&enablejsapi=1" allow="autoplay; encrypted-media; picture-in-picture; fullscreen" allowfullscreen></iframe>
         <script>function cmd(f,a){document.getElementById('f').contentWindow.postMessage(JSON.stringify({event:'command',func:f,args:a||[]}),'*')}</script></body></html>
         """
         w.loadHTMLString(html, baseURL: URL(string: Repo.site))
