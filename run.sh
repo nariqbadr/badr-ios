@@ -71,7 +71,7 @@ setup new.apk new
 pipstate() { adb shell dumpsys activity activities | grep -iE "mPictureInPicture|pinned|windowingMode=pinned" | head -5 > shots/pip_$1.txt; adb shell dumpsys window | grep -iE "pinned|PIP" | head -5 >> shots/pip_$1.txt; }
 watchtest() { # $1 tag
   adb shell am force-stop $P
-  timeout 40 adb shell am start -W -n $P/.MainActivity --es open "watch/$CLIP" > /dev/null; sleep 22
+  timeout 40 adb shell am start -W -n $P/.MainActivity --ez shot true --es open "watch/$CLIP" > /dev/null; sleep 22
   snap ${1}_page
   rec rec_$1 60
   # the big play button sits in the middle of the video; tap the video first to show the controls if they are hidden
@@ -84,6 +84,20 @@ watchtest() { # $1 tag
   sleep 6; snap ${1}_home2
   endrec rec_$1
 }
+# the adhan stops at the first press of the power button (screen on: pressed 1 s after it starts; screen off: woken, then one press)
+adhantest() { # $1 tag, $2 "off" to start with the screen off
+  adb shell input keyevent KEYCODE_WAKEUP; sleep 1; adb shell wm dismiss-keyguard; sleep 1
+  go home 15
+  [ "$2" = off ] && { adb shell input keyevent KEYCODE_SLEEP; sleep 3; }
+  adb shell am start-foreground-service -n $P/.prayer.AdhanService --es key dhuhr --es name الظهر --ez fromApp false > shots/adhan_$1_start.txt 2>&1
+  sleep ${3:-1.2}; echo "before: $(playing)" > shots/adhan_$1.txt; snap adhan_$1_before
+  adb shell input keyevent KEYCODE_POWER; sleep 1.5
+  echo "after 1 press: $(playing)" >> shots/adhan_$1.txt
+  adb shell dumpsys activity services $P/.prayer.AdhanService | grep -c ServiceRecord >> shots/adhan_$1.txt
+  adb shell input keyevent KEYCODE_WAKEUP; sleep 1; adb shell wm dismiss-keyguard
+}
+adhantest on on 1.2
+adhantest off off 5
 watchtest ar
 setpref lang en; watchtest en
 setpref lang fr
