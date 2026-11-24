@@ -105,8 +105,8 @@ go quranSearch 20; snap search
 # the city picked by hand
 go prayerSettings 20
 for k in 1 2 3 4 5 6 7 8 9 10; do adb shell input swipe 540 1600 540 400 300; sleep 0.4; done; sleep 1
-tapText "اختر المدينة"; sleep 2; adb shell input text "Benha"; sleep 7; snap place_search
-for k in 1 2 3; do adb shell input swipe 540 1500 540 900 300; sleep 0.4; done; sleep 1; snap place_search2
+tapText "اختر المدينة"; sleep 2; adb shell input text "Benha"; sleep 8; snap place_search
+snap place_search2
 tapText "بنها" || tapText "Banha"; sleep 1; snap place_picked
 tapText "حفظ"; sleep 3; adb shell cat /data/data/$P/shared_prefs/badr.xml | grep -E 'place|"cc"' > shots/place_manual.txt; snap place_saved
 timeout 60 adb logcat -d > shots/logcat_all.txt 2>&1 || true
