@@ -3,7 +3,7 @@ P=com.bawazirquran.app
 mkdir -p shots
 adb root; sleep 3
 adb shell wm size 1080x2340; adb shell wm density 440; sleep 2
-( for i in $(seq 1 400); do adb emu geo fix 31.3016 30.0784 >/dev/null 2>&1; sleep 3; done ) &
+( for i in $(seq 1 400); do adb emu geo fix 31.4913 30.0074 >/dev/null 2>&1; sleep 3; done ) &
 GEO=$!
 KEYS="quran"
 setpref() { # $1 key $2 value
@@ -62,13 +62,15 @@ cliptest() { # $1 tag
   pkill -f "adb logcat" || true
 }
 setup new.apk new
-go recitations 25; up 1.2; snap r1
-tapText "بدر التركي"; sleep 3; snap r2
-tapText "مرئي"; sleep 3; snap r3
-tapText "خالد باوزير"; sleep 3; snap r4
-go makerimage 45; snap mk
-adb shell 'ls -t /sdcard/Pictures/*/ | head -3' > shots/pics.txt
-F=$(adb shell 'ls -t /sdcard/Pictures/*/*.* | head -1' | tr -d "\r"); [ -n "$F" ] && adb pull "$F" shots/maker_out.png
+adb shell am force-stop $P
+setlong lat 4629197055236018222; setlong lon 4629523087701542175; setpref placeBy ip; setpref place "El Khanka"
+adb shell cmd location set-location-enabled true 2>/dev/null; adb emu geo fix 31.4913 30.0074 2>/dev/null; sleep 2; adb emu geo fix 31.4913 30.0074
+adb shell cat /data/data/$P/shared_prefs/badr.xml | grep -E 'place|"lat"|"lon"' > shots/place_before.txt
+adb shell am start -W -n $P/.MainActivity > /dev/null; sleep 30; adb emu geo fix 31.4914 30.0075; sleep 15; snap loc1
+adb shell cat /data/data/$P/shared_prefs/badr.xml | grep -E 'place|"lat"|"lon"' > shots/place_after.txt
+setpref lang en
+go home 25; snap en_home
+go live 25; snap en_live
 timeout 60 adb logcat -d > shots/logcat_all.txt 2>&1 || true
 timeout 60 adb logcat -d -b crash > shots/crash.txt 2>&1 || true
 kill $GEO 2>/dev/null || true
