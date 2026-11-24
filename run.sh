@@ -3,7 +3,7 @@ P=com.bawazirquran.app
 mkdir -p shots
 adb root; sleep 3
 adb shell wm size 1080x2340; adb shell wm density 440; sleep 2
-( for i in $(seq 1 400); do adb emu geo fix 31.4913 30.0074 >/dev/null 2>&1; sleep 3; done ) &
+( for i in $(seq 1 400); do adb emu geo fix 31.3260 30.0890 >/dev/null 2>&1; sleep 3; done ) &
 GEO=$!
 KEYS="quran"
 setpref() { # $1 key $2 value
@@ -105,6 +105,20 @@ livetest() {
   tapText "المسجد النبوي"; sleep 15; echo "muted, switched: $(playing)" >> shots/live.txt; snap live_4
 }
 livetest
+# the place: a phone in Heliopolis whose saved name was «القاهرة، مصر» (as before) — written again with its district
+adb shell am force-stop $P
+setpref place "القاهرة، مصر"; setpref placeBy gps; adb shell "sed -i 's#<string name=\"placeFmt\">[^<]*</string>##' /data/data/$P/shared_prefs/badr.xml"
+setlong lat 4629162518256375824; setlong lon 4629510702802566906
+adb shell am start -W -n $P/.MainActivity > /dev/null; sleep 30
+adb shell cat /data/data/$P/shared_prefs/badr.xml | grep -E 'place' > shots/place_ar.txt
+go home 20; snap place_home
+go prayerSettings 20
+for k in 1 2 3 4 5 6 7 8 9 10; do adb shell input swipe 540 1600 540 400 300; sleep 0.4; done; sleep 1; snap place_sheet
+tapText "اختر المدينة"; sleep 1.5; adb shell input text "Benha"; sleep 6; snap place_search
+tapText "Benha" || tapText "بنها"; sleep 1; snap place_picked
+tapText "حفظ"; sleep 3; adb shell cat /data/data/$P/shared_prefs/badr.xml | grep -E 'place|"cc"' > shots/place_manual.txt; snap place_saved
+setpref lang en; adb shell am start -W -n $P/.MainActivity > /dev/null; sleep 25
+adb shell cat /data/data/$P/shared_prefs/badr.xml | grep -E 'place' > shots/place_en.txt
 timeout 60 adb logcat -d > shots/logcat_all.txt 2>&1 || true
 timeout 60 adb logcat -d -b crash > shots/crash.txt 2>&1 || true
 kill $GEO 2>/dev/null || true
