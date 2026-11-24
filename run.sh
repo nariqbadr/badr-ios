@@ -69,6 +69,8 @@ adb shell cat /data/data/$P/shared_prefs/badr.xml | grep -E 'place|"lat"|"lon"' 
 adb shell am start -W -n $P/.MainActivity > /dev/null; sleep 30; adb emu geo fix 31.4914 30.0075; sleep 15; snap loc1
 adb shell cat /data/data/$P/shared_prefs/badr.xml | grep -E 'place|"lat"|"lon"' > shots/place_after.txt
 setpref lang en
+adb shell am start -W -n $P/.MainActivity > /dev/null; sleep 25
+adb shell cat /data/data/$P/shared_prefs/badr.xml | grep -E 'place' > shots/place_en.txt
 go home 25; snap en_home
 go live 25; snap en_live
 timeout 60 adb logcat -d > shots/logcat_all.txt 2>&1 || true
