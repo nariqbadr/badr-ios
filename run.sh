@@ -82,7 +82,7 @@ rd=d.get('readable',{}).get('tracks',{})
 tr={t['id']:t for t in d.get('recitations',[])}
 recs={r['id']:r.get('name') for r in d.get('reciters',[])}
 hits=[(k,v) for k,v in rd.items() if len(v)>=3 and v[0]==24 and v[1]<=35 and v[2]>=36]
-print('tracks for 24:35-36', hits)
+print('readable sample', list(rd.items())[:8], len(rd)); print('keys', list(d.keys())[:30]); print('tracks for 24:35-36', hits)
 for k,v in hits:
     t=tr.get(k,{}); print('\n==',k, recs.get(t.get('reciterId')), 'audio', t.get('audio'), 'video', bool((t.get('video') or {}).get('q')))
     j=json.load(urllib.request.urlopen(site+'wp-admin/admin-ajax.php?action=bz&do=track_times&id='+urllib.parse.quote(k), timeout=60))
