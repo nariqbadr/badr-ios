@@ -1,0 +1,12 @@
+orig DecoTypeThuluthII space 9.580078125 slack/word -4.6091288726972195
+plain DecoTypeThuluthII space 9.580078125 slack/word -5.1873779296875
+orig Cairo-Bold space 13.2 slack/word 1.5984764918625674
+plain Cairo-Bold space 13.2 slack/word 1.7924999999999995
+orig ArefRuqaa-Bold space 19.951171875 slack/word -2.3828809300124325
+plain ArefRuqaa-Bold space 19.951171875 slack/word -2.3236083984375
+orig MTTafran-ObliqueLeft space 6.3 slack/word 0.645349231464726
+plain MTTafran-ObliqueLeft space 6.3 slack/word 0.620624999999988
+orig MarhabanArabicDEMO-BoldOblique space 13.2 slack/word -2.440273508137434
+plain MarhabanArabicDEMO-BoldOblique space 13.2 slack/word -2.4525000000000023
+orig Amiri-Regular space 17.52 slack/word 0.5250000000000004
+plain Amiri-Regular space 17.52 slack/word 0.5250000000000004
