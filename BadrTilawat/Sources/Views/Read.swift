@@ -203,6 +203,7 @@ struct ReadView: View {
     @AppStorage("readWords") private var words = true
     @AppStorage("readFollow") private var follow = true
     @State private var hifz = false
+    @State private var hifzOpen = Store.shared.str("readHifzOpen").isEmpty || Store.shared.str("readHifzOpen") == "1"
     @State private var from = 1
     @State private var to = 5
     @AppStorage("readRepA") private var repA = 3
@@ -326,7 +327,22 @@ struct ReadView: View {
                 }
                 if hifz, let its = items {
                     let ns = its.map { ($0.n, $0.n.ar) }
+                    let (x0, y0) = rangeIdx()
+                    let now: String? = { if let it = its[safe: hcur], (x0...y0).contains(hcur) { return tr("الآية {0} — التكرار {1} من {2}", it.n.ar, (rep + 1).ar, repA.ar) }; return nil }()
+                    // the memorizing options fold to one line (the ayahs get the screen); remembered for the next time
+                    let fold = Button { withAnimation(.easeOut(duration: 0.2)) { hifzOpen.toggle() }; Store.shared.set("readHifzOpen", hifzOpen ? "1" : "0") } label: {
+                        Image(systemName: hifzOpen ? "chevron.up" : "chevron.down").font(.system(size: 12, weight: .bold)).foregroundStyle(c.gold).frame(width: 30, height: 30).background(Circle().fill(c.surface3))
+                    }.buttonStyle(.plain).accessibilityLabel(hifzOpen ? tr("طيّ خيارات الحفظ") : tr("فتح خيارات الحفظ"))
                     VStack(alignment: .leading, spacing: 6) {
+                        if !hifzOpen {
+                            HStack(spacing: 8) {
+                                Text(tr("من {0} إلى {1}", from.ar, to.ar) + " · " + (repA == 1 ? tr("مرة") : tr("{0} مرات", repA.ar))).font(F.plex(12.5)).foregroundStyle(c.text).lineLimit(1)
+                                if let now { Text(now).font(F.plex(12.5)).foregroundStyle(c.gold).lineLimit(1) }
+                                Spacer(minLength: 0)
+                                fold
+                            }.contentShape(Rectangle()).onTapGesture { withAnimation(.easeOut(duration: 0.2)) { hifzOpen = true }; Store.shared.set("readHifzOpen", "1") }
+                        } else {
+                        HStack(alignment: .top, spacing: 6) {
                         FlowLayout(spacing: 6) {
                             OptMenu(label: tr("من"), value: from, opts: ns) { from = $0; rep = 0; round = 0 }
                             OptMenu(label: tr("إلى"), value: to, opts: ns) { to = $0; rep = 0; round = 0 }
@@ -334,9 +350,13 @@ struct ReadView: View {
                             OptMenu(label: tr("تكرار المقطع"), value: repR, opts: [(1, tr("مرة")), (2, tr("مرتين")), (3, tr("٣ مرات")), (0, tr("بلا توقف"))]) { repR = $0; round = 0 }
                             OptMenu(label: tr("إخفاء الكلمات"), value: hide, opts: [("none", tr("إظهار الكل")), ("until", tr("إخفاء حتى تُقرأ")), ("first", tr("أول كلمة فقط")), ("all", tr("إخفاء الكل (المس للإظهار)")), ("grow", tr("إخفاء يزيد مع كل تكرار"))]) { hide = $0; peek = [] }
                         }
+                        Spacer(minLength: 0)
+                        fold
+                        }
                         let (x, y) = rangeIdx()
                         if let it = its[safe: hcur], (x...y).contains(hcur) {
                             Text(tr("الآية {0} — التكرار {1} من {2}", it.n.ar, (rep + 1).ar, repA.ar) + (repR != 1 ? tr(" · الجولة {0}{1}", (round + 1).ar, repR != 0 ? " من \(repR.ar)" : "") : "")).font(F.plex(12.5, .medium)).foregroundStyle(c.gold)
+                        }
                         }
                     }.padding(10).frame(maxWidth: .infinity, alignment: .leading).background(RoundedRectangle(cornerRadius: 16).fill(c.surface2))
                 }

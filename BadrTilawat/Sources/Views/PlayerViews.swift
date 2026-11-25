@@ -70,7 +70,9 @@ struct MiniPlayer: View {
                     Button { p.skip(-10) } label: { Ico(name: "gobackward.10", size: 24.0).foregroundStyle(c.text).frame(width: 40, height: 40) }.accessibilityLabel(tr("رجوع ١٠ ثوانٍ"))
                     Spacer(minLength: 0)
                     Button { p.toggle() } label: {
-                        ZStack { Circle().fill(c.gold).shadow(color: c.gold.opacity(0.6), radius: 8); if p.buffering && p.playing { ProgressView().tint(c.onGold) } else { SiteIcon(name: p.playing ? "pause" : "play", size: 24, color: c.onGold) } }.frame(width: 54, height: 54)
+                        ZStack { Circle().fill(c.gold).shadow(color: c.gold.opacity(0.6), radius: 8); SiteIcon(name: p.playing ? "pause" : "play", size: 24, color: c.onGold) }.frame(width: 54, height: 54)
+                            // still loading: a ring around the button, the sign stays clear
+                            .overlay { if p.buffering && p.playing { LoadingRing(color: c.gold).frame(width: 62, height: 62) } }
                     }.accessibilityLabel(p.playing ? tr("إيقاف مؤقت") : tr("تشغيل"))
                     Spacer(minLength: 0)
                     Button { p.skip(10) } label: { Ico(name: "goforward.10", size: 24.0).foregroundStyle(c.text).frame(width: 40, height: 40) }.accessibilityLabel(tr("تقديم ١٠ ثوانٍ"))

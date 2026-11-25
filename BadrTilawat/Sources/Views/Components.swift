@@ -306,7 +306,8 @@ struct PlayCircle: View {
                     Circle().fill(c.gold.opacity(playing ? 0.30 : 0.18)).frame(width: size + 14, height: size + 14)
                     Circle().fill(c.goldBrush).frame(width: size, height: size)
                     SiteIcon(name: playing ? "pause" : "play", size: size * 0.52, color: c.onGold).id(playing).transition(.scale(scale: 0.6).combined(with: .opacity))
-                    if loading { ProgressView().tint(c.onGold) }
+                    // still loading: a ring around the button, the sign stays clear
+                    if loading { LoadingRing(color: c.gold).frame(width: size + 14, height: size + 14) }
                 }.animation(.easeOut(duration: 0.18), value: playing)
             }.buttonStyle(Press(scale: 0.9)).accessibilityLabel(playing ? tr("إيقاف مؤقت") : tr("تشغيل"))
         }.frame(width: rosette ? size * 1.5 : size + 14, height: rosette ? size * 1.5 : size + 14)
@@ -603,5 +604,17 @@ struct FitRow: Layout {
             let w = extra >= 0 ? nat[i] + extra : nat[i] * b.width / sum
             v.place(at: CGPoint(x: x, y: b.minY), proposal: ProposedViewSize(width: w, height: b.height)); x += w
         }
+    }
+}
+
+
+/// A ring turning around a play button while its sound is still coming.
+struct LoadingRing: View {
+    let color: Color
+    @State private var turn = false
+    var body: some View {
+        Circle().trim(from: 0, to: 0.28).stroke(color, style: StrokeStyle(lineWidth: 2.5, lineCap: .round))
+            .rotationEffect(.degrees(turn ? 360 : 0))
+            .onAppear { withAnimation(.linear(duration: 0.9).repeatForever(autoreverses: false)) { turn = true } }
     }
 }
