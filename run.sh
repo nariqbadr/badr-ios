@@ -69,10 +69,17 @@ PY
 }
 setup new.apk new
 go home 25
-for fk in "bzf-mwty9e6a:marhaban" "bzf-mwty9aeu:tox" "bzf-mwty9801:aref" "bzf-mwty641h:cairo" "bzf-mvk5s5q4:thuluth" "uthmani:uthmani"; do
+nvid() { adb shell content query --uri content://media/external/video/media --projection _data 2>/dev/null | grep -c mp4; }
+for fk in "bzf-mwty9e6a:marhaban" "bzf-mwty9aeu:tox" "bzf-mwty641h:cairo" "uthmani:uthmani"; do
   fam=${fk%%:*}; tag=${fk##*:}; key="c:$fam"; [ "$fam" = uthmani ] && key=uthmani
   setjson clipOpts "{\"font\":\"$key\",\"num\":true,\"fs\":64}"
-  go clip 45; snap clip_$tag
+  N0=$(nvid); go clip 40; snap clip_$tag
+  tapText "تصدير"; sleep 5; snap clip_${tag}_exp
+  for i in $(seq 1 30); do sleep 8; [ "$(nvid)" -gt "$N0" ] && break; done
+  sleep 6; snap clip_${tag}_done
+  adb shell content query --uri content://media/external/video/media --projection _data > /tmp/v.txt 2>&1
+  F=$(grep -o '_data=[^,]*\.mp4' /tmp/v.txt | tail -1 | cut -d= -f2 | tr -d '\r')
+  [ -n "$F" ] && adb pull "$F" shots/clip_$tag.mp4 > /dev/null 2>&1
 done
 # memorizing: word-by-word reveal
 go readtrack 22; snap read0
