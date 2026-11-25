@@ -68,14 +68,13 @@ ts=[t for t in d.get('recitations',[]) if ((t.get('video') or {}).get('q')) and 
 ts.sort(key=lambda t:(t.get('publishAt') or t.get('createdAt') or '', t.get('order',0)), reverse=True)
 print(ts[0]['id'] if ts else '')" 2>/dev/null); echo "CLIP=$CLIP"
 setup new.apk new
-# the maker's video, exported by itself: its length and its sound are checked
-adb shell touch /data/local/tmp/mark; go makerimage 25; sleep 20; adb shell input keyevent KEYCODE_BACK; sleep 2; tapText "فيديو"; sleep 2; snap maker_start
-for i in $(seq 1 40); do sleep 10; adb shell content query --uri content://media/external/video/media --projection _data 2>/dev/null | grep -q mp4 && break; [ $((i % 6)) -eq 0 ] && snap maker_$i; adb shell "find /sdcard -name '*.mp4' -newer /data/local/tmp/mark 2>/dev/null" | tr -d '\r' > /tmp/now.txt; [ -s /tmp/now.txt ] && break; done
-sleep 8; snap maker_end
-adb shell content query --uri content://media/external/video/media --projection _data:duration:date_added > shots/mp4s.txt 2>&1
-F=$(grep -o '_data=[^,]*\.mp4' shots/mp4s.txt | tail -1 | cut -d= -f2)
-[ -n "$F" ] && adb pull "$F" shots/maker.mp4 > /dev/null 2>&1
-cp /tmp/now.txt shots/mp4s_find.txt
-timeout 60 adb logcat -d > shots/logcat_all.txt 2>&1 || true
+picker() { # $1 tag
+  go prayerSettings 20
+  for k in 1 2 3 4 5 6 7 8 9 10; do adb shell input swipe 540 1600 540 400 300; sleep 0.4; done; sleep 1
+  tapText "$2"; sleep 2.5; snap picker_$1
+  adb shell input swipe 540 1500 540 500 400; sleep 1; snap picker_${1}_scroll
+}
+picker ar "الدولة"
+setpref lang en; picker en "Country"
 timeout 60 adb logcat -d -b crash > shots/crash.txt 2>&1 || true
 kill $GEO 2>/dev/null || true
