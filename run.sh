@@ -70,6 +70,7 @@ PY
 setup new.apk new
 go home 25
 # memorizing: word-by-word reveal
+adb shell wm size 1080x2400; adb shell wm density 400; sleep 3
 go readtrack 22; snap read0
 tapText "وضع الحفظ"; sleep 2; snap hifz_on
 tapText "إخفاء الكلمات"; sleep 2; snap hifz_menu
