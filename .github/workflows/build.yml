@@ -86,13 +86,11 @@ jobs:
             if xcrun simctl spawn "$UDID" launchctl list | grep -q UIKitApplication:com.bawazirquran.app; then echo "$L-$r ok" >> shots/runs.txt; else echo "$L-$r CRASHED" >> shots/runs.txt; fi
             xcrun simctl io "$UDID" screenshot "shots/$L-$r.png" >/dev/null 2>&1 || true
           done
-          # the clip maker with the dashboard's fonts (the words close together, the ayah number in the font when it has real digits)
-          for cf in c:bzf-mwty9e6a c:bzf-mwty9aeu c:bzf-mwty9801 c:bzf-mwty641h uthmani; do
-            SIMCTL_CHILD_BZ_LANG=ar SIMCTL_CHILD_BZ_ROUTE=clip SIMCTL_CHILD_BZ_CLIPFONT=$cf xcrun simctl launch --terminate-running-process "$UDID" com.bawazirquran.app >/dev/null 2>&1
-            sleep 45
-            if xcrun simctl spawn "$UDID" launchctl list | grep -q UIKitApplication:com.bawazirquran.app; then echo "clip-$cf ok" >> shots/runs.txt; else echo "clip-$cf CRASHED" >> shots/runs.txt; fi
-            xcrun simctl io "$UDID" screenshot "shots/clip-${cf#c:}.png" >/dev/null 2>&1 || true
-          done
+          # the clip maker's ayah in each dashboard font (the words close together, the ayah number in the font when it has real digits)
+          SIMCTL_CHILD_BZ_LANG=ar SIMCTL_CHILD_BZ_ROUTE=clipfonts xcrun simctl launch --terminate-running-process "$UDID" com.bawazirquran.app >/dev/null 2>&1
+          sleep 40
+          if xcrun simctl spawn "$UDID" launchctl list | grep -q UIKitApplication:com.bawazirquran.app; then echo "clipfonts ok" >> shots/runs.txt; else echo "clipfonts CRASHED" >> shots/runs.txt; fi
+          xcrun simctl io "$UDID" screenshot "shots/clipfonts.png" >/dev/null 2>&1 || true
           # the opening, held at a few moments (to compare with the site's and Android's frames)
           for t in 0.6 1.2 1.8 2.4 3.0 3.6; do
             SIMCTL_CHILD_BZ_LANG=ar SIMCTL_CHILD_BZ_ROUTE=intro SIMCTL_CHILD_BZ_INTRO_T=$t xcrun simctl launch --terminate-running-process "$UDID" com.bawazirquran.app >/dev/null 2>&1

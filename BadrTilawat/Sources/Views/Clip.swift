@@ -762,7 +762,8 @@ struct ClipView: View {
 
     var body: some View {
         Group {
-            if let t, let src { body(t, src) } else { Empty(text: tr("هذه التلاوة غير متاحة."), icon: "scissors") }
+            if ClipFontsShot.on { ClipFontsShot() }
+            else if let t, let src { body(t, src) } else { Empty(text: tr("هذه التلاوة غير متاحة."), icon: "scissors") }
         }
         .navigationTitle(tr("اصنع مقطعًا")).navigationBarTitleDisplayMode(.inline)
         .environment(\.layoutDirection, L.dir)
@@ -1155,5 +1156,47 @@ private struct Pinch: ViewModifier {
         } else {
             content.simultaneousGesture(MagnificationGesture().onChanged { m in if !on { on = true; begin(nil) }; change(Double(m)) }.onEnded { _ in on = false; end() })
         }
+    }
+}
+
+
+/// Screenshots only (BZ_ROUTE=clipfonts): ayah 21:104 in each dashboard font and in the Uthmani one, drawn as the clip draws it.
+struct ClipFontsShot: View {
+    static let on = RootView.shot == "clipfonts"
+    @EnvironmentObject var repo: Repo
+    @State private var img: UIImage?
+    var body: some View {
+        ScrollView { if let img { Image(uiImage: img).resizable().scaledToFit() } }.background(Color.black)
+            .task {
+                var keys: [String] = []
+                for f in repo.data?.site.j["maker"]["fonts"].array ?? [] {
+                    let fam = f["family"].str
+                    guard let u = Repo.media(f["url"].str), let n = await registerFont(u, key: fam) else { continue }
+                    ClipEngine.custom["c:" + fam] = n; keys.append("c:" + fam)
+                }
+                keys.append("uthmani")
+                guard let tx = await repo.surahText(21), tx.count >= 104 else { return }
+                let W = 1080.0, rowH = 330.0
+                let fmt = UIGraphicsImageRendererFormat(); fmt.scale = 1
+                var rows: [(String, UIImage, CGRect)] = []
+                for k in keys {
+                    let text = k == "uthmani" ? ClipEngine.qpc(tx[103]) : tx[103]
+                    let toks = ClipEngine.tokens(text)
+                    var o = ClipOpts(); o.font = k; o.num = true; o.fs = 64; o.ty = 0.5; o.name = false; o.sh = false; o.sur = false; o.brand = false; o.dark = 0; o.wmax = 92
+                    let seg = ClipSeg(104, toks, toks.map { _ in 0.0 }, 0, 10, true); seg.show = 0; seg.hide = 10
+                    let im = UIGraphicsImageRenderer(size: CGSize(width: W, height: W), format: fmt).image { c in
+                        ClipEngine.drawOverlay(c.cgContext, o, W: W, H: W, vw: 16, vh: 9, t: 5, segs: [seg], info: ClipInfo(sheikh: "", surah: "", brand: ""), t0: nil, t1: nil)
+                    }
+                    rows.append((k, im, ClipEngine.boxes.all["ayah"] ?? CGRect(x: 0, y: 0.35, width: 1, height: 0.3)))
+                }
+                img = UIGraphicsImageRenderer(size: CGSize(width: W, height: rowH * Double(rows.count)), format: fmt).image { c in
+                    UIColor(red: 0.09, green: 0.13, blue: 0.13, alpha: 1).setFill(); c.fill(CGRect(x: 0, y: 0, width: W, height: rowH * Double(rows.count)))
+                    for (i, r) in rows.enumerated() {
+                        let top = min(W - rowH, max(0, r.2.minY * W))
+                        if let cg = r.1.cgImage?.cropping(to: CGRect(x: 0, y: top, width: W, height: rowH)) { UIImage(cgImage: cg).draw(in: CGRect(x: 0, y: Double(i) * rowH, width: W, height: rowH)) }
+                        NSAttributedString(string: r.0, attributes: [.font: UIFont.systemFont(ofSize: 24), .foregroundColor: UIColor.yellow]).draw(at: CGPoint(x: 12, y: Double(i) * rowH + 6))
+                    }
+                }
+            }
     }
 }
