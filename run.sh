@@ -68,8 +68,10 @@ ts=[t for t in d.get('recitations',[]) if ((t.get('video') or {}).get('q')) and 
 ts.sort(key=lambda t:(t.get('publishAt') or t.get('createdAt') or '', t.get('order',0)), reverse=True)
 print(ts[0]['id'] if ts else '')" 2>/dev/null); echo "CLIP=$CLIP"
 setup new.apk new
-go home 25; snap home
-# the update address the app would open (installed by adb: the site's APK)
-adb shell am start -W -a android.intent.action.VIEW -d "market://details?id=com.bawazirquran.app" > shots/market.txt 2>&1; sleep 4; snap market
+go home 20
+adb shell am start -W -n $P/.MainActivity --es open readtrack > /dev/null; sleep 20; snap read0
+tapText "وضع الحفظ"; sleep 2; tapText "استمع"; sleep 6; snap hifz_open
+tapText "طيّ خيارات الحفظ"; sleep 2; snap hifz_folded
+sleep 8; snap hifz_folded2
 timeout 60 adb logcat -d -b crash > shots/crash.txt 2>&1 || true
 kill $GEO 2>/dev/null || true
