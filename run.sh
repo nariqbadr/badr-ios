@@ -68,15 +68,8 @@ ts=[t for t in d.get('recitations',[]) if ((t.get('video') or {}).get('q')) and 
 ts.sort(key=lambda t:(t.get('publishAt') or t.get('createdAt') or '', t.get('order',0)), reverse=True)
 print(ts[0]['id'] if ts else '')" 2>/dev/null); echo "CLIP=$CLIP"
 setup new.apk new
-picker() { # $1 tag
-  go prayerSettings 20
-  for k in 1 2 3 4 5 6 7 8 9 10; do adb shell input swipe 540 1600 540 400 300; sleep 0.4; done; sleep 1
-  tapText "$2"; sleep 2.5; snap picker_$1
-  adb shell input swipe 540 1500 540 500 400; sleep 1; snap picker_${1}_scroll
-}
-go home 25
-picker ar "الدولة"
-adb shell input text "sa"; sleep 1; adb shell input keyevent KEYCODE_DEL; adb shell input keyevent KEYCODE_DEL; sleep 1
-picker ar2 "الدولة"; adb shell input swipe 540 1500 540 300 300; sleep 0.5; adb shell input swipe 540 1500 540 300 300; sleep 0.5; adb shell input swipe 540 1500 540 300 300; sleep 1; snap picker_ar_deep
+go home 25; snap home
+# the update address the app would open (installed by adb: the site's APK)
+adb shell am start -W -a android.intent.action.VIEW -d "market://details?id=com.bawazirquran.app" > shots/market.txt 2>&1; sleep 4; snap market
 timeout 60 adb logcat -d -b crash > shots/crash.txt 2>&1 || true
 kill $GEO 2>/dev/null || true
