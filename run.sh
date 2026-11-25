@@ -74,7 +74,9 @@ picker() { # $1 tag
   tapText "$2"; sleep 2.5; snap picker_$1
   adb shell input swipe 540 1500 540 500 400; sleep 1; snap picker_${1}_scroll
 }
+go home 25
 picker ar "الدولة"
-setpref lang en; picker en "Country"
+adb shell input text "sa"; sleep 1; adb shell input keyevent KEYCODE_DEL; adb shell input keyevent KEYCODE_DEL; sleep 1
+picker ar2 "الدولة"; adb shell input swipe 540 1500 540 300 300; sleep 0.5; adb shell input swipe 540 1500 540 300 300; sleep 0.5; adb shell input swipe 540 1500 540 300 300; sleep 1; snap picker_ar_deep
 timeout 60 adb logcat -d -b crash > shots/crash.txt 2>&1 || true
 kill $GEO 2>/dev/null || true
