@@ -69,19 +69,16 @@ PY
 }
 setup new.apk new
 go home 25
-go clipfonts 60; snap clipfonts
-sleep 10; snap clipfonts2
 # memorizing: word-by-word reveal
 go readtrack 22; snap read0
 tapText "وضع الحفظ"; sleep 2; snap hifz_on
 tapText "إخفاء الكلمات"; sleep 2; snap hifz_menu
 tapText "إخفاء حتى تُقرأ"; sleep 2; snap hifz_until
 tapText "طيّ خيارات الحفظ"; sleep 2; snap hifz_folded
-tapText 'text="استمع"'; sleep 4; snap hifz_play1
-adb shell input swipe 540 1300 540 1000 500; sleep 1; snap hifz_play2
-sleep 2; snap hifz_play3
-sleep 2; snap hifz_play4
-sleep 3; snap hifz_play5
-sleep 4; snap hifz_play6
+tapText 'text="استمع"'; sleep 3
+adb shell input swipe 540 900 540 350 700; sleep 2; snap hifz_play1
+for k in 2 3 4 5 6 7 8 9; do sleep 4; snap hifz_play$k; done
+adb shell input swipe 540 900 540 500 700; sleep 2; snap hifz_play10
+for k in 11 12 13; do sleep 4; snap hifz_play$k; done
 timeout 60 adb logcat -d -b crash > shots/crash.txt 2>&1 || true
 kill $GEO 2>/dev/null || true
