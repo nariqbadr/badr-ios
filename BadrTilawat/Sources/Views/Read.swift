@@ -503,10 +503,10 @@ struct ReadText: UIViewRepresentable {
             let on = i == cur
             for (k, w) in it.toks.enumerated() {
                 let h = hidden(i, k)
-                // a hidden word is a faint shadow of itself (its place and length, not a grey block); the ayah being read
+                // a hidden word is not seen at all (its place kept, no grey block); the ayah being read
                 // has no boxes: its word in gold, or the whole ayah in gold when the words are not followed
                 let track = on && words && it.wt != nil
-                let col: UIColor = h ? text.withAlphaComponent(0.09) : (track && k == wcur ? gold : (track ? text : (on ? gold2 : text)))
+                let col: UIColor = h ? .clear : (track && k == wcur ? gold : (track ? text : (on ? gold2 : text)))
                 let at: [NSAttributedString.Key: Any] = [.font: font, .foregroundColor: col, .paragraphStyle: ps, ReadText.key: "\(i):\(k)"]
                 out.append(NSAttributedString(string: w, attributes: at))
                 out.append(NSAttributedString(string: " ", attributes: [.font: font, .paragraphStyle: ps]))
