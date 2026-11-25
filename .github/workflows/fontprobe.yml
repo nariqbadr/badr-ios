@@ -1,0 +1,36 @@
+name: fontprobe
+on:
+  push:
+    branches: [fontprobe]
+permissions:
+  contents: write
+jobs:
+  run:
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+      - name: probe
+        run: |
+          mkdir -p out
+          B="https://bawazirquran.com/wp-admin/admin-ajax.php?action=bz"
+          curl -s -m 60 "$B&do=data" -o /tmp/d.json
+          curl -s -m 60 "$B&do=quran_surah&surah=3" -o /tmp/s3.json
+          python3 - <<'PY'
+          import json,subprocess
+          d=json.load(open('/tmp/d.json')); d=d.get('data',d)
+          fonts=(d.get('site',{}).get('maker') or {}).get('fonts') or []
+          for i,f in enumerate(fonts):
+              ext=f['url'].rsplit('.',1)[-1]
+              subprocess.run(['curl','-s','-L','-m','60','-o',f'/tmp/f{i}.{ext}',f['url']])
+          s=json.load(open('/tmp/s3.json')); a=s.get('data',s)['ayahs']
+          open('/tmp/ayah.txt','w').write(a[103]['text'])
+          open('out/ayah-codes.txt','w').write(' '.join(hex(ord(c)) for c in a[103]['text']))
+          PY
+          ls /tmp/f*
+          swift probe.swift /tmp/ayah.txt /tmp/f*.* amiri.ttf 2>&1 | tee out/log.txt || true
+      - name: publish
+        if: always()
+        run: |
+          cd out && git init -q && git checkout -q -b fontprobe-out && git add -A
+          git -c user.name=ci -c user.email=ci@users.noreply.github.com commit -qm out
+          git push -q -f "https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}.git" fontprobe-out
