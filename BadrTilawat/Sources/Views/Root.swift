@@ -165,7 +165,7 @@ struct RootView: View {
         case "search": ui.path = [.search]
         case "surah": ui.path = [.surah(18)]
         case "watch": if let v = d?.recitations.first(where: { $0.isVideo }) { ui.path = [.watch(v.id)] }
-        case "clip": if let v = d?.recitations.first(where: { $0.isVideo }) { ui.path = [.clip(v.id)] }
+        case "clip": if let v = d?.recitations.first(where: { $0.isVideo && d?.readableTracks[$0.id] != nil }) ?? d?.recitations.first(where: { $0.isVideo }) { ui.path = [.clip(v.id)] }
         case "reciter": if let r = d?.reciters.first { ui.path = [.reciter(r.id)] }
         case "player": if let t = firstAudio { player.play(t); ui.playerOpen = true }
         case "drawer": ui.drawer = true

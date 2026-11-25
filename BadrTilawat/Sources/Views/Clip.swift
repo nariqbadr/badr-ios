@@ -1,6 +1,7 @@
 import SwiftUI
 import AVFoundation
 import CoreImage
+import CoreText
 import Photos
 
 // MARK: - data
@@ -56,7 +57,12 @@ struct ClipOpts: Codable, Equatable {
     var isplit = false
     var L: [String: ILayer] = [:]
     func lay(_ k: String) -> ILayer { L[k] ?? ILayer(fs: ILayer.defFs(k)) }
-    @MainActor static func load() -> ClipOpts { (try? JSONDecoder().decode(ClipOpts.self, from: Data(Store.shared.str("clipOpts").utf8))) ?? ClipOpts() }
+    @MainActor static func load() -> ClipOpts {
+        var o = (try? JSONDecoder().decode(ClipOpts.self, from: Data(Store.shared.str("clipOpts").utf8))) ?? ClipOpts()
+        // the simulator's screenshots (BZ_CLIPFONT): the maker opened with a given ayah font
+        if RootView.shot != nil, let f = ProcessInfo.processInfo.environment["BZ_CLIPFONT"], !f.isEmpty { o.font = f; o.num = true }
+        return o
+    }
     @MainActor func save() { if let d = try? JSONEncoder().encode(self), let s = String(data: d, encoding: .utf8) { Store.shared.set("clipOpts", s) } }
     init() {}
     init(from dec: Decoder) throws {   // a missing or new field keeps its default
@@ -132,6 +138,50 @@ enum ClipEngine {
         default: name = "IBMPlexSansArabic-SemiBold"
         }
         return UIFont(name: name, size: size) ?? UIFont(name: "Amiri-Regular", size: size) ?? .systemFont(ofSize: size)
+    }
+
+    static func covers(_ f: UIFont, _ s: String) -> Bool {
+        var ch = Array(s.utf16); var g = [CGGlyph](repeating: 0, count: ch.count)
+        return CTFontGetGlyphsForCharacters(f as CTFont, &ch, &g, ch.count) && !g.contains(0)
+    }
+    nonisolated(unsafe) private static var fitCache: [String: String] = [:]
+    /// A dashboard font rarely has the Uthmani signs (the small high sukun, open tanween, small waw and yeh, pause signs,
+    /// sometimes alef wasla). Drawn from another font they broke the words apart and spread them, so a sign the font lacks
+    /// is written with the ordinary one it has (ۡ → ْ, ࣰ → ً, ٱ → ا) or left out.
+    static func fit(_ key: String, _ t: String) -> String {
+        guard key.hasPrefix("c:"), let ps = custom[key], let f = UIFont(name: ps, size: 40) else { return t }
+        let ck = ps + "|" + t; if let c = fitCache[ck] { return c }
+        let map: [UInt32: UInt32] = [0x06E1: 0x0652, 0x08F0: 0x064B, 0x08F1: 0x064C, 0x08F2: 0x064D, 0x0671: 0x0627, 0x06DF: 0, 0x06E0: 0]
+        var out = String.UnicodeScalarView()
+        for u in t.unicodeScalars {
+            if u.value == 0x20 || covers(f, String(u)) { out.append(u); continue }
+            if let m = map[u.value], m != 0, let mu = UnicodeScalar(m), covers(f, String(mu)) { out.append(mu); continue }
+            let v = u.value
+            if (0x0610...0x061A).contains(v) || (0x064B...0x065F).contains(v) || v == 0x0670 || (0x06D6...0x06ED).contains(v) || (0x08D3...0x08FF).contains(v) { continue }
+            out.append(u)
+        }
+        var r = String(out).split(separator: " ").joined(separator: " "); if r.isEmpty { r = t }
+        if fitCache.count > 4000 { fitCache.removeAll() }
+        fitCache[ck] = r; return r
+    }
+    /// real digits differ in shape; a demo font draws the same placeholder (a «personal use» banner) for every one
+    nonisolated(unsafe) private static var digitsOk: [String: Bool] = [:]
+    static func realDigits(_ f: UIFont) -> Bool {
+        if let v = digitsOk[f.fontName] { return v }
+        let v = realDigits0(f); digitsOk[f.fontName] = v; return v
+    }
+    private static func realDigits0(_ f: UIFont) -> Bool {
+        var ch = Array("٠١٢٣٤٥٦٧٨٩".utf16); var g = [CGGlyph](repeating: 0, count: ch.count)
+        guard CTFontGetGlyphsForCharacters(f as CTFont, &ch, &g, ch.count), !g.contains(0) else { return false }
+        var r = [CGRect](repeating: .zero, count: g.count); CTFontGetBoundingRectsForGlyphs(f as CTFont, .horizontal, g, &r, g.count)
+        let w = r.map(\.width), sz = f.pointSize
+        return Set(g).count > 5 && (w.max() ?? 0) - (w.min() ?? 0) > sz * 0.02 && (w.max() ?? 0) < sz * 1.2
+    }
+    /// the ayah number in the ayah's own font when it has real digits (its brackets too when it has them); Amiri otherwise
+    static func numFonts(_ key: String, _ size: CGFloat) -> (digits: UIFont, marks: UIFont) {
+        let f = font(key, size), a = font("amiri", size)
+        guard realDigits(f) else { return (a, a) }
+        return (f, covers(f, "\u{FD3E}\u{FD3F}") ? f : a)
     }
 
     /// Tanzil Uthmani text → the encoding the KFGQPC HAFS font expects (text already in that encoding is left as it is).
@@ -315,10 +365,10 @@ enum ClipEngine {
         if a <= 0 { return }
         let scale = min(W, H) / 1080
         var fs = Double(o.fs) * scale * (sizeKey(o, W, H) == "wide" || W > H * 1.15 ? 0.9 : 1)
-        var f = font(o.font, fs), nf = font("amiri", fs * 0.82)
+        var f = font(o.font, fs), nf = numFonts(o.font, fs * 0.82)
         let glow = Double(o.glow) / 100
         let shadow = NSShadow(); shadow.shadowBlurRadius = fs * (0.1 + 0.6 * glow); shadow.shadowOffset = CGSize(width: 0, height: fs * 0.05)
-        var toks = seg.toks; let withNum = o.num && seg.last; if withNum { toks.append("﴿\(seg.n.qar)﴾") }
+        var toks = seg.toks.map { fit(o.font, $0) }; let withNum = o.num && seg.last; if withNum { toks.append("﴿\(seg.n.qar)﴾") }
         func attrs(_ col: UIColor, _ al: Double, _ font: UIFont) -> [NSAttributedString.Key: Any] {
             let s = NSShadow(); s.shadowBlurRadius = shadow.shadowBlurRadius; s.shadowOffset = shadow.shadowOffset; s.shadowColor = UIColor(white: 0, alpha: (90 + 130 * glow) / 255 * al)
             return [.font: font, .foregroundColor: col.withAlphaComponent(CGFloat(al)), .shadow: s]
@@ -326,8 +376,8 @@ enum ClipEngine {
         let base = color(o.color)
         var space = NSAttributedString(string: " ", attributes: [.font: f]).size().width
         func numberParts() -> (open: NSAttributedString, digits: NSAttributedString, close: NSAttributedString) {
-            let at: [NSAttributedString.Key: Any] = [.font: nf]
-            return (NSAttributedString(string: "\u{FD3E}", attributes: at), NSAttributedString(string: seg.n.ar, attributes: at), NSAttributedString(string: "\u{FD3F}", attributes: at))
+            let at: [NSAttributedString.Key: Any] = [.font: nf.marks], ad: [NSAttributedString.Key: Any] = [.font: nf.digits]
+            return (NSAttributedString(string: "\u{FD3E}", attributes: at), NSAttributedString(string: seg.n.ar, attributes: ad), NSAttributedString(string: "\u{FD3F}", attributes: at))
         }
         func width(_ i: Int) -> Double {
             let key = "\(o.font)|\(Int(fs * 10))|\(withNum && i == toks.count - 1 ? "#\(seg.n)" : toks[i])"
@@ -346,7 +396,7 @@ enum ClipEngine {
             for (i, tk) in toks.enumerated() { let tw = width(i); if !cur.isEmpty && lw + space + tw > maxW { lines.append(cur); cur = []; lw = 0 }; cur.append((tk, tw, i)); lw += (lw > 0 ? space : 0) + tw }
             if !cur.isEmpty { lines.append(cur) }
             if Double(lines.count) * fs * Double(o.lh) / 100 <= H * 0.8 || fs < 14 { break }
-            fs *= 0.88; f = font(o.font, fs); nf = font("amiri", fs * 0.82); space = NSAttributedString(string: " ", attributes: [.font: f]).size().width
+            fs *= 0.88; f = font(o.font, fs); nf = numFonts(o.font, fs * 0.82); space = NSAttributedString(string: " ", attributes: [.font: f]).size().width
         }
         let widths = lines.map { l in l.reduce(0) { $0 + $1.w } + space * Double(l.count - 1) }
         let lh = fs * Double(o.lh) / 100, total = Double(lines.count) * lh, mw = widths.max() ?? 0
@@ -374,13 +424,13 @@ enum ClipEngine {
                 }
                 let isNum = withNum && it.i == toks.count - 1
                 if isNum {
-                    let p = numberParts(), at = attrs(col, al, nf)
-                    let ow = p.open.size().width, dw = p.digits.size().width, h0 = p.digits.size().height
-                    let yy = y + dy - h0 / 2, x0 = x - it.w
+                    let p = numberParts(), at = attrs(col, al, nf.marks), ad = attrs(col, al, nf.digits)
+                    let ow = p.open.size().width, dw = p.digits.size().width, hm = p.open.size().height, hd = p.digits.size().height
+                    let x0 = x - it.w
                     // left to right on screen: ﴾ (opens toward the number), the digits, ﴿
-                    NSAttributedString(string: "\u{FD3E}", attributes: at).draw(at: CGPoint(x: x0, y: yy))
-                    NSAttributedString(string: seg.n.ar, attributes: at).draw(at: CGPoint(x: x0 + ow + fs * 0.06, y: yy))
-                    NSAttributedString(string: "\u{FD3F}", attributes: at).draw(at: CGPoint(x: x0 + ow + fs * 0.12 + dw, y: yy))
+                    NSAttributedString(string: "\u{FD3E}", attributes: at).draw(at: CGPoint(x: x0, y: y + dy - hm / 2))
+                    NSAttributedString(string: seg.n.ar, attributes: ad).draw(at: CGPoint(x: x0 + ow + fs * 0.06, y: y + dy - hd / 2))
+                    NSAttributedString(string: "\u{FD3F}", attributes: at).draw(at: CGPoint(x: x0 + ow + fs * 0.12 + dw, y: y + dy - hm / 2))
                 } else {
                     let s = NSAttributedString(string: it.tk, attributes: attrs(col, al, f)); let h0 = s.size().height
                     if o.stroke {
