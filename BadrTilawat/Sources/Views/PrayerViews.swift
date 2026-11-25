@@ -469,11 +469,7 @@ extension PrayerSettings {
             }.frame(minHeight: 62).contentShape(Rectangle())
         }.buttonStyle(.plain)
     }
-    /// every country, in the app's language, in its alphabetical order
-    private var countries: [(String, String)] {
-        Locale.isoRegionCodes.compactMap { code in L.locale.localizedString(forRegionCode: code).map { (code, $0) } }
-            .sorted { $0.1.compare($1.1, locale: L.locale) == .orderedAscending }
-    }
+    private var countries: [(String, String)] { CountryList.all() }
     @ViewBuilder var placeSection: some View {
         GroupHead(title: tr("الموقع"))
         // where the times are computed for: the district and city, then the street and the coordinates (as other apps show it)
@@ -528,16 +524,6 @@ extension PrayerSettings {
                     Spacer(); Image(systemName: countryOpen ? "chevron.up" : "chevron.down").font(.system(size: 13, weight: .semibold)).foregroundStyle(sub)
                 }.frame(minHeight: 52).contentShape(Rectangle())
             }.buttonStyle(.plain)
-            if countryOpen {
-                TextField(tr("ابحث عن دولة"), text: $countryQ).font(F.plex(15)).padding(.horizontal, 12).padding(.vertical, 10).background(RoundedRectangle(cornerRadius: 12).fill(c.surface3)).padding(.bottom, 6)
-                let q = countryQ.trimmingCharacters(in: .whitespaces)
-                ForEach(all.filter { q.isEmpty || $0.1.localizedCaseInsensitiveContains(q) }.prefix(40), id: \.0) { code, name in
-                    Button { cc = code; countryOpen = false; countryQ = ""; picked = nil; hits = []; cityQ = ""; withAnimation { cityOpen = true } } label: {
-                        HStack { Text(name).font(F.plex(15, code == cc ? .bold : .regular)).foregroundStyle(code == cc ? c.gold : c.text); Spacer(); if code == cc { Image(systemName: "checkmark").foregroundStyle(c.gold) } }
-                            .frame(minHeight: 42).contentShape(Rectangle())
-                    }.buttonStyle(.plain)
-                }
-            }
             Hairline()
             Button { withAnimation { cityOpen.toggle(); countryOpen = false } } label: {
                 HStack(spacing: 12) {
@@ -570,6 +556,12 @@ extension PrayerSettings {
             }
         }
         // one save for the whole page: the city picked by hand (the other settings are kept as they are changed)
+        Color.clear.frame(height: 0).sheet(isPresented: $countryOpen) {
+            CountryPicker(all: all, cur: cc) { code in
+                cc = code; countryOpen = false; picked = nil; hits = []; cityQ = ""
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) { withAnimation { cityOpen = true } }
+            }.presentationDetents([.medium, .large]).presentationDragIndicator(.visible)
+        }
         GoldButton(title: tr("حفظ"), icon: "checkmark") {
             if let h = picked { prayers.setPicked(h) }
             ui.say(tr("تم الحفظ")); dismiss()
@@ -763,5 +755,67 @@ struct DashLine: View {
     @Environment(\.pal) private var c
     var body: some View {
         GeometryReader { g in Path { p in p.move(to: .zero); p.addLine(to: CGPoint(x: g.size.width, y: 0)) }.stroke(c.gold.opacity(0.3), style: StrokeStyle(lineWidth: 1, dash: [6, 5])) }.frame(height: 1)
+    }
+}
+
+
+/// Every country in the app's language (Palestine by its name; Israel is not listed), in the alphabetical order of that
+/// language — in Arabic without the article «ال», so «المملكة العربية السعودية» stands under «م».
+enum CountryList {
+    static let skip: Set<String> = ["IL"]
+    static func name(_ code: String) -> String { code == "PS" ? tr("فلسطين") : (L.locale.localizedString(forRegionCode: code) ?? code) }
+    static func norm(_ s: String) -> String {
+        var t = s.lowercased(with: L.locale)
+        for (a, b) in [("أ", "ا"), ("إ", "ا"), ("آ", "ا"), ("ة", "ه"), ("ى", "ي")] { t = t.replacingOccurrences(of: a, with: b) }
+        return t
+    }
+    static func key(_ s: String) -> String { let n = norm(s); return L.ar && n.hasPrefix("ال") ? String(n.dropFirst(2)) : n }
+    static func all() -> [(String, String)] {
+        Locale.isoRegionCodes.filter { !skip.contains($0) && $0.count == 2 && Int($0) == nil }
+            .map { ($0, name($0)) }.filter { !$0.1.isEmpty && $0.1 != $0.0 }
+            .sorted { key($0.1).compare(key($1.1), locale: L.locale) == .orderedAscending }
+    }
+    /// the Arab countries first among the suggestions, after the person's own
+    static let suggested = ["SA", "EG", "AE", "KW", "QA", "BH", "OM", "JO", "PS", "MA", "DZ", "IQ"]
+}
+
+/// The country chosen from a floating list: search on top, the person's country and the suggested ones, then them all.
+struct CountryPicker: View {
+    let all: [(String, String)]
+    let cur: String
+    let pick: (String) -> Void
+    @Environment(\.pal) private var c
+    @State private var q = ""
+    var body: some View {
+        let nq = CountryList.norm(q.trimmingCharacters(in: .whitespaces))
+        let found = nq.isEmpty ? all : all.filter { CountryList.norm($0.1).contains(nq) || $0.0.lowercased() == nq }
+        let top = nq.isEmpty ? ([cur.uppercased()] + CountryList.suggested).reduce(into: [String]()) { if !$0.contains($1) { $0.append($1) } }.compactMap { k in all.first { $0.0 == k } } : []
+        VStack(spacing: 0) {
+            Text(tr("اختر الدولة")).font(F.plex(18, .bold)).foregroundStyle(c.text).frame(maxWidth: .infinity, alignment: .leading).padding(.horizontal, 20).padding(.top, 22)
+            HStack(spacing: 8) {
+                Image(systemName: "magnifyingglass").foregroundStyle(c.faint)
+                TextField(tr("ابحث عن دولة"), text: $q).font(F.plex(15)).foregroundStyle(c.text)
+            }.padding(.horizontal, 12).padding(.vertical, 11).background(RoundedRectangle(cornerRadius: 14).fill(c.surface3)).padding(.horizontal, 18).padding(.vertical, 12)
+            ScrollView {
+                LazyVStack(alignment: .leading, spacing: 0) {
+                    if !top.isEmpty {
+                        head(tr("المقترحة"))
+                        ForEach(top, id: \.0) { row($0.0, $0.1) }
+                        Rectangle().fill(c.line).frame(height: 1).padding(.horizontal, 20).padding(.vertical, 6)
+                        head(tr("كل الدول"))
+                    }
+                    ForEach(found, id: \.0) { row($0.0, $0.1) }
+                    if found.isEmpty { Text(tr("لا نتائج — جرّب اسمًا آخر")).font(F.plex(14)).foregroundStyle(c.faint).padding(20) }
+                }.padding(.bottom, 16)
+            }
+        }.background(c.surface.ignoresSafeArea())
+    }
+    private func head(_ t: String) -> some View { Text(t).font(F.plex(12.5, .semibold)).foregroundStyle(c.gold).padding(.horizontal, 20).padding(.vertical, 6) }
+    private func row(_ code: String, _ name: String) -> some View {
+        let on = code == cur.uppercased()
+        return Button { pick(code) } label: {
+            HStack { Text(name).font(F.plex(16, on ? .bold : .regular)).foregroundStyle(on ? c.gold : c.text); Spacer(); if on { Image(systemName: "checkmark").foregroundStyle(c.gold) } }
+                .padding(.horizontal, 20).padding(.vertical, 13).contentShape(Rectangle())
+        }.buttonStyle(.plain)
     }
 }
