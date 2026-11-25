@@ -40,7 +40,7 @@ ctx.setFillColor(CGColor(red: 0.1, green: 0.12, blue: 0.15, alpha: 1)); ctx.fill
 var yTop = 40.0
 for p in args.dropFirst(2) {
     guard let prov = CGDataProvider(url: URL(fileURLWithPath: p) as CFURL), let cg = CGFont(prov) else { print("no font", p); continue }
-    let fs = 44.0
+    let fs = 60.0
     let f = CTFontCreateWithGraphicsFont(cg, fs, nil, nil)
     let name = (cg.postScriptName as String?) ?? p
     for (lab, txt) in [("orig", ayah), ("plain", plain(ayah, f))] {
@@ -51,10 +51,16 @@ for p in args.dropFirst(2) {
         for tk in toks {
             let l = line(tk, f); let w = Double(CTLineGetTypographicBounds(l, nil, nil, nil)); let ink = CTLineGetImageBounds(l, ctx)
             slack += w - Double(ink.width)
-            if x - w < 20 { break }
+            if x - w < 170 { break }
             ctx.textPosition = CGPoint(x: x - w, y: y); CTLineDraw(l, ctx)
             x -= w + space
         }
+        let am = CTFontCreateWithGraphicsFont(CGFont(CGDataProvider(url: URL(fileURLWithPath: "amiri.ttf") as CFURL)!)!, fs * 0.82, nil, nil)
+        let small = CTFontCreateCopyWithAttributes(f, fs * 0.82, nil, nil)
+        let dF = lab == "orig" ? am : (has(small, "٠") ? small : am), bF = lab == "orig" ? am : (has(small, "\u{FD3E}") ? small : am)
+        let nl = [line("\u{FD3E}", bF), line("١٠٤", dF), line("\u{FD3F}", bF)]
+        var nx = x - 140.0
+        for l in nl { ctx.textPosition = CGPoint(x: nx, y: y); CTLineDraw(l, ctx); nx += Double(CTLineGetTypographicBounds(l, nil, nil, nil)) + 3 }
         let lab2 = line("\(lab) \(name) space=\(Int(space)) slack/word=\(Int(slack / Double(toks.count)))", CTFontCreateWithName("Helvetica" as CFString, 16, nil))
         ctx.textPosition = CGPoint(x: 20, y: y + fs * 0.9); CTLineDraw(lab2, ctx)
         print(lab, name, "space", space, "slack/word", slack / Double(toks.count))

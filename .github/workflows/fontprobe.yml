@@ -14,7 +14,7 @@ jobs:
           mkdir -p out
           B="https://bawazirquran.com/wp-admin/admin-ajax.php?action=bz"
           curl -s -m 60 "$B&do=data" -o /tmp/d.json
-          curl -s -m 60 "$B&do=quran_surah&surah=3" -o /tmp/s3.json
+          curl -s -m 60 "$B&do=quran_surah&surah=21" -o /tmp/s21.json
           python3 - <<'PY'
           import json,subprocess
           d=json.load(open('/tmp/d.json')); d=d.get('data',d)
@@ -22,7 +22,7 @@ jobs:
           for i,f in enumerate(fonts):
               ext=f['url'].rsplit('.',1)[-1]
               subprocess.run(['curl','-s','-L','-m','60','-o',f'/tmp/f{i}.{ext}',f['url']])
-          s=json.load(open('/tmp/s3.json')); a=s.get('data',s)['ayahs']
+          s=json.load(open('/tmp/s21.json')); a=s.get('data',s)['ayahs']
           open('/tmp/ayah.txt','w').write(a[103]['text'])
           open('out/ayah-codes.txt','w').write(' '.join(hex(ord(c)) for c in a[103]['text']))
           PY
