@@ -264,11 +264,22 @@ struct ReadView: View {
         guard words, let w = items?[safe: i]?.wt else { return -1 }
         var k = -1; for j in w.indices where pos >= w[j] { k = j }; return k
     }
+    /// The word the sheikh has reached, for «إخفاء حتى تُقرأ»: by the word times when the recitation has them, else spread
+    /// over the ayah by the words' lengths — never the whole ayah at once, and whether or not «تتبّع الكلمة» is on.
+    private func revealAt(_ i: Int, _ p: Int) -> Int {
+        guard let it = items?[safe: i] else { return -1 }
+        if let w = it.wt { var k = -1; for j in w.indices where p >= w[j] { k = j }; return k }
+        if p < it.st || it.en <= it.st { return -1 }
+        let f = Double(p - it.st) / Double(it.en - it.st); let lens = it.toks.map { max(1, $0.count) }; let all = Double(lens.reduce(0, +))
+        var acc = 0.0
+        for (j, l) in lens.enumerated() { if f * all < acc + Double(l) * 0.35 { return j - 1 }; acc += Double(l) }
+        return it.toks.count - 1
+    }
     private func hidden(_ i: Int, _ k: Int, _ cur: Int, _ wc: Int) -> Bool {
         switch hide {
         case "first": return k > 0
         case "all": return !peek.contains(i << 20 | k)
-        case "until": return i > cur || (i == cur && wc >= 0 && k > wc)
+        case "until": return i > cur || (i == cur && k > revealAt(cur, pos))
         case "grow": return (k * 7 + i * 3) % max(1, repA) < rep
         default: return false
         }
@@ -481,7 +492,7 @@ struct ReadText: UIViewRepresentable {
         let font = UIFont(name: "AmiriQuran-Regular", size: 25 * size) ?? .systemFont(ofSize: 25 * size)
         let ps = NSMutableParagraphStyle(); ps.alignment = .justified; ps.baseWritingDirection = .rightToLeft; ps.minimumLineHeight = 54 * size; ps.maximumLineHeight = 54 * size
         let out = NSMutableAttributedString()
-        let gold = UIColor(pal.gold), text = UIColor(pal.text), muted = UIColor(pal.muted), hl = UIColor(pal.gold.opacity(0.14)), hid = UIColor(pal.surface3)
+        let gold = UIColor(pal.gold), gold2 = UIColor(pal.gold2), text = UIColor(pal.text)
         if sn != 1 && sn != 9 && items.first?.n == 1 {
             let bp = NSMutableParagraphStyle(); bp.alignment = .center; bp.baseWritingDirection = .rightToLeft; bp.paragraphSpacing = 10
             out.append(NSAttributedString(string: tr("بِسْمِ ٱللَّهِ ٱلرَّحْمَٰنِ ٱلرَّحِيمِ\n"), attributes: [.font: UIFont(name: "AmiriQuran-Regular", size: 24 * size) ?? font, .foregroundColor: gold, .paragraphStyle: bp]))
@@ -492,9 +503,11 @@ struct ReadText: UIViewRepresentable {
             let on = i == cur
             for (k, w) in it.toks.enumerated() {
                 let h = hidden(i, k)
-                let col: UIColor = h ? .clear : (on && words && it.wt != nil && k == wcur ? gold : (on && words && it.wt != nil && k < wcur ? muted : text))
-                var at: [NSAttributedString.Key: Any] = [.font: font, .foregroundColor: col, .paragraphStyle: ps, ReadText.key: "\(i):\(k)"]
-                if h { at[.backgroundColor] = hid } else if on { at[.backgroundColor] = hl }
+                // a hidden word is a faint shadow of itself (its place and length, not a grey block); the ayah being read
+                // has no boxes: its word in gold, or the whole ayah in gold when the words are not followed
+                let track = on && words && it.wt != nil
+                let col: UIColor = h ? text.withAlphaComponent(0.09) : (track && k == wcur ? gold : (track ? text : (on ? gold2 : text)))
+                let at: [NSAttributedString.Key: Any] = [.font: font, .foregroundColor: col, .paragraphStyle: ps, ReadText.key: "\(i):\(k)"]
                 out.append(NSAttributedString(string: w, attributes: at))
                 out.append(NSAttributedString(string: " ", attributes: [.font: font, .paragraphStyle: ps]))
             }
