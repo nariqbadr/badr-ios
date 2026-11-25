@@ -69,26 +69,19 @@ PY
 }
 setup new.apk new
 go home 25
-nvid() { adb shell content query --uri content://media/external/video/media --projection _data 2>/dev/null | grep -c mp4; }
-for fk in "bzf-mwty9e6a:marhaban" "bzf-mwty9aeu:tox" "bzf-mwty641h:cairo" "uthmani:uthmani"; do
-  fam=${fk%%:*}; tag=${fk##*:}; key="c:$fam"; [ "$fam" = uthmani ] && key=uthmani
-  setjson clipOpts "{\"font\":\"$key\",\"num\":true,\"fs\":64}"
-  N0=$(nvid); go clip 40; snap clip_$tag
-  tapText "تصدير"; sleep 5; snap clip_${tag}_exp
-  for i in $(seq 1 30); do sleep 8; [ "$(nvid)" -gt "$N0" ] && break; done
-  sleep 6; snap clip_${tag}_done
-  adb shell content query --uri content://media/external/video/media --projection _data > /tmp/v.txt 2>&1
-  F=$(grep -o '_data=[^,]*\.mp4' /tmp/v.txt | tail -1 | cut -d= -f2 | tr -d '\r')
-  [ -n "$F" ] && adb pull "$F" shots/clip_$tag.mp4 > /dev/null 2>&1
-done
+go clipfonts 60; snap clipfonts
+sleep 10; snap clipfonts2
 # memorizing: word-by-word reveal
 go readtrack 22; snap read0
 tapText "وضع الحفظ"; sleep 2; snap hifz_on
 tapText "إخفاء الكلمات"; sleep 2; snap hifz_menu
 tapText "إخفاء حتى تُقرأ"; sleep 2; snap hifz_until
-tapText 'text="استمع"'; sleep 5; snap hifz_play1
-sleep 3; snap hifz_play2
-sleep 3; snap hifz_play3
-sleep 4; snap hifz_play4
+tapText "طيّ خيارات الحفظ"; sleep 2; snap hifz_folded
+tapText 'text="استمع"'; sleep 4; snap hifz_play1
+adb shell input swipe 540 1300 540 1000 500; sleep 1; snap hifz_play2
+sleep 2; snap hifz_play3
+sleep 2; snap hifz_play4
+sleep 3; snap hifz_play5
+sleep 4; snap hifz_play6
 timeout 60 adb logcat -d -b crash > shots/crash.txt 2>&1 || true
 kill $GEO 2>/dev/null || true
