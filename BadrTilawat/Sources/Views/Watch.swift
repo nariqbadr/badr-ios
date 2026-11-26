@@ -446,7 +446,12 @@ struct WatchView: View {
         .navigationTitle(full ? "" : tr("تلاوة مرئية"))
         .onChange(of: full) { f in ui.videoFull = f; v.layer.videoGravity = f ? .resizeAspectFill : .resizeAspect }
         .onDisappear { ui.videoFull = false; v.layer.videoGravity = .resizeAspect; if full { full = false; rotate(false) } }
-        .onAppear { v.setVisible(true); if let t { v.open(t) }; bump() }
+        .onAppear { v.setVisible(true); if let t { v.open(t) }; bump()
+            // the simulator's tests (BZ_WATCHFULL): the video turned to full screen, as a person would
+            if RootView.shot != nil, ProcessInfo.processInfo.environment["BZ_WATCHFULL"] != nil {
+                DispatchQueue.main.asyncAfter(deadline: .now() + 6) { if !full { withAnimation { full = true }; rotate(true) } }
+            }
+        }
         .onChange(of: id) { _ in if let t { v.open(t) } }
         // leaving the video (back, another tab) while it plays: the recitation goes on as sound, from the same moment,
         // in the mini player (as on the site); paused, it simply closes
