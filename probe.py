@@ -2,7 +2,8 @@ import json, urllib.request
 B="https://bawazirquran.com/wp-admin/admin-ajax.php?action=bz&do="
 def get(q): return json.load(urllib.request.urlopen(B+q, timeout=60))
 d=get("data"); d=d.get('data',d)
-rt=d.get('readableTracks') or d.get('readable') or {}
+rt=(d.get('readable') or {}).get('tracks') or {}
+print('readable', {k:(type(v).__name__, len(v) if hasattr(v,'__len__') else v) for k,v in d['readable'].items()})
 print('readable keys', type(rt), len(rt))
 tracks={t['id']:t for t in d.get('recitations',d.get('tracks',[]))} if isinstance(d.get('recitations',d.get('tracks')),list) else {}
 print('tracks', len(tracks), list(d.keys())[:40])
