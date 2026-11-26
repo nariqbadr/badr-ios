@@ -382,12 +382,26 @@ private struct VideoSurface: UIViewRepresentable {
     /// (back to an earlier page, or back into the app, showed a black picture with the sound playing)
     final class Host: UIView {
         var pl: AVPlayerLayer?
-        func claim() { guard let pl, window != nil else { return }; if pl.superlayer !== layer { layer.addSublayer(pl) }; CATransaction.begin(); CATransaction.setDisableActions(true); pl.frame = bounds; CATransaction.commit() }
-        override func layoutSubviews() { super.layoutSubviews(); claim() }
-        override func didMoveToWindow() { super.didMoveToWindow(); claim() }
+        /// the page that holds the picture now
+        static weak var owner: Host?
+        /// Two pages can be on screen together for a moment (turning to full screen: the page goes while the full screen
+        /// comes). Each one taking the layer back at every layout made them pass it to and fro without end: the app froze,
+        /// and the system killed it once it went to the background. Now the page that has just come on screen takes it
+        /// (force), and a layout only takes it when the one holding it is no longer on screen.
+        func claim(force: Bool) {
+            guard let pl, window != nil else { return }
+            if pl.superlayer !== layer {
+                if !force, let o = Host.owner, o !== self, o.window != nil, pl.superlayer === o.layer { return }
+                layer.addSublayer(pl)
+            }
+            Host.owner = self
+            CATransaction.begin(); CATransaction.setDisableActions(true); pl.frame = bounds; CATransaction.commit()
+        }
+        override func layoutSubviews() { super.layoutSubviews(); claim(force: false) }
+        override func didMoveToWindow() { super.didMoveToWindow(); claim(force: true) }
     }
-    func makeUIView(context: Context) -> Host { let v = Host(); v.backgroundColor = .black; v.layer.addSublayer(layer); v.pl = layer; return v }
-    func updateUIView(_ v: Host, context: Context) { v.pl = layer; v.claim(); v.setNeedsLayout() }
+    func makeUIView(context: Context) -> Host { let v = Host(); v.backgroundColor = .black; v.layer.addSublayer(layer); v.pl = layer; Host.owner = v; return v }
+    func updateUIView(_ v: Host, context: Context) { v.pl = layer; v.claim(force: false); v.setNeedsLayout() }
 }
 
 private func qLabel(_ h: Int) -> String { h > 0 ? "\(h)p" : tr("صوت فقط") }
@@ -448,7 +462,7 @@ struct WatchView: View {
         .onDisappear {
             // turning the phone can make SwiftUI call this while the page stays (it is still the last one opened): full
             // screen is kept then — undoing it here left the app sideways with the page's normal layout
-            if case .watch(let w)? = ui.path.last, w == id, ProcessInfo.processInfo.environment["BZ_OLDDISAPPEAR"] == nil { return }
+            if case .watch(let w)? = ui.path.last, w == id { return }
             ui.videoFull = false; v.layer.videoGravity = .resizeAspect; if full { full = false; rotate(false) }
         }
         .onAppear { v.setVisible(true); if let t { v.open(t) }; bump()
