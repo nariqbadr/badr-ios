@@ -68,13 +68,15 @@ jobs:
           # a video turned to full screen: the app must stay responsive (it froze, and was killed in the background); the old
           # page-disappear handling (BZ_OLDDISAPPEAR) and the new one, each sampled if it hangs
           T() { perl -e 'alarm shift; exec @ARGV' "$@"; }
-          for m in old new; do
+          for m in new old; do
             T 30 xcrun simctl terminate "$UDID" com.bawazirquran.app >/dev/null 2>&1 || true
             if [ $m = old ]; then SIMCTL_CHILD_BZ_OLDDISAPPEAR=1 SIMCTL_CHILD_BZ_LANG=ar SIMCTL_CHILD_BZ_ROUTE=watch SIMCTL_CHILD_BZ_WATCHFULL=1 T 40 xcrun simctl launch "$UDID" com.bawazirquran.app >/dev/null 2>&1 || echo "full-$m launch hung" >> shots/runs.txt
             else SIMCTL_CHILD_BZ_LANG=ar SIMCTL_CHILD_BZ_ROUTE=watch SIMCTL_CHILD_BZ_WATCHFULL=1 T 40 xcrun simctl launch "$UDID" com.bawazirquran.app >/dev/null 2>&1 || echo "full-$m launch hung" >> shots/runs.txt; fi
             for k in 1 2 3 4; do sleep 4; T 20 xcrun simctl io "$UDID" screenshot "shots/full-$m-$k.png" >/dev/null 2>&1 || echo "full-$m shot $k hung" >> shots/runs.txt; done
-            PID=$(pgrep -f 'BadrTilawat.app/BadrTilawat' | head -1)
-            [ -n "$PID" ] && T 25 sample "$PID" 4 -file "shots/sample-$m.txt" >/dev/null 2>&1 || true
+            ps axo pid,command | grep -i 'badrtilawat\|bawazir' | grep -v grep > "shots/ps-$m.txt" || true
+            PID=$(ps axo pid,command | grep -i '\.app/BadrTilawat' | grep -v grep | awk '{print $1}' | head -1)
+            echo "full-$m pid=$PID" >> shots/runs.txt
+            [ -n "$PID" ] && { T 25 sample "$PID" 4 -file "shots/sample-$m.txt" > "shots/sample-$m.log" 2>&1 || true; }
             T 30 xcrun simctl launch "$UDID" com.apple.Preferences >/dev/null 2>&1 && echo "full-$m settings opened" >> shots/runs.txt || echo "full-$m settings launch hung" >> shots/runs.txt
             sleep 20
             if T 20 xcrun simctl spawn "$UDID" launchctl list | grep -q UIKitApplication:com.bawazirquran.app; then echo "full-$m alive in background" >> shots/runs.txt; else echo "full-$m CRASHED in background" >> shots/runs.txt; fi
