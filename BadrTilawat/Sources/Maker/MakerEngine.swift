@@ -102,9 +102,7 @@ final class MakerContext: @unchecked Sendable {
     }
 
     private func drawText(_ c: CGContext, _ W: CGFloat, _ H: CGFloat, _ f: MFrame, _ layer: MLayer, _ th: Th, _ o: MakerOpts, _ u: CGFloat) {
-        // the number begins with a right-to-left mark: drawn on its own («كلمة كلمة», or alone on the last line) it has no
-        // Arabic letter to set its direction, and its two brackets came out the wrong way round
-        let text = layer.items.map { "\($0.text) \u{200F}﴿\($0.n.qar)﴾" }.joined(separator: " ")
+        let text = layer.items.map { "\($0.text) ﴿\($0.n.qar)﴾" }.joined(separator: " ")
         let L = layout(text, W, H, u, o)
         let tafsirText = o.tafsir.isEmpty ? "" : layer.items.compactMap { tafsir[$0.n] }.joined(separator: " • ")
         let scenic = MAKER_SCENIC.contains(o.tpl)
