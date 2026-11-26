@@ -68,21 +68,17 @@ PY
   U=$(adb shell stat -c %u /data/data/$P | tr -d "\r"); adb shell "chown $U:$U /data/data/$P/shared_prefs/badr.xml; restorecon /data/data/$P/shared_prefs/badr.xml"
 }
 setup new.apk new
-adb shell wm density 300; sleep 3; adb shell wm density
-# memorizing: «تتبّع الكلمة» off, «إخفاء حتى تُقرأ», repeat once — the words must still appear one by one
-go readtrack 22; snap read0
-tapText "تتبّع الكلمة"; sleep 1
-tapText "وضع الحفظ"; sleep 2
-tapText "تكرار كل آية"; sleep 2; tapText 'text="مرة"'; sleep 2
-tapText "إخفاء الكلمات"; sleep 2; tapText "إخفاء حتى تُقرأ"; sleep 2; snap hifz_until_set
-tapText "طيّ خيارات الحفظ"; sleep 1; snap hifz_set
-tapText 'text="استمع"'; sleep 3
-for k in 1 2 3 4 5 6 7 8; do sleep 3; snap hifz_play$k; done
-# leaving memorizing mode shows the whole text again
-tapText "وضع الحفظ"; sleep 2; snap hifz_off
-# back on, «إخفاء الكل (المس للإظهار)»
-tapText "وضع الحفظ"; sleep 2; tapText "فتح خيارات الحفظ"; sleep 1
-tapText "إخفاء الكلمات"; sleep 2; tapText "إخفاء الكل"; sleep 2; tapText "طيّ خيارات الحفظ"; sleep 1; snap hifz_all; tapText "فتح خيارات الحفظ"; sleep 1
-tapText "إخفاء الكلمات"; sleep 2; tapText "أول كلمة فقط"; sleep 2; tapText "طيّ خيارات الحفظ"; sleep 1; snap hifz_first
+go home 20
+nvid() { adb shell content query --uri content://media/external/video/media --projection _data 2>/dev/null | grep -c mp4; }
+N0=$(nvid)
+adb shell am force-stop $P
+adb shell "am start -n $P/.MainActivity --ez shot true --es open makervideo --es mk '24|35|35|nightblue|words|التركي'" > /dev/null
+sleep 25; snap mk_start
+for i in $(seq 1 60); do sleep 10; [ "$(nvid)" -gt "$N0" ] && break; [ $((i % 6)) = 0 ] && snap mk_prog$i; done
+sleep 8; snap mk_done
+adb shell content query --uri content://media/external/video/media --projection _data > /tmp/v.txt 2>&1; cat /tmp/v.txt > shots/media.txt
+F=$(grep -o '_data=[^,]*\.mp4' /tmp/v.txt | tail -1 | cut -d= -f2 | tr -d '\r')
+[ -n "$F" ] && adb pull "$F" shots/nur.mp4 > /dev/null 2>&1
+ls -la shots/nur.mp4 >> shots/media.txt 2>&1
 timeout 60 adb logcat -d -b crash > shots/crash.txt 2>&1 || true
 kill $GEO 2>/dev/null || true
