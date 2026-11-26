@@ -72,14 +72,11 @@ go home 25
 # memorizing: word-by-word reveal
 adb shell wm size 1080x2400; adb shell wm density 400; sleep 3
 go readtrack 22; snap read0
-tapText "وضع الحفظ"; sleep 2; snap hifz_on
-tapText "إخفاء الكلمات"; sleep 2; snap hifz_menu
-tapText "إخفاء حتى تُقرأ"; sleep 2; snap hifz_until
-tapText "طيّ خيارات الحفظ"; sleep 2; snap hifz_folded
+tapText "وضع الحفظ"; sleep 2
+tapText "تكرار كل آية"; sleep 2; snap rep_menu
+tapText 'text="مرة"'; sleep 2; snap rep_set
+tapText "طيّ خيارات الحفظ"; sleep 1
 tapText 'text="استمع"'; sleep 3
-adb shell input swipe 540 900 540 350 700; sleep 2; snap hifz_play1
-for k in 2 3 4 5 6 7 8 9; do sleep 4; snap hifz_play$k; done
-adb shell input swipe 540 900 540 500 700; sleep 2; snap hifz_play10
-for k in 11 12 13; do sleep 4; snap hifz_play$k; done
+for k in 1 2 3 4 5 6 7 8 9 10; do sleep 5; snap rep_play$k; done
 timeout 60 adb logcat -d -b crash > shots/crash.txt 2>&1 || true
 kill $GEO 2>/dev/null || true
