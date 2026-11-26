@@ -69,16 +69,19 @@ PY
 }
 setup new.apk new
 go home 20
-nvid() { adb shell content query --uri content://media/external/video/media --projection _data 2>/dev/null | grep -c mp4; }
-N0=$(nvid)
-adb shell am force-stop $P
-adb shell "am start -n $P/.MainActivity --ez shot true --es open makervideo --es mk '24|35|35|nightblue|words|التركي'" > /dev/null
-sleep 25; snap mk_start
-for i in $(seq 1 60); do sleep 10; [ "$(nvid)" -gt "$N0" ] && break; [ $((i % 6)) = 0 ] && snap mk_prog$i; done
-sleep 8; snap mk_done
-adb shell content query --uri content://media/external/video/media --projection _data > /tmp/v.txt 2>&1; cat /tmp/v.txt > shots/media.txt
-F=$(grep -o '_data=[^,]*\.mp4' /tmp/v.txt | tail -1 | cut -d= -f2 | tr -d '\r')
-[ -n "$F" ] && adb pull "$F" shots/nur.mp4 > /dev/null 2>&1
-ls -la shots/nur.mp4 >> shots/media.txt 2>&1
+# «سور هذه التلاوة» of juz Tabarak (al-Qalam and Nuh were missing)
+go play/track-4 25; snap ch_player
+tapText "من ١١"; sleep 3; snap ch_sheet
+adb shell input swipe 540 1500 540 700 400; sleep 2; snap ch_sheet2
+# a video in full screen, the app sent to the background (Settings opened), then back
+alive() { adb shell pidof $P > /dev/null 2>&1 && echo yes || echo no; }
+for m in full page; do
+  adb shell am force-stop $P
+  if [ $m = full ]; then adb shell am start -n $P/.MainActivity --ez shot true --ez full true --es open watch > /dev/null; else adb shell am start -n $P/.MainActivity --ez shot true --es open watch > /dev/null; fi
+  sleep 18; snap bg_${m}_1
+  adb shell input keyevent 3; sleep 2; adb shell am start -a android.settings.WIFI_SETTINGS > /dev/null; sleep 4; snap bg_${m}_2
+  sleep 30; echo "bg-$m alive=$(alive)" >> shots/runs.txt
+  adb shell am start -n $P/.MainActivity > /dev/null; sleep 8; snap bg_${m}_3; echo "bg-$m back alive=$(alive)" >> shots/runs.txt
+done
 timeout 60 adb logcat -d -b crash > shots/crash.txt 2>&1 || true
 kill $GEO 2>/dev/null || true
