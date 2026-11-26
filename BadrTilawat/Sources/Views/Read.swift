@@ -261,6 +261,10 @@ struct ReadView: View {
     private func wcur(_ i: Int) -> Int {
         wcurAt(i, pos)
     }
+    private func rawWord(_ i: Int, _ pos: Int) -> Int {
+        guard let w = items?[safe: i]?.wt else { return -1 }
+        var k = -1; for j in w.indices where pos >= w[j] { k = j }; return k
+    }
     private func wcurAt(_ i: Int, _ pos: Int) -> Int {
         guard words, let w = items?[safe: i]?.wt else { return -1 }
         var k = -1; for j in w.indices where pos >= w[j] { k = j }; return k
@@ -277,6 +281,8 @@ struct ReadView: View {
         return it.toks.count - 1
     }
     private func hidden(_ i: Int, _ k: Int, _ cur: Int, _ wc: Int) -> Bool {
+        // the words are hidden only in memorizing mode: leaving it shows the whole text again
+        guard hifz else { return false }
         switch hide {
         case "first": return k > 0
         case "all": return !peek.contains(i << 20 | k)
@@ -386,7 +392,14 @@ struct ReadView: View {
             }.frame(maxWidth: .infinity, maxHeight: .infinity)
         }
         .navigationTitle(tr("اقرأ واستمع واحفظ")).navigationBarTitleDisplayMode(.inline)
-        .task(id: src) { await load(src) }
+        .task(id: src) {
+            await load(src)
+            // the simulator's screenshots (BZ_HIFZ=until …): memorizing mode on with that hiding, playing from the first ayah
+            if RootView.shot != nil, let h = ProcessInfo.processInfo.environment["BZ_HIFZ"], !h.isEmpty, items != nil {
+                hifz = true; hide = h; hifzOpen = false
+                try? await Task.sleep(nanoseconds: 1_500_000_000); playPause()
+            }
+        }
         .task(id: tid) {
             while !Task.isCancelled {
                 let m = player.current?.id == tid
@@ -394,7 +407,10 @@ struct ReadView: View {
                 let np = m ? Int(player.currentTime * 1000) : -1
                 // the screen redraws only when the lit ayah or word changes (not 25 times a second)
                 let ni = idxAt(np), oi = idxAt(pos)
-                if ni != oi || wcurAt(ni, np) != wcurAt(oi, pos) || (np < 0) != (pos < 0) { pos = np }
+                // the word reached, whatever «تتبّع الكلمة» says (this loop holds an older copy of that switch),
+                // and «إخفاء حتى تُقرأ» moving word by word even with no word times
+                let wMoved = rawWord(ni, np) != rawWord(oi, pos) || (hifz && hide == "until" && revealAt(ni, np) != revealAt(oi, pos))
+                if ni != oi || wMoved || (np < 0) != (pos < 0) { pos = np }
                 if pl && hifz, let l = items, hcur >= 0 {
                     let pos = np
                     let (x, y) = rangeIdx()

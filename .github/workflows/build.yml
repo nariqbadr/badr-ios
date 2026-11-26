@@ -65,6 +65,10 @@ jobs:
           : > shots/runs.txt
           # a first launch that downloads the site's data (the shots that follow open at once, from the saved copy)
           SIMCTL_CHILD_BZ_LANG=ar SIMCTL_CHILD_BZ_ROUTE=home xcrun simctl launch --terminate-running-process "$UDID" com.bawazirquran.app >/dev/null 2>&1; sleep 30
+          # memorizing «إخفاء حتى تُقرأ»: hidden words not seen, the words appearing one by one as the sheikh reads
+          SIMCTL_CHILD_BZ_LANG=ar SIMCTL_CHILD_BZ_ROUTE=read SIMCTL_CHILD_BZ_HIFZ=until xcrun simctl launch --terminate-running-process "$UDID" com.bawazirquran.app >/dev/null 2>&1
+          for k in 1 2 3 4; do sleep 8; xcrun simctl io "$UDID" screenshot "shots/hifz-$k.png" >/dev/null 2>&1 || true; done
+          if xcrun simctl spawn "$UDID" launchctl list | grep -q UIKitApplication:com.bawazirquran.app; then echo "hifz ok" >> shots/runs.txt; else echo "hifz CRASHED" >> shots/runs.txt; fi
           # the clip maker's ayah in each dashboard font (the words close together, the ayah number in the font when it has real digits)
           SIMCTL_CHILD_BZ_LANG=ar SIMCTL_CHILD_BZ_ROUTE=clipfonts xcrun simctl launch --terminate-running-process "$UDID" com.bawazirquran.app >/dev/null 2>&1
           sleep 40

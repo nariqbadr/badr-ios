@@ -145,12 +145,14 @@ enum ClipEngine {
         return CTFontGetGlyphsForCharacters(f as CTFont, &ch, &g, ch.count) && !g.contains(0)
     }
     nonisolated(unsafe) private static var fitCache: [String: String] = [:]
+    /// the caches are read by the preview (main) and by an export (its own queue) at the same time
+    private static let cacheLock = NSLock()
     /// A dashboard font rarely has the Uthmani signs (the small high sukun, open tanween, small waw and yeh, pause signs,
     /// sometimes alef wasla). Drawn from another font they broke the words apart and spread them, so a sign the font lacks
     /// is written with the ordinary one it has (ۡ → ْ, ࣰ → ً, ٱ → ا) or left out.
     static func fit(_ key: String, _ t: String) -> String {
         guard key.hasPrefix("c:"), let ps = custom[key], let f = UIFont(name: ps, size: 40) else { return t }
-        let ck = ps + "|" + t; if let c = fitCache[ck] { return c }
+        let ck = ps + "|" + t; cacheLock.lock(); let hit = fitCache[ck]; cacheLock.unlock(); if let hit { return hit }
         let map: [UInt32: UInt32] = [0x06E1: 0x0652, 0x08F0: 0x064B, 0x08F1: 0x064C, 0x08F2: 0x064D, 0x0671: 0x0627, 0x06DF: 0, 0x06E0: 0]
         var out = String.UnicodeScalarView()
         for u in t.unicodeScalars {
@@ -161,14 +163,13 @@ enum ClipEngine {
             out.append(u)
         }
         var r = String(out).split(separator: " ").joined(separator: " "); if r.isEmpty { r = t }
-        if fitCache.count > 4000 { fitCache.removeAll() }
-        fitCache[ck] = r; return r
+        cacheLock.lock(); if fitCache.count > 4000 { fitCache.removeAll() }; fitCache[ck] = r; cacheLock.unlock(); return r
     }
     /// real digits differ in shape; a demo font draws the same placeholder (a «personal use» banner) for every one
     nonisolated(unsafe) private static var digitsOk: [String: Bool] = [:]
     static func realDigits(_ f: UIFont) -> Bool {
-        if let v = digitsOk[f.fontName] { return v }
-        let v = realDigits0(f); digitsOk[f.fontName] = v; return v
+        cacheLock.lock(); let hit = digitsOk[f.fontName]; cacheLock.unlock(); if let hit { return hit }
+        let v = realDigits0(f); cacheLock.lock(); digitsOk[f.fontName] = v; cacheLock.unlock(); return v
     }
     private static func realDigits0(_ f: UIFont) -> Bool {
         var ch = Array("٠١٢٣٤٥٦٧٨٩".utf16); var g = [CGGlyph](repeating: 0, count: ch.count)
@@ -380,13 +381,14 @@ enum ClipEngine {
             return (NSAttributedString(string: "\u{FD3E}", attributes: at), NSAttributedString(string: seg.n.ar, attributes: ad), NSAttributedString(string: "\u{FD3F}", attributes: at))
         }
         func width(_ i: Int) -> Double {
-            let key = "\(o.font)|\(Int(fs * 10))|\(withNum && i == toks.count - 1 ? "#\(seg.n)" : toks[i])"
-            if let w = widthCache[key] { return w }
+            // keyed by the fonts really used: a dashboard font measured before it was loaded (in the stand-in font)
+            // must not keep those widths once it is there
+            let key = "\(f.fontName)|\(nf.digits.fontName)|\(nf.marks.fontName)|\(Int(fs * 10))|\(withNum && i == toks.count - 1 ? "#\(seg.n)" : toks[i])"
+            cacheLock.lock(); let hit = widthCache[key]; cacheLock.unlock(); if let hit { return hit }
             let w: Double
             if withNum && i == toks.count - 1 { let p = numberParts(); w = p.open.size().width * 2 + p.digits.size().width + fs * 0.12 }
             else { w = NSAttributedString(string: toks[i], attributes: [.font: f]).size().width }
-            if widthCache.count > 4000 { widthCache.removeAll() }
-            widthCache[key] = w; return w
+            cacheLock.lock(); if widthCache.count > 4000 { widthCache.removeAll() }; widthCache[key] = w; cacheLock.unlock(); return w
         }
         let maxW = W * Double(o.wmax) / 100
         var lines: [[(tk: String, w: Double, i: Int)]] = []
