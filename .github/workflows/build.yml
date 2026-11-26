@@ -42,7 +42,7 @@ jobs:
           TL: ${{ secrets.BZ_TEST_LOGIN }}
           TP: ${{ secrets.BZ_TEST_PASS }}
         continue-on-error: true
-        timeout-minutes: 30
+        timeout-minutes: 40
         run: |
           mkdir -p shots
           grep -q "BUILD SUCCEEDED" build.log || { echo "device build failed, skip"; exit 0; }
@@ -66,15 +66,18 @@ jobs:
           # a first launch that downloads the site's data (the shots that follow open at once, from the saved copy)
           SIMCTL_CHILD_BZ_LANG=ar SIMCTL_CHILD_BZ_ROUTE=home xcrun simctl launch --terminate-running-process "$UDID" com.bawazirquran.app >/dev/null 2>&1; sleep 30
           # a video in full screen (and one not), the app sent to the background (Settings opened), then back: no crash
+          # (each step bounded: a launch that hangs must not eat the whole step)
+          T() { perl -e 'alarm shift; exec @ARGV' "$@"; }
           for m in full page; do
-            if [ $m = full ]; then SIMCTL_CHILD_BZ_LANG=ar SIMCTL_CHILD_BZ_ROUTE=watch SIMCTL_CHILD_BZ_WATCHFULL=1 xcrun simctl launch --terminate-running-process "$UDID" com.bawazirquran.app >/dev/null 2>&1
-            else SIMCTL_CHILD_BZ_LANG=ar SIMCTL_CHILD_BZ_ROUTE=watch xcrun simctl launch --terminate-running-process "$UDID" com.bawazirquran.app >/dev/null 2>&1; fi
-            sleep 16; xcrun simctl io "$UDID" screenshot "shots/bg-$m-1.png" >/dev/null 2>&1 || true
-            xcrun simctl launch "$UDID" com.apple.Preferences >/dev/null 2>&1; sleep 4; xcrun simctl io "$UDID" screenshot "shots/bg-$m-2.png" >/dev/null 2>&1 || true
+            if [ $m = full ]; then SIMCTL_CHILD_BZ_LANG=ar SIMCTL_CHILD_BZ_ROUTE=watch SIMCTL_CHILD_BZ_WATCHFULL=1 T 40 xcrun simctl launch --terminate-running-process "$UDID" com.bawazirquran.app >/dev/null 2>&1 || true
+            else SIMCTL_CHILD_BZ_LANG=ar SIMCTL_CHILD_BZ_ROUTE=watch T 40 xcrun simctl launch --terminate-running-process "$UDID" com.bawazirquran.app >/dev/null 2>&1 || true; fi
+            sleep 16; T 20 xcrun simctl io "$UDID" screenshot "shots/bg-$m-1.png" >/dev/null 2>&1 || true
+            T 30 xcrun simctl launch "$UDID" com.apple.Preferences >/dev/null 2>&1 || echo "bg-$m settings launch failed/hung" >> shots/runs.txt
+            sleep 4; T 20 xcrun simctl io "$UDID" screenshot "shots/bg-$m-2.png" >/dev/null 2>&1 || true
             sleep 30
-            if xcrun simctl spawn "$UDID" launchctl list | grep -q UIKitApplication:com.bawazirquran.app; then echo "bg-$m ok" >> shots/runs.txt; else echo "bg-$m CRASHED" >> shots/runs.txt; fi
-            xcrun simctl launch "$UDID" com.bawazirquran.app >/dev/null 2>&1; sleep 8; xcrun simctl io "$UDID" screenshot "shots/bg-$m-3.png" >/dev/null 2>&1 || true
-            if xcrun simctl spawn "$UDID" launchctl list | grep -q UIKitApplication:com.bawazirquran.app; then echo "bg-$m back ok" >> shots/runs.txt; else echo "bg-$m back CRASHED" >> shots/runs.txt; fi
+            if T 20 xcrun simctl spawn "$UDID" launchctl list | grep -q UIKitApplication:com.bawazirquran.app; then echo "bg-$m ok" >> shots/runs.txt; else echo "bg-$m CRASHED" >> shots/runs.txt; fi
+            T 30 xcrun simctl launch "$UDID" com.bawazirquran.app >/dev/null 2>&1 || true; sleep 8; T 20 xcrun simctl io "$UDID" screenshot "shots/bg-$m-3.png" >/dev/null 2>&1 || true
+            if T 20 xcrun simctl spawn "$UDID" launchctl list | grep -q UIKitApplication:com.bawazirquran.app; then echo "bg-$m back ok" >> shots/runs.txt; else echo "bg-$m back CRASHED" >> shots/runs.txt; fi
             find ~/Library/Logs/DiagnosticReports -name "BadrTilawat*" -exec cp {} shots/ \; 2>/dev/null || true
           done
           # memorizing «إخفاء حتى تُقرأ»: hidden words not seen, the words appearing one by one as the sheikh reads
