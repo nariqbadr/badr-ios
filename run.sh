@@ -68,15 +68,30 @@ PY
   U=$(adb shell stat -c %u /data/data/$P | tr -d "\r"); adb shell "chown $U:$U /data/data/$P/shared_prefs/badr.xml; restorecon /data/data/$P/shared_prefs/badr.xml"
 }
 setup new.apk new
-go home 25
-# memorizing: word-by-word reveal
-adb shell wm size 1080x2400; adb shell wm density 400; sleep 3
+go home 25; snap home
+go watch 25; snap watch
+go player 10; snap player
+go friday 8; snap friday
+go prayerSettings 8; snap prayer
+go quranSearch 8; snap search
+go widgets 8; snap widgets
+go fadail 8; snap fadail
+go makerimage 60; snap makerimage
+go clipfonts 60; snap clipfonts
+# memorizing: «تتبّع الكلمة» off, «إخفاء حتى تُقرأ», repeat once — the words must still appear one by one
 go readtrack 22; snap read0
+tapText "تتبّع الكلمة"; sleep 1
 tapText "وضع الحفظ"; sleep 2
-tapText "تكرار كل آية"; sleep 2; snap rep_menu
-tapText 'text="مرة"'; sleep 2; snap rep_set
-tapText "طيّ خيارات الحفظ"; sleep 1
+tapText "تكرار كل آية"; sleep 2; tapText 'text="مرة"'; sleep 2
+tapText "إخفاء الكلمات"; sleep 2; tapText "إخفاء حتى تُقرأ"; sleep 2
+tapText "طيّ خيارات الحفظ"; sleep 1; snap hifz_set
 tapText 'text="استمع"'; sleep 3
-for k in 1 2 3 4 5 6 7 8 9 10; do sleep 5; snap rep_play$k; done
+for k in 1 2 3 4 5 6; do sleep 3; snap hifz_play$k; done
+# leaving memorizing mode shows the whole text again
+tapText "وضع الحفظ"; sleep 2; snap hifz_off
+# back on, «إخفاء الكل (المس للإظهار)»
+tapText "وضع الحفظ"; sleep 2; tapText "فتح خيارات الحفظ"; sleep 1
+tapText "إخفاء الكلمات"; sleep 2; tapText "إخفاء الكل"; sleep 2; snap hifz_all
+tapText "إخفاء الكلمات"; sleep 2; tapText "أول كلمة فقط"; sleep 2; snap hifz_first
 timeout 60 adb logcat -d -b crash > shots/crash.txt 2>&1 || true
 kill $GEO 2>/dev/null || true
