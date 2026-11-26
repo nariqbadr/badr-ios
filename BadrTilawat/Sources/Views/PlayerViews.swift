@@ -328,11 +328,27 @@ struct Chapter: Hashable { let surah: Int; let at: Double; let end: Double; let 
                 guard (1...114).contains(s), !a.isEmpty else { return nil }
                 return Chapter(surah: s, at: Double(a.map { $0[1] }.min() ?? 0) / 1000, end: Double(a.map { $0[2] }.max() ?? 0) / 1000, from: a.map { $0[0] }.min() ?? 1, to: a.map { $0[0] }.max() ?? 1)
             }
-            var l = ([ch(tm.surah, tm.ayahs)] + tm.parts.filter { !$0.rakah }.map { ch($0.surah, $0.ayahs) }).compactMap { $0 }.sorted { $0.at < $1.at }
+            var l = Self.fillGaps(([ch(tm.surah, tm.ayahs)] + tm.parts.filter { !$0.rakah }.map { ch($0.surah, $0.ayahs) }).compactMap { $0 }.sorted { $0.at < $1.at })
             if l.count < 2 { l = [] } else { l[0] = Chapter(surah: l[0].surah, at: 0, end: l[0].end, from: l[0].from, to: l[0].to) }   // the opening belongs to the first surah
             self.cache[t.id] = l
             if self.id == t.id { self.list = l }
         }
+    }
+    /// A surah the dashboard's analysis did not find between two it did (al-Qalam between al-Mulk and al-Haqqah in a
+    /// juz): it is still in the list, in the time between them — shared by length when more than one is missing.
+    static func fillGaps(_ l: [Chapter]) -> [Chapter] {
+        guard l.count >= 2 else { return l }
+        let have = Set(l.map(\.surah)); var out: [Chapter] = []
+        for i in l.indices {
+            out.append(l[i]); guard i + 1 < l.count else { break }
+            let a = l[i], b = l[i + 1]
+            guard (2...6).contains(b.surah - a.surah), b.at - a.end >= 45 else { continue }
+            let miss = (a.surah + 1 ..< b.surah).filter { !have.contains($0) }; guard !miss.isEmpty else { continue }
+            let w = miss.map { s in max(0.5, Double((s < 114 ? Quran.surahPage[s] : 605) - Quran.surahPage[s - 1])) }, sum = w.reduce(0, +)
+            var t = a.end; let span = b.at - a.end
+            for (k, s) in miss.enumerated() { let d = span * w[k] / sum; out.append(Chapter(surah: s, at: t, end: t + d, from: 1, to: Quran.ayahs[s - 1])); t += d }
+        }
+        return out
     }
     func at(_ sec: Double) -> Int { list.lastIndex { sec >= $0.at - 0.3 } ?? -1 }
     func marks(_ dur: Double) -> [Double] {
