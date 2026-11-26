@@ -234,6 +234,7 @@ struct ReadView: View {
         else { Empty(text: tr("تعذّر العثور على هذه التلاوة."), icon: "waveform").navigationTitle(tr("اقرأ واستمع واحفظ")) }
     }
 
+    private static func stored(_ k: String, _ d: Int) -> Int { UserDefaults.standard.object(forKey: k) == nil ? d : UserDefaults.standard.integer(forKey: k) }
     private func rangeIdx() -> (Int, Int) {
         guard let l = items else { return (0, 0) }
         var x = l.firstIndex { $0.n == from } ?? 0, y = l.firstIndex { $0.n == to } ?? 0
@@ -404,9 +405,12 @@ struct ReadView: View {
                     else if (x...y).contains(hcur) {
                         let it = l[hcur]; let nextSt = hcur + 1 < l.count ? l[hcur + 1].st : Int.max
                         if pos >= min(it.en, nextSt == Int.max ? Int.max : nextSt + 150) {
-                            if rep + 1 < repA { rep += 1; seekAyah(hcur) }
+                            // the counts as chosen now: this loop began with an older copy of the view, whose @AppStorage
+                            // kept the old numbers (one time chosen, still three repeats)
+                            let ra = Self.stored("readRepA", 3), rr = Self.stored("readRepR", 0)
+                            if rep + 1 < max(1, ra) { rep += 1; seekAyah(hcur) }
                             else if hcur < y { rep = 0; seekAyah(hcur + 1) }
-                            else { rep = 0; round += 1; if repR != 0 && round >= repR { player.pause(); round = 0 }; seekAyah(x) }
+                            else { rep = 0; round += 1; if rr != 0 && round >= rr { player.pause(); round = 0 }; seekAyah(x) }
                         }
                     }
                 }
