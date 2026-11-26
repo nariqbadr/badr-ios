@@ -445,7 +445,12 @@ struct WatchView: View {
         }
         .navigationTitle(full ? "" : tr("تلاوة مرئية"))
         .onChange(of: full) { f in ui.videoFull = f; v.layer.videoGravity = f ? .resizeAspectFill : .resizeAspect }
-        .onDisappear { ui.videoFull = false; v.layer.videoGravity = .resizeAspect; if full { full = false; rotate(false) } }
+        .onDisappear {
+            // turning the phone can make SwiftUI call this while the page stays (it is still the last one opened): full
+            // screen is kept then — undoing it here left the app sideways with the page's normal layout
+            if case .watch(let w)? = ui.path.last, w == id, ProcessInfo.processInfo.environment["BZ_OLDDISAPPEAR"] == nil { return }
+            ui.videoFull = false; v.layer.videoGravity = .resizeAspect; if full { full = false; rotate(false) }
+        }
         .onAppear { v.setVisible(true); if let t { v.open(t) }; bump()
             // the simulator's tests (BZ_WATCHFULL): the video turned to full screen, as a person would
             if RootView.shot != nil, ProcessInfo.processInfo.environment["BZ_WATCHFULL"] != nil {
