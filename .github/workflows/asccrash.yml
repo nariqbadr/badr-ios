@@ -1,0 +1,48 @@
+name: asccrash
+on:
+  push:
+    branches: [asccrash]
+permissions:
+  contents: write
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    env:
+      ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+      ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+      ASC_KEY_P8: ${{ secrets.ASC_KEY_P8 }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: crashes
+        run: |
+          pip install -q pyjwt cryptography requests
+          mkdir -p out
+          python3 scripts/pem.py > /tmp/k.p8
+          python3 - <<'PY'
+          import jwt, time, os, requests, json
+          kid=os.environ['ASC_KEY_ID'].strip(); iss=os.environ['ASC_ISSUER_ID'].strip()
+          tok=jwt.encode({'iss':iss,'iat':int(time.time()),'exp':int(time.time())+1100,'aud':'appstoreconnect-v1'},open('/tmp/k.p8').read(),algorithm='ES256',headers={'kid':kid})
+          H={'Authorization':'Bearer '+tok}; B='https://api.appstoreconnect.apple.com'
+          def g(u,**p):
+              r=requests.get(B+u,headers=H,params=p); return r.status_code, (r.json() if r.headers.get('content-type','').startswith('application/json') else r.text)
+          s,a=g('/v1/apps',**{'filter[bundleId]':'com.bawazirquran.app'})
+          app=a['data'][0]['id']
+          s,c=g(f'/v1/apps/{app}/betaFeedbackCrashSubmissions',sort='-createdDate',limit=8)
+          open('out/list.json','w').write(json.dumps(c,indent=1,ensure_ascii=False))
+          for d in (c.get('data') or [])[:8]:
+              s2,l=g(f"/v1/betaFeedbackCrashSubmissions/{d['id']}/crashLog")
+              open(f"out/{d['attributes'].get('createdDate','x')[:19].replace(':','-')}-{d['id'][:8]}.json",'w').write(json.dumps(l,indent=1,ensure_ascii=False))
+          # also the diagnostic (crash) reports Apple gathers from TestFlight builds
+          s,b=g('/v1/builds',**{'filter[app]':app,'sort':'-uploadedDate','limit':3})
+          open('out/builds.json','w').write(json.dumps([(x['id'],x['attributes'].get('version'),x['attributes'].get('uploadedDate')) for x in b.get('data',[])],indent=1))
+          for x in b.get('data',[])[:2]:
+              s3,ds=g(f"/v1/builds/{x['id']}/diagnosticSignatures",**{'filter[diagnosticType]':'DISK_WRITES,HANGS,LAUNCHES'})
+              open(f"out/diag-{x['attributes'].get('version')}.json",'w').write(json.dumps({'status':s3,'body':ds},indent=1)[:200000])
+          PY
+          rm -f /tmp/k.p8; ls -la out
+      - name: publish
+        if: always()
+        run: |
+          cd out && git init -q && git checkout -q -b asccrash-out && git add -A
+          git -c user.name=ci -c user.email=ci@users.noreply.github.com commit -qm out
+          git push -q -f "https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}.git" asccrash-out
