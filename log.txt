@@ -1,0 +1,15 @@
+readable {'sr': ('dict', 2), 'tracks': ('dict', 75), 'v': ('str', 7), 'dur': ('dict', 2), 'play': ('dict', 10)}
+readable keys <class 'dict'> 75
+tracks 73 ['version', 'rev', 'site', 'surahReciters', 'readable', 'quranFull', 'quranFulls', 'adhans', 'iqamas', 'reciters', 'recitations', 'fiqh', 'notices', 'events', 'weeklyPopular', 'plays']
+== track track-4 جزء تبارك readable [67, 1, 29]
+main surah 67 ayahs 28 first [1, 6110, 14640] last [29, 340230, 386120]
+  extra surah 69 n 51 from [2, 744750, 757910] to [52, 1012165, 1018650] keys ['surah']
+  extra surah 70 n 43 from [1, 1021510, 1027100] to [44, 1238370, 1256600] keys ['surah']
+  extra surah 72 n 27 from [1, 1525190, 1538050] to [28, 1832100, 1852920] keys ['surah']
+  extra surah 73 n 20 from [1, 1856070, 1859950] to [20, 2005110, 2093000] keys ['surah']
+  extra surah 74 n 56 from [1, 2095300, 2098770] to [56, 2393110, 2408010] keys ['surah']
+  extra surah 75 n 40 from [1, 2411070, 2415060] to [40, 2576190, 2584810] keys ['surah']
+  extra surah 76 n 31 from [1, 2588735, 2597770] to [31, 2852915, 2865690] keys ['surah']
+  extra surah 77 n 50 from [1, 2869050, 2872190] to [50, 3090990, 3099820] keys ['surah']
+  fatiha parts 0
+  other keys ['ok', 'surah', 'src', 'gapsChecked', 'at']
