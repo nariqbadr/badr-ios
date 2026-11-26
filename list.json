@@ -1,0 +1,50 @@
+{
+ "data": [
+  {
+   "type": "betaFeedbackCrashSubmissions",
+   "id": "ABlBt8zpp2BNoN8eXCUjdoo",
+   "attributes": {
+    "createdDate": "2026-11-17T03:38:55.891Z",
+    "comment": "عمل كراش",
+    "email": "ab_badr6666@hotmail.com",
+    "deviceModel": "iPhone18_2",
+    "osVersion": "27.0",
+    "locale": "en-US",
+    "timeZone": "Africa/Cairo",
+    "architecture": "arm64e",
+    "connectionType": "WIFI",
+    "pairedAppleWatch": null,
+    "appUptimeInMilliseconds": null,
+    "diskBytesAvailable": 594536099840,
+    "diskBytesTotal": 1023385489408,
+    "batteryPercentage": 60,
+    "screenWidthInPoints": 440,
+    "screenHeightInPoints": 956,
+    "appPlatform": "IOS",
+    "devicePlatform": "IOS",
+    "deviceFamily": "IPHONE",
+    "buildBundleId": "com.bawazirquran.app"
+   },
+   "relationships": {
+    "crashLog": {
+     "links": {
+      "self": "https://api.appstoreconnect.apple.com/v1/betaFeedbackCrashSubmissions/ABlBt8zpp2BNoN8eXCUjdoo/relationships/crashLog",
+      "related": "https://api.appstoreconnect.apple.com/v1/betaFeedbackCrashSubmissions/ABlBt8zpp2BNoN8eXCUjdoo/crashLog"
+     }
+    }
+   },
+   "links": {
+    "self": "https://api.appstoreconnect.apple.com/v1/betaFeedbackCrashSubmissions/ABlBt8zpp2BNoN8eXCUjdoo"
+   }
+  }
+ ],
+ "links": {
+  "self": "https://api.appstoreconnect.apple.com/v1/apps/6835216585/betaFeedbackCrashSubmissions?sort=-createdDate&limit=8"
+ },
+ "meta": {
+  "paging": {
+   "total": 1,
+   "limit": 8
+  }
+ }
+}

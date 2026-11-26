@@ -1,0 +1,11 @@
+{
+ "errors": [
+  {
+   "id": "a03b5758-0427-46d6-8f88-4b55dc0a361d",
+   "status": "404",
+   "code": "NOT_FOUND",
+   "title": "The specified resource does not exist",
+   "detail": "There is no resource of type 'betaCrashLogs' with id 'ABlBt8zpp2BNoN8eXCUjdoo'"
+  }
+ ]
+}
