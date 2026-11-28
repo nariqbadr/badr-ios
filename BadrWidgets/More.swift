@@ -514,7 +514,7 @@ struct RamadanBg: ViewModifier {
                     RadialGradient(colors: [p.gold.opacity(0.22), .clear], center: .topLeading, startRadius: 0, endRadius: 220)
                     GeometryReader { g in
                         ForEach(0..<9, id: \.self) { i in
-                            let x = [0.12, 0.3, 0.55, 0.78, 0.9, 0.2, 0.68, 0.45, 0.86][i], y = [0.18, 0.08, 0.14, 0.1, 0.3, 0.82, 0.88, 0.93, 0.7][i]
+                            let x = [0.1, 0.24, 0.86, 0.93, 0.06, 0.95, 0.04, 0.15, 0.8][i], y = [0.12, 0.06, 0.08, 0.22, 0.32, 0.45, 0.6, 0.2, 0.18][i]
                             Circle().fill(p.gold.opacity(i % 3 == 0 ? 0.55 : 0.3)).frame(width: i % 3 == 0 ? 2.6 : 1.8).position(x: g.size.width * x, y: g.size.height * y)
                         }
                     }
