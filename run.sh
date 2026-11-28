@@ -86,6 +86,7 @@ tapText "أضف للشاشة"; sleep 4; dump pin; snap pin
 B=$(center shots/pin.xml 'text="(Add|ADD|Add to home screen|إضافة|إضافة إلى الشاشة الرئيسية)"'); echo "pin add -> $B" >> shots/runs.txt
 [ -n "$B" ] && adb shell input tap $B
 sleep 3; adb shell input keyevent 3; sleep 4; dump home; snap home
+sleep 20; snap home_later
 W=$(center shots/home.xml 'class="com.android.launcher3.widget.LauncherAppWidgetHostView"|resource-id="com.android.launcher3:id/widget|content-desc="(الصلاة القادمة|Next prayer)'); echo "widget -> $W" >> shots/runs.txt
 if [ -n "$W" ]; then
   adb shell input swipe $W $W 1600; sleep 2; dump press; snap press
@@ -93,8 +94,10 @@ if [ -n "$W" ]; then
   if [ -n "$R" ]; then
     adb shell input tap $R; sleep 5; dump cfg; snap cfg
     adb shell input tap 300 1150; sleep 3; snap cfg2
-    tapText 'text="تم"'; sleep 3; adb shell input keyevent 3; sleep 3; snap home2
+    tapText 'text="تم"'; sleep 3; adb shell input keyevent 3; sleep 3; snap home2; dump home2
+    sleep 20; snap home3
   fi
 fi
 timeout 60 adb logcat -d -b crash > shots/crash.txt 2>&1 || true
+timeout 60 adb logcat -d 2>/dev/null | grep -i -E 'appwidget|RemoteViews|bawazir|widget' | grep -v -i 'chrome' | tail -150 > shots/widgetlog.txt || true
 kill $GEO 2>/dev/null || true
