@@ -1,0 +1,3 @@
+pin add -> 800 1832
+reconfigure -> 337 473
+widget after تم: 0
