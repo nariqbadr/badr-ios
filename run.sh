@@ -68,15 +68,33 @@ PY
   U=$(adb shell stat -c %u /data/data/$P | tr -d "\r"); adb shell "chown $U:$U /data/data/$P/shared_prefs/badr.xml; restorecon /data/data/$P/shared_prefs/badr.xml"
 }
 setup new.apk new
+dump() { timeout 30 adb shell uiautomator dump /sdcard/ui.xml >/dev/null 2>&1; timeout 30 adb pull /sdcard/ui.xml shots/$1.xml >/dev/null 2>&1; cp shots/$1.xml /tmp/ui.xml 2>/dev/null; }
+center() { python3 - "$1" "$2" <<'PY2'
+import re,sys
+x=open(sys.argv[1],encoding='utf-8').read()
+for m in re.finditer(r'<node [^>]*>', x):
+    n=m.group(0)
+    if re.search(sys.argv[2], n):
+        b=re.search(r'bounds="\[(\d+),(\d+)\]\[(\d+),(\d+)\]"',n)
+        if b:
+            a=list(map(int,b.groups())); print((a[0]+a[2])//2,(a[1]+a[3])//2); break
+PY2
+}
 go home 20
-go wshots 15; snap wshots
-adb shell input swipe 540 1500 540 500 400; sleep 2; snap wshots2
-go widgets 10; snap widgets
-adb shell input swipe 540 1500 540 400 400; sleep 2; snap widgets2
-go prayerSettings 8; snap prayer1
-adb shell input swipe 540 1500 540 500 400; sleep 2; snap prayer2
-adb shell input swipe 540 1500 540 500 400; sleep 2; snap prayer3
-adb shell input swipe 540 1500 540 500 400; sleep 2; snap prayer4
-adb shell dumpsys alarm | grep -A3 'com.bawazirquran' | grep -E 'bz\.|tag=|when' | head -40 > shots/alarms.txt
+go widgets 12; snap w0
+tapText "أضف للشاشة"; sleep 4; dump pin; snap pin
+B=$(center shots/pin.xml 'text="(Add|ADD|Add to home screen|إضافة|إضافة إلى الشاشة الرئيسية)"'); echo "pin add -> $B" >> shots/runs.txt
+[ -n "$B" ] && adb shell input tap $B
+sleep 3; adb shell input keyevent 3; sleep 4; dump home; snap home
+W=$(center shots/home.xml 'class="android.appwidget.AppWidgetHostView"|resource-id="com.android.launcher3:id/widget|content-desc="(الصلاة القادمة|Next prayer)'); echo "widget -> $W" >> shots/runs.txt
+if [ -n "$W" ]; then
+  adb shell input swipe $W $W 1600; sleep 2; dump press; snap press
+  R=$(center shots/press.xml 'content-desc="[^"]*(Reconfigure|إعادة ضبط|Customize|تخصيص|Widget settings|إعدادات الأداة|إعدادات التطبيق المصغّر)[^"]*"|text="(Reconfigure|إعادة ضبط|Customize|تخصيص)"'); echo "reconfigure -> $R" >> shots/runs.txt
+  if [ -n "$R" ]; then
+    adb shell input tap $R; sleep 5; dump cfg; snap cfg
+    adb shell input tap 300 1150; sleep 3; snap cfg2
+    tapText 'text="تم"'; sleep 3; adb shell input keyevent 3; sleep 3; snap home2
+  fi
+fi
 timeout 60 adb logcat -d -b crash > shots/crash.txt 2>&1 || true
 kill $GEO 2>/dev/null || true
