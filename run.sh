@@ -89,7 +89,7 @@ sleep 3; adb shell input keyevent 3; sleep 4; dump home; snap home
 W=$(center shots/home.xml 'class="com.android.launcher3.widget.LauncherAppWidgetHostView"|resource-id="com.android.launcher3:id/widget|content-desc="(الصلاة القادمة|Next prayer)'); echo "widget -> $W" >> shots/runs.txt
 if [ -n "$W" ]; then
   adb shell input swipe $W $W 1600; sleep 2; dump press; snap press
-  R=$(center shots/press.xml 'content-desc="[^"]*(Reconfigure|إعادة ضبط|Customize|تخصيص|Widget settings|إعدادات الأداة|إعدادات التطبيق المصغّر)[^"]*"|text="(Reconfigure|إعادة ضبط|Customize|تخصيص)"'); echo "reconfigure -> $R" >> shots/runs.txt
+  R=$(center shots/press.xml 'content-desc="[^"]*(Change widget settings|Reconfigure|إعادة ضبط|Customize|تخصيص|Widget settings|إعدادات الأداة|إعدادات التطبيق المصغّر)[^"]*"|text="(Reconfigure|إعادة ضبط|Customize|تخصيص)"'); echo "reconfigure -> $R" >> shots/runs.txt
   if [ -n "$R" ]; then
     adb shell input tap $R; sleep 5; dump cfg; snap cfg
     adb shell input tap 300 1150; sleep 3; snap cfg2
