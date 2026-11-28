@@ -86,9 +86,9 @@ tapText "أضف للشاشة"; sleep 8; dump pin; snap pin
 B=$(center shots/pin.xml 'text="(Add|ADD|Add to home screen|إضافة|إضافة إلى الشاشة الرئيسية)"'); echo "pin add -> $B" >> shots/runs.txt
 [ -n "$B" ] && adb shell input tap $B
 sleep 4; dump pin2; B2=$(center shots/pin2.xml 'text="(Add to home screen|إضافة إلى الشاشة الرئيسية)"'); [ -n "$B2" ] && { echo "pin add again" >> shots/runs.txt; adb shell input tap $B2; sleep 4; }
-adb shell input keyevent 3; sleep 4; dump home; snap home
+adb shell input keyevent 3; sleep 4; adb shell input keyevent 3; sleep 5; dump home; snap home
 sleep 20; snap home_later
-W=$(center shots/home.xml 'class="com.android.launcher3.widget.LauncherAppWidgetHostView"|resource-id="com.android.launcher3:id/widget|content-desc="(الصلاة القادمة|Next prayer)'); echo "widget -> $W" >> shots/runs.txt
+W=$(center shots/home.xml 'class="com.android.launcher3.widget.LauncherAppWidgetHostView"|resource-id="com.android.launcher3:id/widget|content-desc="(مواقيت الصلاة|الصلاة القادمة|Next prayer)"'); echo "widget -> $W" >> shots/runs.txt
 if [ -n "$W" ]; then
   adb shell input swipe $W $W 1600; sleep 2; dump press; snap press
   R=$(center shots/press.xml 'content-desc="[^"]*(Change widget settings|Reconfigure|إعادة ضبط|Customize|تخصيص|Widget settings|إعدادات الأداة|إعدادات التطبيق المصغّر)[^"]*"|text="(Reconfigure|إعادة ضبط|Customize|تخصيص)"'); echo "reconfigure -> $R" >> shots/runs.txt
