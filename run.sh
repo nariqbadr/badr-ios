@@ -100,7 +100,7 @@ if [ -n "$W" ]; then
     tapText 'text="تم"'; sleep 3; adb shell input keyevent 3; sleep 6; snap home2; dump home2
     grep -c 'content-desc="مواقيت الصلاة"' shots/home2.xml | sed 's/^/widget after تم: /' >> shots/runs.txt
     sleep 10; snap home3; adb shell am broadcast -a android.appwidget.action.APPWIDGET_UPDATE -n $P/com.bawazirquran.app.widget.PrayerWidget --eia appWidgetIds 2 >/dev/null; sleep 6; snap home4
-    adb shell input swipe 900 1000 200 1000 300; sleep 2; adb shell input swipe 200 1000 900 1000 300; sleep 3; snap home5
+    adb shell am force-stop com.google.android.apps.nexuslauncher; sleep 2; adb shell input keyevent 3; sleep 10; snap home5
     LP=$(adb shell pidof com.google.android.apps.nexuslauncher | tr -d "\r"); timeout 30 adb logcat -d --pid=$LP 2>/dev/null | tail -120 > shots/launcherlog.txt; adb shell dumpsys appwidget | grep -A12 "id=2\b\|Widgets:" | head -60 > shots/appwidget.txt
   fi
 fi
