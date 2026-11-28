@@ -99,5 +99,5 @@ if [ -n "$W" ]; then
   fi
 fi
 timeout 60 adb logcat -d -b crash > shots/crash.txt 2>&1 || true
-timeout 60 adb logcat -d 2>/dev/null | grep -i -E 'appwidget|RemoteViews|bawazir|widget' | grep -v -i 'chrome' | tail -150 > shots/widgetlog.txt || true
+timeout 60 adb logcat -d 2>/dev/null | grep -i -E 'BadrWidget|appwidget|RemoteViews|TransactionTooLarge' | grep -v -i 'chrome' | tail -150 > shots/widgetlog.txt || true
 kill $GEO 2>/dev/null || true
