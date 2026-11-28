@@ -69,19 +69,14 @@ PY
 }
 setup new.apk new
 go home 20
-# «سور هذه التلاوة» of juz Tabarak (al-Qalam and Nuh were missing)
-go play/track-4 25; snap ch_player
-tapText "من ١١"; sleep 3; snap ch_sheet
-adb shell input swipe 540 1500 540 700 400; sleep 2; snap ch_sheet2
-# a video in full screen, the app sent to the background (Settings opened), then back
-alive() { adb shell pidof $P > /dev/null 2>&1 && echo yes || echo no; }
-for m in full page; do
-  adb shell am force-stop $P
-  if [ $m = full ]; then adb shell am start -n $P/.MainActivity --ez shot true --ez full true --es open watch > /dev/null; else adb shell am start -n $P/.MainActivity --ez shot true --es open watch > /dev/null; fi
-  sleep 18; snap bg_${m}_1
-  adb shell input keyevent 3; sleep 2; adb shell am start -a android.settings.WIFI_SETTINGS > /dev/null; sleep 4; snap bg_${m}_2
-  sleep 30; echo "bg-$m alive=$(alive)" >> shots/runs.txt
-  adb shell am start -n $P/.MainActivity > /dev/null; sleep 8; snap bg_${m}_3; echo "bg-$m back alive=$(alive)" >> shots/runs.txt
-done
+go wshots 15; snap wshots
+adb shell input swipe 540 1500 540 500 400; sleep 2; snap wshots2
+go widgets 10; snap widgets
+adb shell input swipe 540 1500 540 400 400; sleep 2; snap widgets2
+go prayerSettings 8; snap prayer1
+adb shell input swipe 540 1500 540 500 400; sleep 2; snap prayer2
+adb shell input swipe 540 1500 540 500 400; sleep 2; snap prayer3
+adb shell input swipe 540 1500 540 500 400; sleep 2; snap prayer4
+adb shell dumpsys alarm | grep -A3 'com.bawazirquran' | grep -E 'bz\.|tag=|when' | head -40 > shots/alarms.txt
 timeout 60 adb logcat -d -b crash > shots/crash.txt 2>&1 || true
 kill $GEO 2>/dev/null || true
