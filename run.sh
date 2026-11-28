@@ -83,14 +83,30 @@ PY2
 go home 20
 for attempt in 1; do
   go widgets 12
-  tapText "أضف للشاشة"; sleep 8; dump pin; snap pin
+  # the Ramadan widget's «أضف للشاشة» (the card after its title)
+  for sw in 1 2 3 4 5 6 7 8; do
+    dump wl; RB=$(python3 - <<'PY2'
+import re
+x=open('shots/wl.xml',encoding='utf-8').read(); seen=False
+for m in re.finditer(r'<node [^>]*>', x):
+    n=m.group(0)
+    if 'text="رمضان"' in n: seen=True
+    elif seen and 'text="أضف للشاشة"' in n:
+        b=re.search(r'bounds="\[(\d+),(\d+)\]\[(\d+),(\d+)\]"',n); a=list(map(int,b.groups())); print((a[0]+a[2])//2,(a[1]+a[3])//2); break
+PY2
+)
+    [ -n "$RB" ] && break
+    adb shell input swipe 540 1500 540 900 400; sleep 2
+  done
+  echo "ramadan add -> $RB" >> shots/runs.txt
+  [ -n "$RB" ] && adb shell input tap $RB; sleep 8; dump pin; snap pin
   B=$(center shots/pin.xml 'text="(Add to home screen|إضافة إلى الشاشة الرئيسية)"'); echo "pin add -> $B" >> shots/runs.txt
   [ -n "$B" ] && adb shell input tap $B
   sleep 6; adb shell input keyevent 3; sleep 6; dump home; snap home
   W=$(center shots/home.xml 'class="com.android.launcher3.widget.LauncherAppWidgetHostView"|class="android.widget.ImageView"[^>]*content-desc="مواقيت الصلاة"'); grep -q 'text="الويدجت"' shots/home.xml && W=""; echo "widget -> $W" >> shots/runs.txt
   [ -n "$W" ] && break
 done
-W="442 314"   # where the launcher puts it (the dump of the home screen comes back stale)
+W="250 250"   # where the launcher puts it (the dump of the home screen comes back stale)
 if [ -n "$W" ]; then
   adb shell input swipe $W $W 1600; sleep 2; dump press; snap press
   R=$(center shots/press.xml 'content-desc="[^"]*(Change widget settings|Reconfigure|إعادة ضبط|Customize|تخصيص|Widget settings|إعدادات الأداة|إعدادات التطبيق المصغّر)[^"]*"|text="(Reconfigure|إعادة ضبط|Customize|تخصيص)"'); echo "reconfigure -> $R" >> shots/runs.txt
