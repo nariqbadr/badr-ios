@@ -202,10 +202,12 @@ final class Prayers: NSObject, ObservableObject, CLLocationManagerDelegate {
     static let modes = ["adhan", "notify", "off"]
     /// the keys with no adhan (a notification or nothing)
     static let quiet: Set<String> = ["sunrise", "duha", "qiyam"]
+    /// as it starts for everyone: the prayers with the adhan, «الضحى» and «قيام الليل» with a notification, sunrise none
+    static func defMode(_ k: String) -> String { k == "sunrise" ? "off" : quiet.contains(k) ? "notify" : "adhan" }
     func mode(_ k: String) -> String {
         let q = Prayers.quiet.contains(k)
-        let m = Store.shared.str("pmode_" + k, q ? "off" : "adhan")
-        if !Prayers.modes.contains(m) { return q ? "off" : "adhan" }
+        let m = Store.shared.str("pmode_" + k, Prayers.defMode(k))
+        if !Prayers.modes.contains(m) { return Prayers.defMode(k) }
         return q && m == "adhan" ? "notify" : m
     }
     func setMode(_ k: String, _ m: String) { Store.shared.set("pmode_" + k, m); rev += 1; schedule() }
@@ -290,7 +292,8 @@ final class Prayers: NSObject, ObservableObject, CLLocationManagerDelegate {
     }
     // MARK: reminders: «صلِّ على محمد ﷺ», «سورة الكهف», «سنن يوم الجمعة» — they come with the prayer alerts off too
     /// how often «صلِّ على محمد ﷺ» comes, in minutes (0 off, 30, 60, 120, 1440 once a day after maghrib); day and night
-    var salawatEvery: Int { let m = Int(Store.shared.str("salawatEvery", "0")) ?? 0; return [0, 30, 60, 120, 1440].contains(m) ? m : 0 }
+    /// «صلِّ على محمد ﷺ»: once a day for everyone at first (each one can choose every half hour, hour, two hours, or none)
+    var salawatEvery: Int { let m = Int(Store.shared.str("salawatEvery", "1440")) ?? 1440; return [0, 30, 60, 120, 1440].contains(m) ? m : 1440 }
     func setSalawat(_ m: Int) { Store.shared.set("salawatEvery", "\(m)"); rev += 1; schedule() }
     var kahfOn: Bool { Store.shared.str("kahfOn", "1") == "1" }
     func setKahf(_ on: Bool) { Store.shared.set("kahfOn", on ? "1" : "0"); rev += 1; schedule() }

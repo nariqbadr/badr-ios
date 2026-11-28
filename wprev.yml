@@ -1,0 +1,24 @@
+name: WPrev
+options:
+  bundleIdPrefix: com.bawazirquran
+  deploymentTarget:
+    iOS: "17.0"
+targets:
+  WPrev:
+    type: application
+    platform: iOS
+    sources:
+      - path: WPrev
+      - path: BadrWidgets
+        excludes: ["Bundle.swift", "Info.plist", "*.entitlements"]
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.bawazirquran.wprev
+        GENERATE_INFOPLIST_FILE: YES
+        SWIFT_VERSION: "5.0"
+        CODE_SIGNING_ALLOWED: NO
+    info:
+      path: WPrev/Info.plist
+      properties:
+        UIAppFonts: [amiri_quran.ttf, amiri_bold.ttf, plex_regular.ttf, plex_semibold.ttf, plex_bold.ttf, aref_ruqaa_bold.ttf]
+        UILaunchScreen: {}

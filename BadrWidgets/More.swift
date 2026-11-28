@@ -8,7 +8,8 @@ enum Hj {
     static let ar = Locale(identifier: "ar")
     static let cal: Calendar = { var c = Calendar(identifier: .islamicUmmAlQura); c.locale = Locale(identifier: "ar"); return c }()
     static func day(_ d: Date) -> Int { cal.component(.day, from: d) }
-    static func year(_ d: Date) -> Int { cal.component(.year, from: d) }
+    /// the year as plain digits («1448»: inside Text("…") an Int was written «1,448»)
+    static func year(_ d: Date) -> String { String(cal.component(.year, from: d)) }
     static func month(_ d: Date) -> String { let f = DateFormatter(); f.calendar = cal; f.locale = ar; f.dateFormat = "MMMM"; return f.string(from: d) }
     static func weekday(_ d: Date) -> String { let f = DateFormatter(); f.calendar = Calendar(identifier: .gregorian); f.locale = ar; f.dateFormat = "EEEE"; return f.string(from: d) }
     static func greg(_ d: Date) -> String { let f = DateFormatter(); f.calendar = Calendar(identifier: .gregorian); f.locale = ar; f.dateFormat = "d MMMM"; return latin(f.string(from: d)) }
@@ -39,8 +40,16 @@ enum Hj {
         return max(0, g.dateComponents([.day], from: g.startOfDay(for: now), to: g.startOfDay(for: at)).day ?? 0)
     }
     /// «يومًا» / «يومين» / «أيام» with the number
+    /// 1 Ramadan of the coming year
+    static func ramadanStart(_ now: Date) -> Date { cal.nextDate(after: now, matching: DateComponents(month: 9, day: 1), matchingPolicy: .nextTime) ?? now }
+    /// «8 فبراير 2027»
+    static func gregFull(_ d: Date) -> String { let f = DateFormatter(); f.calendar = Calendar(identifier: .gregorian); f.locale = ar; f.dateFormat = "d MMMM y"; return latin(f.string(from: d)) }
     static func daysText(_ n: Int) -> String { n == 1 ? "يوم واحد" : n == 2 ? "يومان" : (3...10).contains(n) ? "\(n) أيام" : "\(n) يومًا" }
 }
+
+/// Arabic with numbers set right to left: on the lock screen the widget's own direction did not reach the text, and
+/// «السبت · 18 جمادى الآخرة» came out «جمادى الآخرة 18 · السبت», «رمضان بعد 72 يومًا» as «72 يومًا رمضان بعد»
+func rtl(_ s: String) -> String { "\u{202B}\(s)\u{202C}" }
 
 /// The prayer times the app shared, seen from one moment.
 struct PDay {
@@ -125,7 +134,7 @@ struct DayWidgetView: View {
             case .systemSmall: DaySmall(e: e)
             case .systemLarge: DayLarge(e: e)
             case .accessoryRectangular: DayRect(e: e)
-            case .accessoryInline: Text("\(Hj.full(e.date)) هـ")
+            case .accessoryInline: Text(rtl("\(Hj.full(e.date)) هـ"))
             default:
                 switch e.style {
                 case .row: PrayerRow(at: e.date, p: e.pal, hijri: true)
@@ -332,9 +341,9 @@ struct DayRect: View {
     let e: DayEntry
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
-            Text("\(Hj.weekday(e.date)) · \(Hj.day(e.date)) \(Hj.month(e.date))").font(amiri(17)).lineLimit(1).minimumScaleFactor(0.7)
-            Text("\(Hj.year(e.date)) هـ · \(Hj.greg(e.date))").font(plex(12)).opacity(0.75)
-            Text("\(seasonTitle(e.date)) \(seasonValue(e.date))").font(plex(12, .semibold)).lineLimit(1)
+            Text(rtl("\(Hj.weekday(e.date)) · \(Hj.day(e.date)) \(Hj.month(e.date))")).font(amiri(17)).lineLimit(1).minimumScaleFactor(0.7)
+            Text(rtl("\(Hj.year(e.date)) هـ · \(Hj.greg(e.date))")).font(plex(12)).opacity(0.75)
+            Text(rtl("\(seasonTitle(e.date)) \(seasonValue(e.date))")).font(plex(12, .semibold)).lineLimit(1)
         }.frame(maxWidth: .infinity, alignment: .leading)
     }
 }
@@ -395,7 +404,7 @@ struct PrayerWidgetView: View {
                 // like the lock screen's own: «العصر ٢:٣٧ م» and the time left under it
                 VStack(alignment: .leading, spacing: 0) {
                     if let n = d.next {
-                        Text("\(n.name) \(PDay.hm(n.at)) \(PDay.ampm(n.at))").font(plex(17, .bold)).lineLimit(1).minimumScaleFactor(0.7)
+                        Text(rtl("\(n.name) \(PDay.hm(n.at)) \(PDay.ampm(n.at))")).font(plex(17, .bold)).lineLimit(1).minimumScaleFactor(0.7)
                         Countdown(to: n.at, font: plex(16, .semibold), color: .primary).opacity(0.75)
                     } else { Text("مواقيت الصلاة").font(plex(15, .bold)) }
                 }.frame(maxWidth: .infinity, alignment: .leading)
@@ -406,7 +415,7 @@ struct PrayerWidgetView: View {
                     }.progressViewStyle(.circular)
                 } else { Image(systemName: "moon.stars") }
             case .accessoryInline:
-                if let n = d.next { Text("\(n.name) \(PDay.hm(n.at)) \(PDay.ampm(n.at))") } else { Text("مواقيت الصلاة") }
+                if let n = d.next { Text(rtl("\(n.name) \(PDay.hm(n.at)) \(PDay.ampm(n.at))")) } else { Text("مواقيت الصلاة") }
             default: PrayerRow(at: e.date, p: p, hijri: true)
             }
         }
@@ -460,69 +469,153 @@ struct RamadanView: View {
             switch fam {
             case .accessoryCircular:
                 switch s {
-                case .before(let n, let f): Gauge(value: f) { Image(systemName: "moon.stars.fill") } currentValueLabel: { Text("\(n)").font(plex(15, .bold)) }.gaugeStyle(.accessoryCircular)
-                case .ramadan(let n): Gauge(value: Double(n) / 30) { Text("رمضان") } currentValueLabel: { Text("\(n)").font(plex(15, .bold)) }.gaugeStyle(.accessoryCircular)
-                case .eid: ZStack { AccessoryWidgetBackground(); Text("عيد").font(amiri(17)) }
+                case .before(let n, let f): Gauge(value: f) { Image(systemName: "moon.stars.fill") } currentValueLabel: { Text(String(n)).font(plex(15, .bold)) }.gaugeStyle(.accessoryCircular)
+                case .ramadan(let n): Gauge(value: Double(n) / 30) { Text("رمضان") } currentValueLabel: { Text(String(n)).font(plex(15, .bold)) }.gaugeStyle(.accessoryCircular)
+                case .eid: ZStack { AccessoryWidgetBackground(); Text("عيد").font(ruqaa(18)) }
                 }
             case .accessoryRectangular:
-                HStack(spacing: 8) {
-                    Image(systemName: "moon.stars.fill").font(.system(size: 22))
+                HStack(spacing: 10) {
+                    Text("رمضان").font(ruqaa(26)).lineLimit(1).fixedSize()
                     VStack(alignment: .leading, spacing: 0) {
                         switch s {
-                        case .before(let n, _): Text("رمضان").font(amiri(20)); Text("بعد \(Hj.daysText(n))").font(plex(13, .semibold))
+                        case .before(let n, _): Text(rtl("بعد \(Hj.daysText(n))")).font(plex(14, .bold)); Text(rtl(Hj.gregFull(Hj.ramadanStart(e.date)))).font(plex(11)).opacity(0.75)
                         case .ramadan(let n):
-                            Text("\(n) رمضان").font(amiri(20))
-                            if let m = maghrib { HStack(spacing: 4) { Text("الإفطار").font(plex(12)); Countdown(to: m.at, font: plex(13, .bold), color: .primary) } }
-                        case .eid: Text("عيد مبارك").font(amiri(20)); Text("تقبّل الله منا ومنكم").font(plex(11))
+                            Text(rtl("اليوم \(n)")).font(plex(14, .bold))
+                            if let m = maghrib { HStack(spacing: 4) { Text("الإفطار").font(plex(11)); Countdown(to: m.at, font: plex(12, .bold), color: .primary) } }
+                        case .eid: Text("عيد مبارك").font(plex(14, .bold)); Text("تقبّل الله منا ومنكم").font(plex(11))
                         }
                     }
                 }.frame(maxWidth: .infinity, alignment: .leading)
             case .accessoryInline:
                 switch s {
-                case .before(let n, _): Text("رمضان بعد \(Hj.daysText(n))")
-                case .ramadan(let n): Text("اليوم \(n) من رمضان")
+                case .before(let n, _): Text(rtl("رمضان بعد \(Hj.daysText(n))"))
+                case .ramadan(let n): Text(rtl("اليوم \(n) من رمضان"))
                 case .eid: Text("عيد مبارك")
                 }
-            default: RamadanSmall(s: s, p: p, maghrib: maghrib)
+            case .systemMedium: RamadanMedium(s: s, p: p, maghrib: maghrib, at: e.date)
+            default: RamadanSmall(s: s, p: p, maghrib: maghrib, at: e.date)
             }
         }
-        .modifier(DayBg(p: p, acc: [.accessoryRectangular, .accessoryInline, .accessoryCircular].contains(fam)))
+        .modifier(RamadanBg(p: p, acc: [.accessoryRectangular, .accessoryInline, .accessoryCircular].contains(fam)))
         .environment(\.layoutDirection, .rightToLeft)
         .widgetURL(URL(string: "badr://prayer"))
     }
 }
-/// small: a ring that fills as Ramadan comes; in Ramadan the day and the time to iftar
-struct RamadanSmall: View {
-    let s: Hj.Season; let p: WPal; let maghrib: Shared.Prayer?
-    var body: some View {
-        let frac: Double = { switch s { case .before(_, let f): return f; case .ramadan(let n): return Double(n) / 30; case .eid: return 1 } }()
-        VStack(spacing: 4) {
-            ZStack {
-                Circle().stroke(p.surface, lineWidth: 6)
-                Circle().trim(from: 0, to: frac).stroke(p.gold, style: StrokeStyle(lineWidth: 6, lineCap: .round)).rotationEffect(.degrees(-90))
-                VStack(spacing: -4) {
-                    switch s {
-                    case .before(let n, _): Text("\(n)").font(plex(30, .bold)).foregroundStyle(p.text); Text(n == 1 ? "يوم" : (3...10).contains(n) ? "أيام" : "يومًا").font(plex(11)).foregroundStyle(p.muted)
-                    case .ramadan(let n): Text("\(n)").font(plex(30, .bold)).foregroundStyle(p.text); Text("رمضان").font(plex(11)).foregroundStyle(p.muted)
-                    case .eid: Text("عيد").font(amiri(30)).foregroundStyle(p.gold)
+/// «رمضان» in Ruqaa calligraphy
+func ruqaa(_ s: CGFloat) -> Font { .custom("ArefRuqaa-Bold", size: s) }
+/// the widget's colour with a soft moonlight in one corner and a few stars
+struct RamadanBg: ViewModifier {
+    let p: WPal; let acc: Bool
+    func body(content: Content) -> some View {
+        if acc { content.modifier(AccCard()) } else {
+            content.containerBackground(for: .widget) {
+                ZStack {
+                    p.bg
+                    RadialGradient(colors: [p.gold.opacity(0.22), .clear], center: .topLeading, startRadius: 0, endRadius: 220)
+                    GeometryReader { g in
+                        ForEach(0..<9, id: \.self) { i in
+                            let x = [0.12, 0.3, 0.55, 0.78, 0.9, 0.2, 0.68, 0.45, 0.86][i], y = [0.18, 0.08, 0.14, 0.1, 0.3, 0.82, 0.88, 0.93, 0.7][i]
+                            Circle().fill(p.gold.opacity(i % 3 == 0 ? 0.55 : 0.3)).frame(width: i % 3 == 0 ? 2.6 : 1.8).position(x: g.size.width * x, y: g.size.height * y)
+                        }
                     }
                 }
-            }.padding(.horizontal, 14)
-            switch s {
-            case .before: Text("على رمضان").font(amiri(17)).foregroundStyle(p.gold)
-            case .ramadan:
-                if let m = maghrib { HStack(spacing: 4) { Text("الإفطار").font(plex(11)).foregroundStyle(p.muted); Countdown(to: m.at, font: plex(12, .bold), color: p.gold) } }
-                else { Text("رمضان كريم").font(amiri(17)).foregroundStyle(p.gold) }
-            case .eid: Text("تقبّل الله منا ومنكم").font(plex(10.5)).foregroundStyle(p.muted)
             }
         }
     }
+}
+/// a thin bar that fills as Ramadan comes (as its days pass, in Ramadan)
+private struct RamadanBar: View {
+    let frac: Double; let p: WPal
+    var body: some View {
+        GeometryReader { g in
+            ZStack(alignment: .leading) {
+                Capsule().fill(p.text.opacity(0.12))
+                Capsule().fill(LinearGradient(colors: [p.gold.opacity(0.65), p.gold], startPoint: .leading, endPoint: .trailing)).frame(width: max(5, g.size.width * frac))
+            }
+        }.frame(height: 5)
+    }
+}
+private func ramFrac(_ s: Hj.Season) -> Double { switch s { case .before(_, let f): return f; case .ramadan(let n): return Double(n) / 30; case .eid: return 1 } }
+/// «يومًا» after a number (the number is drawn on its own)
+private func dayWord(_ n: Int) -> String { n == 1 ? "يوم" : n == 2 ? "يومان" : (3...10).contains(n) ? "أيام" : "يومًا" }
+
+/// small: «رمضان» in Ruqaa, the days left large, the bar, and the date it begins
+struct RamadanSmall: View {
+    let s: Hj.Season; let p: WPal; let maghrib: Shared.Prayer?; let at: Date
+    var body: some View {
+        VStack(spacing: 0) {
+            Text(caseTitle).font(ruqaa(34)).foregroundStyle(p.gold).lineLimit(1).minimumScaleFactor(0.6)
+            Spacer(minLength: 0)
+            switch s {
+            case .before(let n, _):
+                HStack(alignment: .firstTextBaseline, spacing: 5) {
+                    Text(String(n)).font(plex(34, .bold)).foregroundStyle(p.text)
+                    Text(dayWord(n)).font(plex(13, .semibold)).foregroundStyle(p.muted)
+                }.environment(\.layoutDirection, .rightToLeft)
+            case .ramadan(let n):
+                HStack(alignment: .firstTextBaseline, spacing: 5) {
+                    Text("اليوم").font(plex(13, .semibold)).foregroundStyle(p.muted)
+                    Text(String(n)).font(plex(34, .bold)).foregroundStyle(p.text)
+                }
+            case .eid: Text("عيد مبارك").font(plex(18, .bold)).foregroundStyle(p.text)
+            }
+            Spacer(minLength: 0)
+            RamadanBar(frac: ramFrac(s), p: p).padding(.bottom, 7)
+            footer.font(plex(10)).foregroundStyle(p.muted).lineLimit(1).minimumScaleFactor(0.7)
+        }
+    }
+    private var caseTitle: String { if case .eid = s { return "عيد الفطر" }; return "رمضان" }
+    @ViewBuilder private var footer: some View {
+        switch s {
+        case .before: Text(rtl(Hj.gregFull(Hj.ramadanStart(at))))
+        case .ramadan:
+            if let m = maghrib { HStack(spacing: 4) { Text("الإفطار"); Countdown(to: m.at, font: plex(10.5, .bold), color: p.gold) } }
+            else { Text("رمضان كريم") }
+        case .eid: Text("تقبّل الله منا ومنكم")
+        }
+    }
+}
+/// medium: the calligraphy on one side; the days left, the date it begins (hijri and gregorian) and the bar on the other
+struct RamadanMedium: View {
+    let s: Hj.Season; let p: WPal; let maghrib: Shared.Prayer?; let at: Date
+    var body: some View {
+        HStack(spacing: 14) {
+            VStack(spacing: 2) {
+                Text(isEid ? "عيد الفطر" : "رمضان").font(ruqaa(48)).foregroundStyle(p.gold).lineLimit(1).minimumScaleFactor(0.6)
+                Text(isEid ? "تقبّل الله منا ومنكم" : "شهر القرآن").font(plex(11)).foregroundStyle(p.muted)
+            }.frame(maxWidth: .infinity)
+            Rectangle().fill(p.gold.opacity(0.25)).frame(width: 1).padding(.vertical, 8)
+            VStack(alignment: .leading, spacing: 4) {
+                switch s {
+                case .before(let n, _):
+                    Text("المتبقي").font(plex(11)).foregroundStyle(p.muted)
+                    HStack(alignment: .firstTextBaseline, spacing: 5) {
+                        Text(String(n)).font(plex(36, .bold)).foregroundStyle(p.text)
+                        Text(dayWord(n)).font(plex(14, .semibold)).foregroundStyle(p.muted)
+                    }
+                    Text(rtl("1 رمضان \(Hj.year(Hj.ramadanStart(at))) هـ · \(Hj.gregFull(Hj.ramadanStart(at)))")).font(plex(10.5)).foregroundStyle(p.muted).lineLimit(1).minimumScaleFactor(0.7)
+                case .ramadan(let n):
+                    Text("رمضان كريم").font(plex(11)).foregroundStyle(p.muted)
+                    HStack(alignment: .firstTextBaseline, spacing: 5) {
+                        Text("اليوم").font(plex(14, .semibold)).foregroundStyle(p.muted)
+                        Text(String(n)).font(plex(36, .bold)).foregroundStyle(p.text)
+                    }
+                    if let m = maghrib { HStack(spacing: 4) { Text("الإفطار").font(plex(11)).foregroundStyle(p.muted); Countdown(to: m.at, font: plex(12, .bold), color: p.gold) } }
+                case .eid(let n):
+                    Text("عيد مبارك").font(plex(20, .bold)).foregroundStyle(p.text)
+                    Text(rtl("اليوم \(n) من شوال")).font(plex(11)).foregroundStyle(p.muted)
+                }
+                RamadanBar(frac: ramFrac(s), p: p).padding(.top, 4)
+            }.frame(maxWidth: .infinity, alignment: .leading)
+        }
+    }
+    private var isEid: Bool { if case .eid = s { return true }; return false }
 }
 struct RamadanWidget: Widget {
     var body: some WidgetConfiguration {
         AppIntentConfiguration(kind: "ramadan", intent: ColorIntent.self, provider: RamadanProvider()) { RamadanView(e: $0) }
             .configurationDisplayName("رمضان").description("كم يومًا بقي على رمضان، وفي رمضان: اليوم والوقت المتبقي للإفطار")
-            .supportedFamilies([.systemSmall, .accessoryCircular, .accessoryRectangular, .accessoryInline])
+            .supportedFamilies([.systemSmall, .systemMedium, .accessoryCircular, .accessoryRectangular, .accessoryInline])
     }
 }
 
@@ -734,13 +827,6 @@ struct WirdWidget: Widget {
     }
 }
 
-@main
-struct BadrWidgets: WidgetBundle {
-    var body: some Widget {
-        DayWidget(); DayCalligWidget(); DayFrameWidget(); PrayerWidget(); RamadanWidget()
-        AyahWidget(); NowWidget(); DhikrWidget(); MoreWidgets().body
-    }
-}
 /// a bundle holds ten at most: the rest in this one
 struct MoreWidgets: WidgetBundle {
     var body: some Widget { TasbihWidget(); IbadaWidget(); WuduWidget(); WirdWidget() }

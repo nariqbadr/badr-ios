@@ -23,7 +23,7 @@ targets:
         CODE_SIGN_ENTITLEMENTS: BadrTilawat/BadrTilawat.entitlements
         PRODUCT_BUNDLE_IDENTIFIER: com.bawazirquran.app
         PRODUCT_NAME: BadrTilawat
-        MARKETING_VERSION: "2.10.171"
+        MARKETING_VERSION: "2.10.172"
         CURRENT_PROJECT_VERSION: "183"
         TARGETED_DEVICE_FAMILY: "1"
         SWIFT_VERSION: "5.0"
@@ -70,7 +70,7 @@ targets:
         PRODUCT_BUNDLE_IDENTIFIER: com.bawazirquran.app.widgets
         IPHONEOS_DEPLOYMENT_TARGET: "17.0"
         PRODUCT_NAME: BadrWidgets
-        MARKETING_VERSION: "2.10.171"
+        MARKETING_VERSION: "2.10.172"
         CURRENT_PROJECT_VERSION: "183"
         TARGETED_DEVICE_FAMILY: "1"
         SWIFT_VERSION: "5.0"
@@ -89,6 +89,6 @@ targets:
         CFBundleShortVersionString: "$(MARKETING_VERSION)"
         CFBundleVersion: "$(CURRENT_PROJECT_VERSION)"
         CFBundleDevelopmentRegion: ar
-        UIAppFonts: [amiri_quran.ttf, amiri_bold.ttf, plex_regular.ttf, plex_semibold.ttf, plex_bold.ttf]
+        UIAppFonts: [amiri_quran.ttf, amiri_bold.ttf, plex_regular.ttf, plex_semibold.ttf, plex_bold.ttf, aref_ruqaa_bold.ttf]
         NSExtension:
           NSExtensionPointIdentifier: com.apple.widgetkit-extension
