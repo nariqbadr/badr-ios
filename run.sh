@@ -87,7 +87,7 @@ for attempt in 1 2 3; do
   B=$(center shots/pin.xml 'text="(Add to home screen|إضافة إلى الشاشة الرئيسية)"'); echo "pin add -> $B" >> shots/runs.txt
   [ -n "$B" ] && adb shell input tap $B
   sleep 6; adb shell input keyevent 3; sleep 6; dump home; snap home
-  W=$(center shots/home.xml 'class="com.android.launcher3.widget.LauncherAppWidgetHostView"'); echo "widget -> $W" >> shots/runs.txt
+  W=$(center shots/home.xml 'class="com.android.launcher3.widget.LauncherAppWidgetHostView"|class="android.widget.ImageView"[^>]*content-desc="مواقيت الصلاة"'); grep -q 'text="الويدجت"' shots/home.xml && W=""; echo "widget -> $W" >> shots/runs.txt
   [ -n "$W" ] && break
 done
 if [ -n "$W" ]; then
@@ -96,7 +96,8 @@ if [ -n "$W" ]; then
   if [ -n "$R" ]; then
     adb shell input tap $R; sleep 5; dump cfg; snap cfg
     adb shell input tap 300 1150; sleep 3; snap cfg2
-    tapText 'text="تم"'; sleep 3; adb shell input keyevent 3; sleep 3; snap home2; dump home2
+    tapText 'text="تم"'; sleep 3; adb shell input keyevent 3; sleep 6; snap home2; dump home2
+    grep -c 'content-desc="مواقيت الصلاة"' shots/home2.xml | sed 's/^/widget after تم: /' >> shots/runs.txt
     sleep 20; snap home3
   fi
 fi
