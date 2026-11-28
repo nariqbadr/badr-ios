@@ -99,7 +99,7 @@ if [ -n "$W" ]; then
     adb shell input tap 300 1150; sleep 3; snap cfg2
     tapText 'text="تم"'; sleep 3; adb shell input keyevent 3; sleep 6; snap home2; dump home2
     grep -c 'content-desc="مواقيت الصلاة"' shots/home2.xml | sed 's/^/widget after تم: /' >> shots/runs.txt
-    sleep 20; snap home3
+    sleep 20; snap home3; adb shell dumpsys appwidget | grep -A12 "id=2\b\|Widgets:" | head -60 > shots/appwidget.txt
   fi
 fi
 timeout 60 adb logcat -d -b crash > shots/crash.txt 2>&1 || true
